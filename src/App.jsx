@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { LayoutGrid, ScanLine, MonitorSmartphone, ListChecks, Send, PieChart, ArrowRight, Plus, ArrowLeft, Mail, Linkedin, Check, ShieldCheck, FileText, User, Building2, Download, BadgeCheck, Phone, MapPin, Users2, Building, HeartHandshake, ChevronDown, Globe, Lock, QrCode, MessageCircle, X, Search, Play, Pause, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
+import { LayoutGrid, ScanLine, MonitorSmartphone, ListChecks, Send, PieChart, ArrowRight, Plus, ArrowLeft, Mail, Linkedin, Check, ShieldCheck, FileText, User, Building2, Download, BadgeCheck, Phone, MapPin, Users2, Building, HeartHandshake, ChevronDown, Globe, Lock, QrCode, MessageCircle, X, Search, Play, Pause, RotateCcw, Maximize2, Minimize2, Palette, Menu, MoreHorizontal } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 
 /* ============================================================
    TOKENHIRE — visual system
-   Soft periwinkle hero bands, vivid blue pill buttons, generous
-   rounded cards, geometric display type. Product mockups live
-   inside pale rounded containers rather than floating loose.
+   Cream/white hero, vivid blue pill buttons, generous rounded
+   cards, geometric display type. Product mockups live inside
+   pale rounded containers rather than floating loose.
    ============================================================ */
 const k = {
   cream: "#FFFFFF", cream2: "#F5F8FF", ink: "#0B1020", ink2: "#4A5268", mid: "#737C93", faint: "#A3ABBE",
@@ -25,7 +25,28 @@ const FONT = `
 @keyframes scanSweep{0%{top:18%}100%{top:72%}}
 @keyframes paperSettle{from{transform:rotate(var(--r,-2deg)) translateY(10px)}to{transform:rotate(var(--r,-2deg)) translateY(0)}}
 .navitem:hover{color:#0B1020}
-@media (max-width:760px){ .g3{grid-template-columns:1fr!important} .g2{grid-template-columns:1fr!important} .hg{grid-template-columns:1fr!important} .driverow{grid-template-columns:1fr!important} .driverow2{flex-direction:column!important;align-items:flex-start!important} .storystage{flex-direction:column!important;align-items:center!important;transform:none!important;gap:18px!important} .storypage{padding:12px 12px 22px!important} .storyphone{width:230px!important} .storytv,.storydesk{width:min(100%,360px)!important} }
+.scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabscroll::-webkit-scrollbar{display:none}
+.nav-burger{display:none}
+.bottabs{display:none}
+@media (max-width:860px){
+  .g3,.g2,.hg{grid-template-columns:1fr!important}
+  .driverow{grid-template-columns:1fr!important}
+  .driverow2{flex-direction:column!important;align-items:flex-start!important}
+  .storystage{flex-direction:column!important;align-items:center!important;transform:none!important;gap:18px!important}
+  .storypage{padding:12px 12px 22px!important}
+  .storyphone{width:230px!important}
+  .storytv,.storydesk{width:min(100%,360px)!important}
+  .nav-links,.nav-ctas{display:none!important}
+  .nav-burger{display:flex!important}
+  .toptabs{display:none!important}
+  .bottabs{display:flex}
+  .pagepad{padding:16px 14px!important}
+  .has-bottabs{padding-bottom:96px!important}
+  .chrome-wrap{padding:0!important}
+  .chrome-inner{border-radius:0!important;border-left:none!important;border-right:none!important}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 `;
 const dsp = "'Outfit', system-ui, sans-serif";
@@ -33,11 +54,110 @@ const bdy = "'Outfit', system-ui, sans-serif";
 const typ = "'Roboto Mono', monospace";
 
 const ROTATE = 45, NOTIFY_MIN = 15, FALLBACK_TAT = 8, MIN = 6e4;
-const PLANS = [
-  { id: "drive", name: "Per drive", price: "₹3,999", unit: "one walk-in", blurb: "A single day at a single venue. Good for occasional drives.", msgLimit: "600 messages included", multiDay: false, feats: ["Single-day drive", "Printed GATE QR + rotating DESK proof", "Live queue and wait times", "One WhatsApp nudge 15 minutes before"] },
-  { id: "month", name: "Monthly", price: "₹14,999", unit: "per month", blurb: "For teams running drives most weeks.", msgLimit: "3,000 messages / month included", multiDay: true, feats: ["Multi-day drives", "Unlimited walk-ins", "Multiple recruiters", "Candidate history across drives"], best: true },
-  { id: "agency", name: "Agency", price: "₹44,999", unit: "per month", blurb: "Run drives for client companies under your own brand.", msgLimit: "10,000 messages / month included", multiDay: true, feats: ["Everything in Monthly", "Your branding", "A workspace per client", "Priority support"] },
+const PRODUCT_FEATS = [
+  "Digital candidate registration",
+  "QR check-in",
+  "Automatic token and queue",
+  "Live candidate status",
+  "Recruiter dashboard",
+  "Candidate notifications",
+  "Interviewer management",
+  "Reports and analytics",
 ];
+const PLANS = [
+  {
+    id: "trial", name: "Free trial", price: "₹0", unit: "", annual: "", listed: true,
+    validity: "1 drive · 30 candidates", blurb: "Enough to run a small hall once — not the full product.",
+    ribbon: "FREE", best: false, multiDay: false, cta: "Start free",
+    feats: [
+      "1 drive · up to 30 candidates",
+      "Digital registration and QR check-in",
+      "Token and live queue",
+      "No WhatsApp nudges",
+      "No reports or analytics",
+    ],
+    limits: { drives: 1, sites: 1, cities: 99, seats: 1, tvsPerSite: 1, wa: 0, candidates: 30, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: false, reports: false, rooms: false },
+  },
+  {
+    id: "single", name: "Single drive", price: "₹7,500", unit: " once", annual: "", listed: true,
+    validity: "1 drive · 300 candidates", blurb: "One walk-in. The queue, the rooms, the record.",
+    best: false, multiDay: false, cta: "Buy one drive",
+    feats: ["1 drive · up to 300 candidates", ...PRODUCT_FEATS],
+    limits: { drives: 1, sites: 8, cities: 99, seats: 8, tvsPerSite: 1, wa: 500, candidates: 300, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
+  },
+  {
+    id: "pack5", name: "Monthly", price: "₹15,000", unit: "/ month", annual: "", listed: true,
+    validity: "5 drives / month · 300 each", blurb: "Stop 300 people standing around with no idea when they're up.",
+    ribbon: "★", best: true, multiDay: true, cta: "Start monthly",
+    feats: ["5 drives / month · 300 candidates each", ...PRODUCT_FEATS],
+    limits: { drives: 5, sites: 20, cities: 99, seats: 12, tvsPerSite: 2, wa: 2500, candidates: 300, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
+  },
+  {
+    id: "pack10", name: "10 drives", price: "₹25,000", unit: "/ month", annual: "", listed: false,
+    validity: "30 days", blurb: "Weekly halls, still one bill.",
+    best: false, multiDay: true, cta: "Take 10 / month",
+    feats: ["Up to 10 drives / 30 days", "Up to 500 people per drive", "Anywhere in India", "More seats and TVs"],
+    limits: { drives: 10, sites: 30, cities: 99, seats: 20, tvsPerSite: 4, wa: 5000, candidates: 500, clients: false, whiteLabel: false, credit: "on", audit: true, sla: false, sso: false, notify: true, reports: true, rooms: true },
+  },
+  {
+    id: "pack25", name: "25 drives", price: "₹50,000", unit: "/ month", annual: "", listed: false,
+    validity: "30 days", blurb: "A busy month across many halls.",
+    best: false, multiDay: true, cta: "Take 25 / month",
+    feats: ["Up to 25 drives / 30 days", "Up to 500 people per drive", "Anywhere in India", "Priority support"],
+    limits: { drives: 25, sites: 40, cities: 99, seats: 40, tvsPerSite: 8, wa: 12000, candidates: 500, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: false, notify: true, reports: true, rooms: true },
+  },
+  {
+    id: "enterprise", name: "Enterprise", price: "Custom", unit: "", annual: "", listed: false, talk: true,
+    validity: "Monthly", blurb: "High volume, staffing, or a named contract.",
+    best: false, multiDay: true, cta: "Talk to us",
+    feats: ["High-volume usage", "Staffing clients", "Anywhere in India", "SLA and SSO-ready"],
+    limits: { drives: 999, sites: 80, cities: 99, seats: 80, tvsPerSite: 8, wa: 25000, candidates: 9999, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: true, notify: true, reports: true, rooms: true },
+  },
+];
+const PUBLIC_PLANS = PLANS.filter((p) => p.listed);
+function planIdOf(org) {
+  const p = org?.plan;
+  if (p === "trial" || p === "free") return "trial";
+  if (p === "single" || p === "event" || p === "day") return "single";
+  if (p === "pack10") return "pack10";
+  if (p === "pack25") return "pack25";
+  if (p === "company" || p === "agency" || p === "enterprise") return "enterprise";
+  if (p === "pack5" || p === "hall") return "pack5";
+  return "trial";
+}
+function planOf(org) { return PLANS.find((p) => p.id === planIdOf(org)) || PLANS[0]; }
+function planLimits(org) { return planOf(org).limits; }
+function monthKey(dateStr) {
+  const d = dateStr ? new Date(`${dateStr}T12:00:00`) : new Date();
+  return `${d.getFullYear()}-${d.getMonth()}`;
+}
+function orgDrivesInPlanWindow(org, drives) {
+  const mine = (drives || []).filter((d) => d.orgId === org?.id);
+  if (planOf(org).multiDay) return mine.filter((d) => monthKey(d.date) === monthKey(todayStr()));
+  return mine;
+}
+function driveSlotsLeft(org, drives) {
+  const cap = planLimits(org).drives;
+  if (!org || cap >= 999) return 999;
+  return Math.max(0, cap - orgDrivesInPlanWindow(org, drives).length);
+}
+function driveCapCopy(org) {
+  const spec = planOf(org);
+  const n = spec.limits.drives;
+  const unit = n === 1 ? "drive" : "drives";
+  return spec.multiDay ? `This plan allows ${n} ${unit} this month.` : `This plan allows ${n} ${unit}.`;
+}
+function orgCities(org) { return Array.from(new Set((org?.branches || []).map((b) => b.city).filter(Boolean))); }
+function useNarrow() {
+  const [n, setN] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 860px)").matches);
+  useEffect(() => {
+    const q = window.matchMedia("(max-width: 860px)");
+    const fn = () => setN(q.matches);
+    q.addEventListener("change", fn);
+    return () => q.removeEventListener("change", fn);
+  }, []);
+  return n;
+}
 
 const DEFAULT_ROOMS = [
   { id: "rm1", name: "Room 1", interviewer: "Priya" },
@@ -49,16 +169,18 @@ const QUALIFICATIONS = ["10th / 12th", "Diploma", "Graduate", "Post-graduate"];
 const BRAND_COLORS = [
   { name: "TokenHire blue", hex: "#2C6BF5" },
   { name: "Teal", hex: "#0F8A6B" },
+  { name: "Navy", hex: "#163A7A" },
+  { name: "Plum", hex: "#341C8A" },
   { name: "Amber", hex: "#B7791F" },
-  { name: "Violet", hex: "#7C4DFF" },
+  { name: "Orange", hex: "#E85D04" },
+  { name: "Crimson", hex: "#C41E3A" },
   { name: "Rose", hex: "#D6336C" },
   { name: "Charcoal", hex: "#2B2F3A" },
 ];
 const DEFAULT_ROUNDS = [
   { id: "r1", name: "HR screening" },
-  { id: "r2", name: "Aptitude test" },
+  { id: "r2", name: "Ops round" },
   { id: "r3", name: "Manager round" },
-  { id: "r4", name: "Final round" },
 ];
 const EXP_BANDS = ["Fresher", "0–1 yr", "1–3 yrs", "3–5 yrs", "5+ yrs"];
 const DOC_OPTIONS = [
@@ -114,7 +236,7 @@ const inNudgeWindow = (etaMin) => etaMin <= NOTIFY_MIN && etaMin >= 10;
 export default function App() {
   const [view, setView] = useState("site");
   const [side, setSide] = useState("pick");
-  const [drives, setDrives] = useState([seedMegaDrive(), seedDrive(), ...seedExtraDrives()]);
+  const [drives, setDrives] = useState([seedMegaDrive(), seedDrive(), ...seedExtraDrives(), ...seedPlanDemoDrives()]);
   const [orgs, setOrgs] = useState(seedOrgs());
   const [activeOrgId, setActiveOrgId] = useState(null);
   const [staffRole, setStaffRole] = useState("recruiter"); // recruiter | frontdesk
@@ -161,7 +283,8 @@ function seedDrive() {
     state, at: t0 - (40 - n) * 3 * MIN, pinged: true,
     calledAt: opts.calledAt ?? null, decidedAt: opts.decidedAt ?? null,
     expBand: opts.expBand ?? (exp === "Fresher" ? "Fresher" : parseFloat(exp) >= 5 ? "5+ yrs" : parseFloat(exp) >= 3 ? "3–5 yrs" : parseFloat(exp) >= 1 ? "1–3 yrs" : "0–1 yr"),
-    roundIdx: opts.roundIdx ?? (["selected", "rejected", "onhold"].includes(state) ? 3 : ["interviewing"].includes(state) ? 1 : 0),
+    roundIdx: opts.roundIdx ?? (["selected", "rejected", "onhold"].includes(state) ? 2 : ["interviewing"].includes(state) ? 1 : 0),
+    roundAssigned: opts.roundAssigned ?? (["calling", "interviewing", "selected", "rejected", "onhold"].includes(state)),
     notes: opts.notes ?? {},
   });
   const done = (n, name, ph, exp, state, callMin, dur, o = {}) => mk(n, name, ph, exp, state, { ...o, calledAt: t0 - callMin * MIN, decidedAt: t0 - (callMin - dur) * MIN });
@@ -176,7 +299,7 @@ function seedDrive() {
     done(8, "Ananya Rao", "9959001122", "2 years", "selected", 46, 9, { email: "ananya.rao@gmail.com", linkedin: "https://linkedin.com/in/ananyarao" }),
     done(9, "Karthik Subramanian", "9701778899", "5 years", "selected", 35, 11, { email: "karthik.s@gmail.com" }),
     mk(10, "Deepika Shetty", "9846223344", "1 year", "absent", { resume: null }),
-    mk(11, "Kavya Menon", "9700556611", "3 years", "interviewing", { calledAt: t0 - 6 * MIN, email: "kavya.m@gmail.com" }),
+    mk(11, "Kavya Menon", "9700556611", "3 years", "interviewing", { calledAt: t0 - 6 * MIN, email: "kavya.m@gmail.com", roundIdx: 0 }),
     mk(12, "Lakshmi Prasad", "9963118822", "Fresher", "calling", { calledAt: t0 - 1 * MIN }),
     mk(13, "Sandeep Kumar", "9885774411", "2 years", "wait", { email: "sandeep.k@gmail.com" }),
     mk(14, "Zoya Khan", "9701009988", "4 years", "wait", { email: "zoya.khan@gmail.com", linkedin: "https://linkedin.com/in/zoyakhan" }),
@@ -195,12 +318,23 @@ function seedDrive() {
     jd: "Inbound customer support for a US healthcare client. Rotational shifts including weekends. Voice process — clear spoken English required. Training stipend for the first two weeks.",
     expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
     docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)", "Educational certificates"],
-    candidates, msgs, seq: 18, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "", color: BRAND_COLORS[0].hex }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })) };
+    candidates, msgs, seq: 18, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "Sagility", color: "#C41E3A", logo: "bars" }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })),
+    clientId: "", clientName: "", branchId: "br_sag_gachi", branch: "Gachibowli campus" };
 }
 
 function seedOrgs() {
   return [
-    { id: "org_vistaar", name: "Vistaar Services", email: "demo@vistaar.com", password: "demo1234", plan: "month", members: [
+    { id: "org_vistaar", name: "Vistaar Services", short: "Vistaar", kind: "agency", logo: "diamond", color: "#163A7A", wash: "#E8EEF7", email: "demo@vistaar.com", password: "demo1234", plan: "company",
+      clients: [
+        { id: "cl_vistaar_voice", name: "Voice process – captive" },
+        { id: "cl_vistaar_bfsi", name: "Retail BFSI" },
+        { id: "cl_vistaar_bench", name: "Associate bench" },
+      ],
+      branches: [
+        { id: "br_vistaar_hitec", name: "Hyderabad HITEC", city: "Hyderabad" },
+        { id: "br_vistaar_pune", name: "Pune Magarpatta", city: "Pune" },
+      ],
+      members: [
       { email: "demo@vistaar.com", role: "recruiter", name: "Demo recruiter" },
       { email: "desk@vistaar.com", role: "frontdesk", name: "Front desk" },
       { email: "priya@vistaar.com", role: "recruiter", name: "Priya" },
@@ -209,16 +343,98 @@ function seedOrgs() {
       { email: "kavya@vistaar.com", role: "recruiter", name: "Kavya" },
       { email: "rohit@vistaar.com", role: "recruiter", name: "Rohit" },
     ] },
-    { id: "org_sagility", name: "Sagility India", email: "hr@sagility.com", password: "demo1234", plan: "month", members: [
+    { id: "org_sagility", name: "Sagility India", short: "Sagility", kind: "captive", logo: "bars", color: "#C41E3A", wash: "#F9E8EB", email: "hr@sagility.com", password: "demo1234", plan: "event",
+      clients: [],
+      branches: [{ id: "br_sag_gachi", name: "Gachibowli campus", city: "Hyderabad" }],
+      members: [
       { email: "hr@sagility.com", role: "recruiter" },
       { email: "priya.hr@sagility.com", role: "recruiter" },
       { email: "desk@sagility.com", role: "frontdesk" },
     ] },
-    { id: "org_quess", name: "Quess Corp", email: "hr@quesscorp.com", password: "demo1234", plan: "agency", members: [{ email: "hr@quesscorp.com", role: "recruiter" }] },
-    { id: "org_teamlease", name: "TeamLease", email: "hr@teamlease.com", password: "demo1234", plan: "agency", members: [{ email: "hr@teamlease.com", role: "recruiter" }] },
-    { id: "org_genpact", name: "Genpact", email: "hr@genpact.com", password: "demo1234", plan: "month", members: [{ email: "hr@genpact.com", role: "recruiter" }] },
-    { id: "org_zonal", name: "Zonal Retail Pvt Ltd", email: "hr@zonalretail.com", password: "demo1234", plan: "drive", members: [{ email: "hr@zonalretail.com", role: "recruiter" }] },
-    { id: "org_wipro", name: "Wipro", email: "hr@wipro.com", password: "demo1234", plan: "drive", members: [{ email: "hr@wipro.com", role: "recruiter" }] },
+    { id: "org_quess", name: "Quess Corp", short: "Quess", kind: "agency", logo: "bars", color: "#0F8A6B", wash: "#E6F5F0", email: "hr@quesscorp.com", password: "demo1234", plan: "enterprise",
+      clients: [
+        { id: "cl_hdfc", name: "HDFC sales" },
+        { id: "cl_amazon", name: "Amazon warehouse" },
+        { id: "cl_voice", name: "Voice process – captive" },
+        { id: "cl_bench", name: "Associate bench" },
+      ],
+      branches: [
+        { id: "br_q_wfd", name: "Whitefield Hub", city: "Bengaluru" },
+        { id: "br_q_hitec", name: "Hyderabad HITEC", city: "Hyderabad" },
+        { id: "br_q_pune", name: "Pune Hinjawadi", city: "Pune" },
+      ],
+      members: [
+        { email: "hr@quesscorp.com", role: "recruiter", name: "Quess recruiter" },
+        { email: "desk@quesscorp.com", role: "frontdesk", name: "Whitefield desk" },
+        { email: "hyd@quesscorp.com", role: "recruiter", name: "Hyderabad branch" },
+      ] },
+    { id: "org_teamlease", name: "TeamLease", short: "TeamLease", kind: "agency", logo: "split", color: "#E85D04", wash: "#FDEEE4", email: "hr@teamlease.com", password: "demo1234", plan: "company",
+      clients: [
+        { id: "cl_tl_ce", name: "Consumer electronics retail" },
+        { id: "cl_tl_bank", name: "Private bank – sales" },
+      ],
+      branches: [{ id: "br_tl_kora", name: "Koramangala Office", city: "Bengaluru" }],
+      members: [{ email: "hr@teamlease.com", role: "recruiter", name: "TeamLease recruiter" }] },
+    { id: "org_genpact", name: "Genpact", short: "Genpact", kind: "captive", logo: "tile", color: "#B7791F", wash: "#F8F1E2", email: "hr@genpact.com", password: "demo1234", plan: "company",
+      clients: [],
+      branches: [
+        { id: "br_gen_uppal", name: "Uppal campus", city: "Hyderabad" },
+        { id: "br_gen_noida", name: "Noida SEZ", city: "Noida" },
+      ],
+      members: [{ email: "hr@genpact.com", role: "recruiter" }, { email: "desk@genpact.com", role: "frontdesk" }] },
+    { id: "org_zonal", name: "Zonal Retail Pvt Ltd", short: "Zonal", kind: "captive", logo: "letter", color: "#D6336C", wash: "#F9E8EF", email: "hr@zonalretail.com", password: "demo1234", plan: "hall",
+      clients: [],
+      branches: [{ id: "br_zonal_andheri", name: "Andheri East", city: "Mumbai" }],
+      members: [{ email: "hr@zonalretail.com", role: "recruiter" }] },
+    { id: "org_wipro", name: "Wipro", short: "Wipro", kind: "captive", logo: "ring", color: "#341C8A", wash: "#EEE8F8", email: "hr@wipro.com", password: "demo1234", plan: "company",
+      clients: [],
+      branches: [
+        { id: "br_wipro_hinja", name: "Hinjawadi Phase 2", city: "Pune" },
+        { id: "br_wipro_ecity", name: "Electronic City", city: "Bengaluru" },
+      ],
+      members: [{ email: "hr@wipro.com", role: "recruiter" }, { email: "desk@wipro.com", role: "frontdesk" }] },
+    { id: "org_plan_trial", name: "Trial Hall Co", short: "Trial", kind: "captive", logo: "letter", color: "#2C6BF5", wash: "#EEF3FE",
+      email: "trial@tokenhire.demo", password: "demo1234", plan: "trial",
+      clients: [], branches: [{ id: "br_trial_hyd", name: "Gachibowli", city: "Hyderabad" }],
+      members: [{ email: "trial@tokenhire.demo", role: "recruiter", name: "Trial recruiter" }] },
+    { id: "org_plan_single", name: "One Drive Foods", short: "One Drive", kind: "captive", logo: "tile", color: "#0F8A6B", wash: "#E6F5F0",
+      email: "single@tokenhire.demo", password: "demo1234", plan: "single",
+      clients: [], branches: [{ id: "br_single_hyd", name: "Madhapur hall", city: "Hyderabad" }],
+      members: [
+        { email: "single@tokenhire.demo", role: "recruiter", name: "Drive lead" },
+        { email: "desk@single.demo", role: "frontdesk", name: "Door" },
+      ] },
+    { id: "org_plan_monthly", name: "Monthly Halls", short: "Monthly", kind: "captive", logo: "bars", color: "#163A7A", wash: "#E8EEF7",
+      email: "monthly@tokenhire.demo", password: "demo1234", plan: "pack5",
+      clients: [],
+      branches: [
+        { id: "br_mo_hyd", name: "Gachibowli", city: "Hyderabad" },
+        { id: "br_mo_blr", name: "Whitefield", city: "Bengaluru" },
+      ],
+      members: [
+        { email: "monthly@tokenhire.demo", role: "recruiter", name: "Monthly lead" },
+        { email: "desk@monthly.demo", role: "frontdesk", name: "Desk" },
+      ] },
+    { id: "org_plan_pack10", name: "Weekly Halls", short: "Weekly", kind: "captive", logo: "split", color: "#B7791F", wash: "#F8F1E2",
+      email: "pack10@tokenhire.demo", password: "demo1234", plan: "pack10",
+      clients: [], branches: [{ id: "br_w10_pune", name: "Hinjawadi", city: "Pune" }],
+      members: [{ email: "pack10@tokenhire.demo", role: "recruiter", name: "Weekly lead" }] },
+    { id: "org_plan_pack25", name: "Busy Month Staffing", short: "Busy Month", kind: "agency", logo: "diamond", color: "#E85D04", wash: "#FDEEE4",
+      email: "pack25@tokenhire.demo", password: "demo1234", plan: "pack25",
+      clients: [{ id: "cl_bm_bank", name: "Private bank – sales" }, { id: "cl_bm_retail", name: "Retail chain" }],
+      branches: [{ id: "br_bm_mum", name: "Andheri East", city: "Mumbai" }],
+      members: [{ email: "pack25@tokenhire.demo", role: "recruiter", name: "Agency lead" }] },
+    { id: "org_plan_ent", name: "Enterprise Staffing", short: "Enterprise", kind: "agency", logo: "ring", color: "#341C8A", wash: "#EEE8F8",
+      email: "enterprise@tokenhire.demo", password: "demo1234", plan: "enterprise",
+      clients: [{ id: "cl_ent_hdfc", name: "HDFC sales" }, { id: "cl_ent_wh", name: "Warehouse" }],
+      branches: [
+        { id: "br_ent_blr", name: "Whitefield Hub", city: "Bengaluru" },
+        { id: "br_ent_hyd", name: "HITEC", city: "Hyderabad" },
+      ],
+      members: [
+        { email: "enterprise@tokenhire.demo", role: "recruiter", name: "Enterprise recruiter" },
+        { email: "desk@enterprise.demo", role: "frontdesk", name: "Front desk" },
+      ] },
   ];
 }
 
@@ -229,9 +445,45 @@ function memberName(m) {
   return raw.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || raw;
 }
 function recruitersOf(org) { return (org?.members || []).filter((m) => memberRole(m) === "recruiter"); }
+function isAgencyOrg(org) { return org?.kind === "agency"; }
+function orgColor(org, drive) { return drive?.brand?.color || org?.color || k.coral; }
+function hallName(drive, org) { return (drive?.brand?.name || "").trim() || org?.short || org?.name || drive?.company || ""; }
+function clientOf(drive) { return (drive?.clientName || "").trim(); }
+function siteOf(drive) { return (drive?.branch || drive?.venue || "").trim(); }
+function hallLogo(drive, org) { return drive?.brand?.logo || org?.logo || "letter"; }
+function hallChrome(drive, org) {
+  const hall = hallName(drive, org);
+  const client = clientOf(drive);
+  return client ? `${hall} · ${client}` : hall;
+}
+function listingHost(drive, org) { return hallChrome(drive, org); }
+function listingPlace(drive) {
+  if (drive.branch && drive.city) return `${drive.city} · ${drive.branch}`;
+  return [drive.city, drive.venue].filter(Boolean).join(" · ");
+}
+function orgWash(org) { return org?.wash || k.cream2; }
+const LOGO_PRESETS = [
+  { id: "letter", label: "Letter" },
+  { id: "bars", label: "Bars" },
+  { id: "diamond", label: "Diamond" },
+  { id: "ring", label: "Ring" },
+  { id: "tile", label: "Tile" },
+  { id: "split", label: "Split" },
+];
 function isTerminal(state) { return ["selected", "rejected", "onhold", "absent"].includes(state); }
-/** In a named round (not just checked in) once interviewing, advanced, or explicitly sent there. */
-function inARound(c) { return !!(c?.roundAssigned || c?.state === "interviewing" || (c?.roundIdx || 0) > 0); }
+/** Named round once called, interviewing, advanced, or sent there — not while only waiting after check-in. */
+function inARound(c) {
+  return !!(c?.roundAssigned || ["calling", "interviewing"].includes(c?.state) || (c?.roundIdx || 0) > 0);
+}
+function isLastRound(rounds, c) {
+  const n = (rounds || []).length;
+  return n > 0 && (c?.roundIdx || 0) >= n - 1;
+}
+function passLabel(rounds, c) {
+  if (isLastRound(rounds, c)) return "Select";
+  const next = (rounds || [])[(c?.roundIdx || 0) + 1];
+  return next ? `Pass to ${next.name}` : "Pass";
+}
 function trackerCurrent(rounds, c) {
   const n = (rounds || []).length;
   if (isTerminal(c?.state)) return n + 1;
@@ -286,7 +538,7 @@ function seedMegaDrive() {
   const quals = QUALIFICATIONS;
   const first = (s) => s.split(" ")[0];
   const plan = [
-    ...Array.from({ length: 8 }, () => ({ state: "selected", roundIdx: 3 })),
+    ...Array.from({ length: 8 }, () => ({ state: "selected", roundIdx: 2 })),
     ...Array.from({ length: 7 }, () => ({ state: "rejected", roundIdx: 1 })),
     ...Array.from({ length: 4 }, () => ({ state: "onhold", roundIdx: 2 })),
     ...Array.from({ length: 3 }, () => ({ state: "absent", roundIdx: 0 })),
@@ -310,7 +562,7 @@ function seedMegaDrive() {
       for (let r = 0; r < p.roundIdx; r++) roundOutcomes[rounds[r].id] = "selected";
       if (p.state === "rejected") roundOutcomes[rounds[p.roundIdx].id] = "rejected";
       if (p.state === "onhold") roundOutcomes[rounds[p.roundIdx].id] = "onhold";
-      if (p.state === "selected") roundOutcomes[rounds[3].id] = "selected";
+      if (p.state === "selected") roundOutcomes[rounds[rounds.length - 1].id] = "selected";
     }
     const inFlow = ["calling", "interviewing"].includes(p.state);
     const decided = ["selected", "rejected", "onhold"].includes(p.state);
@@ -326,7 +578,7 @@ function seedMegaDrive() {
       decidedAt: decided ? t0 - (8 + n) * MIN : null,
       room: p.room || null,
       skipped: p.state === "wait" && i % 11 === 0 ? 1 : 0,
-      roundAssigned: p.roundIdx > 0 || p.state === "interviewing",
+      roundAssigned: p.roundIdx > 0 || ["calling", "interviewing"].includes(p.state),
     };
   });
   const waitSorted = candidates.filter((c) => c.state === "wait").sort((a, b) => a.at - b.at);
@@ -350,67 +602,225 @@ function seedMegaDrive() {
     id: "d_vistaar_50", orgId: "org_vistaar", host: "HOST-DEMO50", gate: "GATE-VISTA1", desk: code(6),
     visibility: "public", status: "live", city: "Hyderabad", date: todayStr(),
     company: "Vistaar Services", role: "Voice Process Associate", venue: "HITEC City, Tower B, Ground floor",
-    jd: "US and UK voice process. Rotational shifts. Graduate preferred. Four rounds today — HR, aptitude, manager, final. Offers are not made on the floor; selected names go to HR for ATS.",
+    jd: "US and UK voice process. Rotational shifts. Graduate preferred. Three rounds today — HR screening, ops, manager. Offers are not made on the floor; selected names go to HR for ATS.",
     expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
     docs: DOC_OPTIONS.slice(0, 5),
-    candidates, msgs, seq: 50, rounds, brand: { name: "Vistaar", color: "#2C6BF5" }, rooms,
+    candidates, msgs, seq: 50, rounds, brand: { name: "Vistaar", color: "#163A7A", logo: "diamond" }, rooms,
+    clientId: "cl_vistaar_voice", clientName: "Voice process – captive", branchId: "br_vistaar_hitec", branch: "Hyderabad HITEC",
   };
 }
 
 /* extra sample drives so "Browse drives" has real, multi-city data to filter */
+function demoWaiters(n = 3) {
+  const t0 = Date.now();
+  const people = [
+    ["Ravi Teja", "9848111001", "Fresher"],
+    ["Meera Joshi", "9848111002", "1 year"],
+    ["Sandeep Kumar", "9848111003", "Fresher"],
+    ["Lakshmi Prasad", "9848111004", "2 years"],
+  ];
+  return people.slice(0, n).map((p, i) => ({
+    id: `W-${String(i + 1).padStart(3, "0")}`, token: `W-${String(i + 1).padStart(3, "0")}`,
+    name: p[0], phone: p[1], email: "", exp: p[2], expBand: p[2] === "Fresher" ? "Fresher" : "0–1 yr",
+    linkedin: "", resume: null, state: "wait", at: t0 - (18 - i * 4) * MIN, pinged: true,
+    calledAt: null, decidedAt: null, roundIdx: 0, roundAssigned: false, notes: {}, room: null, skipped: 0,
+  }));
+}
+
+function blankSeed(extra) {
+  return {
+    host: newHost(), gate: newGate(), desk: code(6), visibility: "public", status: "upcoming",
+    candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })),
+    rooms: DEFAULT_ROOMS.map((r) => ({ ...r })),
+    ...extra,
+  };
+}
 function seedExtraDrives() {
   return [
-    { id: "d_blr1", orgId: "org_quess", host: newHost(), gate: newGate(), desk: code(6), visibility: "public", status: "live", city: "Bengaluru", date: todayStr(), company: "Quess Corp", role: "Delivery Executive", venue: "Whitefield Hub",
-      jd: "Last-mile delivery on two-wheeler. Own bike and valid licence required. Daily payouts, fuel allowance. Reporting 7am.",
+    blankSeed({ id: "d_blr1", orgId: "org_quess", status: "live", city: "Bengaluru", date: todayStr(), company: "Quess Corp", role: "Warehouse Associate", venue: "Whitefield Hub, Gate 2",
+      jd: "Last-mile and inbound for Amazon warehouse. Own two-wheeler helpful. Daily payouts. Reporting 7am.",
       expNeeded: ["Fresher", "0–1 yr"],
       docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Bank passbook or cancelled cheque"],
-      candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "", color: BRAND_COLORS[0].hex }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })) },
-    { id: "d_blr2", orgId: "org_teamlease", host: newHost(), gate: newGate(), desk: code(6), visibility: "public", status: "upcoming", city: "Bengaluru", date: todayStr(4), company: "TeamLease", role: "Sales Associate", venue: "Koramangala Office",
+      candidates: demoWaiters(3), seq: 3, msgs: [],
+      brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_amazon", clientName: "Amazon warehouse", branchId: "br_q_wfd", branch: "Whitefield Hub" }),
+    blankSeed({ id: "d_q_hdfc", orgId: "org_quess", status: "live", city: "Hyderabad", date: todayStr(), company: "Quess Corp", role: "Relationship Officer", venue: "HITEC City, Tower 3, Level 2",
+      jd: "Walk-in for HDFC sales. Field + branch. Telugu and English. Quess hires you; you work on the HDFC book.",
+      expNeeded: ["0–1 yr", "1–3 yrs", "3–5 yrs"],
+      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)"],
+      brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_hdfc", clientName: "HDFC sales", branchId: "br_q_hitec", branch: "Hyderabad HITEC" }),
+    blankSeed({ id: "d_q_voice", orgId: "org_quess", city: "Pune", date: todayStr(1), company: "Quess Corp", role: "Voice Process Associate", venue: "Hinjawadi Phase 1, Block C",
+      jd: "Captive voice process staffed by Quess. Rotational shifts. Clear spoken English.",
+      expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
+      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "Educational certificates"],
+      brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_voice", clientName: "Voice process – captive", branchId: "br_q_pune", branch: "Pune Hinjawadi" }),
+    blankSeed({ id: "d_q_bench", orgId: "org_quess", city: "Bengaluru", date: todayStr(3), company: "Quess Corp", role: "Associate (bench)", venue: "Whitefield Hub, Training floor",
+      jd: "Quess associate bench — hired onto Quess payroll, deployed to client sites as they open. Not a client walk-in.",
+      expNeeded: ["Fresher", "0–1 yr"],
+      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"],
+      brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_bench", clientName: "Associate bench", branchId: "br_q_wfd", branch: "Whitefield Hub" }),
+    blankSeed({ id: "d_vistaar_bfsi", orgId: "org_vistaar", city: "Hyderabad", date: todayStr(2), company: "Vistaar Services", role: "Collections Officer", venue: "HITEC City, Tower B",
+      jd: "Field collections for a retail BFSI client. Vistaar payroll. Telugu and English.",
+      expNeeded: ["0–1 yr", "1–3 yrs"],
+      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"],
+      brand: { name: "Vistaar", color: "#163A7A", logo: "diamond" }, clientId: "cl_vistaar_bfsi", clientName: "Retail BFSI", branchId: "br_vistaar_hitec", branch: "Hyderabad HITEC" }),
+    blankSeed({ id: "d_blr2", orgId: "org_teamlease", city: "Bengaluru", date: todayStr(4), company: "TeamLease", role: "Sales Associate", venue: "Koramangala Office",
       jd: "In-store sales for a consumer-electronics brand. Target-based incentives. Kannada or Tamil plus English.",
       expNeeded: ["0–1 yr", "1–3 yrs", "3–5 yrs"],
       docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)", "Experience / relieving letters"],
-      candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "", color: BRAND_COLORS[0].hex }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })) },
-    { id: "d_hyd2", orgId: "org_genpact", host: newHost(), gate: newGate(), desk: code(6), visibility: "public", status: "upcoming", city: "Hyderabad", date: todayStr(2), company: "Genpact", role: "Voice Process Associate", venue: "Uppal campus",
+      brand: { name: "TeamLease", color: "#E85D04", logo: "split" }, clientId: "cl_tl_ce", clientName: "Consumer electronics retail", branchId: "br_tl_kora", branch: "Koramangala Office" }),
+    blankSeed({ id: "d_hyd2", orgId: "org_genpact", status: "live", city: "Hyderabad", date: todayStr(), company: "Genpact", role: "Voice Process Associate", venue: "Uppal campus",
       jd: "UK voice process. Night shift. Graduate preferred. Walk-in includes an aptitude test and a 10-minute mock call.",
       expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
       docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "Educational certificates", "Passport-size photographs (2)"],
-      candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "", color: BRAND_COLORS[0].hex }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })) },
-    { id: "d_mum1", orgId: "org_zonal", host: newHost(), gate: newGate(), desk: code(6), visibility: "public", status: "upcoming", city: "Mumbai", date: todayStr(6), company: "Zonal Retail Pvt Ltd", role: "Store Associate", venue: "Andheri East",
+      brand: { name: "Genpact", color: "#B7791F", logo: "tile" }, clientId: "", clientName: "", branchId: "br_gen_uppal", branch: "Uppal campus" }),
+    blankSeed({ id: "d_mum1", orgId: "org_zonal", city: "Mumbai", date: todayStr(6), company: "Zonal Retail Pvt Ltd", role: "Store Associate", venue: "Andheri East",
       jd: "Floor staff for a new grocery format. Weekend roster. Hindi and Marathi useful. Immediate joining.",
       expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
       docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)"],
-      candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "", color: BRAND_COLORS[0].hex }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })) },
-    { id: "d_pun1", orgId: "org_wipro", host: newHost(), gate: newGate(), desk: code(6), visibility: "private", status: "closed", city: "Pune", date: todayStr(-3), company: "Wipro", role: "Document Validation", venue: "Hinjawadi Phase 2",
+      brand: { name: "Zonal", color: "#D6336C", logo: "letter" }, clientId: "", clientName: "", branchId: "br_zonal_andheri", branch: "Andheri East" }),
+    blankSeed({ id: "d_wipro_live", orgId: "org_wipro", status: "live", city: "Pune", date: todayStr(), company: "Wipro", role: "Technical Support Associate", venue: "Hinjawadi Phase 2, Block 8",
+      jd: "IT helpdesk for internal Wipro accounts. Day shift. Own hiring — not a staffing client walk-in.",
+      expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
+      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Educational certificates"],
+      brand: { name: "Wipro", color: "#341C8A", logo: "ring" }, clientId: "", clientName: "", branchId: "br_wipro_hinja", branch: "Hinjawadi Phase 2" }),
+    blankSeed({ id: "d_pun1", orgId: "org_wipro", visibility: "private", status: "closed", city: "Pune", date: todayStr(-3), company: "Wipro", role: "Document Validation", venue: "Hinjawadi Phase 2",
       jd: "Back-office document QC. Day shift.",
       expNeeded: ["1–3 yrs", "3–5 yrs"],
       docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"],
-      candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "", color: BRAND_COLORS[0].hex }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })) },
+      brand: { name: "Wipro", color: "#341C8A", logo: "ring" }, clientId: "", clientName: "", branchId: "br_wipro_hinja", branch: "Hinjawadi Phase 2" }),
   ];
 }
 
-/* Mark: punched queue ticket — rounded square, cloakroom hole, T, three bars
-   receding like a line. Shown next to the wordmark everywhere. */
+function seedPlanDemoDrives() {
+  const docs = ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"];
+  const trialRooms = [{ ...DEFAULT_ROOMS[0] }];
+  return [
+    blankSeed({ id: "d_plan_trial", orgId: "org_plan_trial", status: "live", city: "Hyderabad", date: todayStr(), company: "Trial Hall Co", role: "Customer Support", venue: "Gachibowli",
+      jd: "Trial plan — 1 drive, 30 people, no WhatsApp, no reports, one room.",
+      expNeeded: ["Fresher"], docs, brand: { name: "Trial", color: "#2C6BF5", logo: "letter" },
+      rooms: trialRooms, clientId: "", clientName: "", branchId: "br_trial_hyd", branch: "Gachibowli" }),
+    blankSeed({ id: "d_plan_single", orgId: "org_plan_single", status: "live", city: "Hyderabad", date: todayStr(), company: "One Drive Foods", role: "Store Associate", venue: "Madhapur hall",
+      jd: "Single-drive plan — full product, one hall, 300 people. You cannot create a second drive.",
+      expNeeded: ["Fresher", "0–1 yr"], docs, brand: { name: "One Drive", color: "#0F8A6B", logo: "tile" },
+      clientId: "", clientName: "", branchId: "br_single_hyd", branch: "Madhapur hall" }),
+    blankSeed({ id: "d_plan_mo1", orgId: "org_plan_monthly", status: "live", city: "Hyderabad", date: todayStr(), company: "Monthly Halls", role: "Voice Associate", venue: "Gachibowli",
+      jd: "Monthly plan — 5 drives this month. This is 1 of 5.",
+      expNeeded: ["Fresher"], docs, brand: { name: "Monthly", color: "#163A7A", logo: "bars" },
+      clientId: "", clientName: "", branchId: "br_mo_hyd", branch: "Gachibowli" }),
+    blankSeed({ id: "d_plan_mo2", orgId: "org_plan_monthly", status: "live", city: "Bengaluru", date: todayStr(), company: "Monthly Halls", role: "Warehouse Associate", venue: "Whitefield",
+      jd: "Monthly plan — this is 2 of 5 this month.",
+      expNeeded: ["Fresher"], docs, brand: { name: "Monthly", color: "#163A7A", logo: "bars" },
+      clientId: "", clientName: "", branchId: "br_mo_blr", branch: "Whitefield" }),
+    blankSeed({ id: "d_plan_p10", orgId: "org_plan_pack10", status: "live", city: "Pune", date: todayStr(), company: "Weekly Halls", role: "Tech Support", venue: "Hinjawadi",
+      jd: "10 drives / month pack.",
+      expNeeded: ["Fresher", "0–1 yr"], docs, brand: { name: "Weekly", color: "#B7791F", logo: "split" },
+      clientId: "", clientName: "", branchId: "br_w10_pune", branch: "Hinjawadi" }),
+    blankSeed({ id: "d_plan_p25", orgId: "org_plan_pack25", status: "live", city: "Mumbai", date: todayStr(), company: "Busy Month Staffing", role: "Relationship Officer", venue: "Andheri East",
+      jd: "25-drive pack with staffing clients.",
+      expNeeded: ["0–1 yr", "1–3 yrs"], docs, brand: { name: "Busy Month", color: "#E85D04", logo: "diamond" },
+      clientId: "cl_bm_bank", clientName: "Private bank – sales", branchId: "br_bm_mum", branch: "Andheri East" }),
+    blankSeed({ id: "d_plan_ent", orgId: "org_plan_ent", status: "live", city: "Bengaluru", date: todayStr(), company: "Enterprise Staffing", role: "Warehouse Associate", venue: "Whitefield Hub",
+      jd: "Enterprise — unconstrained drives, clients, tiny TokenHire mark.",
+      expNeeded: ["Fresher"], docs, brand: { name: "Enterprise", color: "#341C8A", logo: "ring" },
+      clientId: "cl_ent_wh", clientName: "Warehouse", branchId: "br_ent_blr", branch: "Whitefield Hub" }),
+  ];
+}
+
+/* Mark: walk-in token face with a short queue — three people, next holds a ticket. */
 function TokenMark({ size = 28, light }) {
   const face = light ? "#fff" : k.coral;
-  const cut = light ? k.coral : "#fff";
+  const fig = light ? k.coral : "#fff";
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none" style={{ flexShrink: 0, display: "block" }} aria-hidden="true">
-      <rect x="2" y="2" width="44" height="44" rx="12" fill={face} />
-      <path d="M15 15.5h18c1.2 0 2 .85 2 2s-.8 2-2 2h-6.2V32.2c0 1.2-.9 2.05-2.05 2.05S22.7 33.4 22.7 32.2V19.5H15c-1.2 0-2-.85-2-2s.8-2 2-2Z" fill={cut} />
+      <rect x="1.75" y="1.75" width="44.5" height="44.5" rx="13" fill={face} />
+      <g fill={fig}>
+        <circle cx="12.35" cy="21.15" r="3.85" />
+        <path d="M8.55 39.4V28.55c0-2.05 1.7-3.7 3.8-3.7s3.8 1.65 3.8 3.7V39.4Z" />
+        <circle cx="22.15" cy="19.55" r="4.2" />
+        <path d="M17.85 39.4V27.05c0-2.3 1.92-4.15 4.3-4.15s4.3 1.85 4.3 4.15V39.4Z" />
+        <circle cx="32.35" cy="18.15" r="4.55" />
+        <path d="M27.6 39.4V25.65c0-2.5 2.12-4.5 4.75-4.5s4.75 2 4.75 4.5V39.4Z" />
+      </g>
+      <rect x="36.2" y="23.35" width="7.4" height="10.15" rx="1.65" fill={fig} stroke={face} strokeWidth="1.4" />
+      <circle cx="39.9" cy="26.55" r="1.28" fill={face} />
+      <path d="M37.35 30.85h5.1" stroke={face} strokeWidth="1.15" strokeLinecap="round" />
     </svg>
   );
 }
 
 function Wordmark({ size = 18, light, bare = false }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: size * 0.42, fontFamily: dsp, fontSize: size * 1.28, letterSpacing: -0.7, color: light ? "#fff" : k.ink }}>
-      {!bare && <TokenMark size={Math.round(size * 1.72)} light={light} />}
-      <span><b style={{ fontWeight: 800 }}>Token</b><span style={{ fontWeight: 700, color: light ? "rgba(255,255,255,.88)" : k.coral }}>Hire</span></span>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: size * 0.38, fontFamily: dsp, fontSize: size * 1.22, letterSpacing: -0.55, color: light ? "#fff" : k.ink }}>
+      {!bare && <TokenMark size={Math.round(size * 1.78)} light={light} />}
+      <span style={{ lineHeight: 1 }}>
+        <b style={{ fontWeight: 800 }}>Token</b>
+        <span style={{ fontWeight: 700, color: light ? "rgba(255,255,255,.9)" : k.coral }}>Hire</span>
+      </span>
     </span>
   );
 }
 
-/* Physical walk-in token: same rounded-square face as TokenMark, number instead of T. */
+function OrgLogo({ name, color, logo = "letter", size = 34 }) {
+  const n = ((name || "?").trim() || "?")[0].toUpperCase();
+  const c = color || k.coral;
+  const r = Math.round(size * (logo === "ring" || logo === "diamond" ? 0.5 : logo === "tile" ? 0.18 : 0.28));
+  const fs = Math.round(size * 0.42);
+  const base = { width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: dsp, fontWeight: 800, color: "#fff", flexShrink: 0, fontSize: fs, letterSpacing: -0.4, position: "relative", overflow: "hidden" };
+  if (logo === "ring") {
+    return (
+      <div style={{ ...base, borderRadius: "50%", background: "transparent", border: `${Math.max(2, Math.round(size * 0.08))}px solid ${c}`, color: c }}>{n}</div>
+    );
+  }
+  if (logo === "diamond") {
+    return (
+      <div style={{ width: size, height: size, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ ...base, width: size * 0.78, height: size * 0.78, borderRadius: 6, background: c, transform: "rotate(45deg)" }}>
+          <span style={{ transform: "rotate(-45deg)", display: "block" }}>{n}</span>
+        </div>
+      </div>
+    );
+  }
+  if (logo === "bars") {
+    return (
+      <div style={{ ...base, borderRadius: r, background: c }}>
+        <div style={{ position: "absolute", left: 0, right: 0, top: "22%", height: "10%", background: "rgba(255,255,255,.28)" }} />
+        <div style={{ position: "absolute", left: 0, right: 0, top: "68%", height: "10%", background: "rgba(255,255,255,.18)" }} />
+        <span style={{ position: "relative" }}>{n}</span>
+      </div>
+    );
+  }
+  if (logo === "tile") {
+    return <div style={{ ...base, borderRadius: r, background: c, boxShadow: `inset 0 0 0 ${Math.max(2, Math.round(size * 0.07))}px rgba(255,255,255,.35)` }}>{n}</div>;
+  }
+  if (logo === "split") {
+    return (
+      <div style={{ ...base, borderRadius: r, background: c }}>
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${c} 50%, rgba(0,0,0,.22) 50%)` }} />
+        <span style={{ position: "relative" }}>{n}</span>
+      </div>
+    );
+  }
+  return <div style={{ ...base, borderRadius: r, background: c }}>{n}</div>;
+}
+
+function OrgMark({ name, color, size = 34, logo }) {
+  return <OrgLogo name={name} color={color} size={size} logo={logo} />;
+}
+
+function HallBrand({ name, color, light, powered = true, credit, sub, logo, size = 26 }) {
+  const title = sub ? `${name} · ${sub}` : name;
+  const mark = credit || (powered === false ? "off" : powered === "tiny" ? "tiny" : "on");
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+      <OrgLogo name={name} color={color} size={size} logo={logo} />
+      <span style={{ fontFamily: dsp, fontWeight: 700, fontSize: 16, color: light ? "#fff" : k.ink }}>{title}</span>
+      {mark === "on" && <span style={{ fontSize: 11, fontWeight: 600, color: light ? "rgba(255,255,255,.7)" : k.coral, marginLeft: 2 }}>Powered by TokenHire</span>}
+      {mark === "tiny" && <span style={{ fontSize: 9, color: light ? "rgba(255,255,255,.32)" : k.faint, marginLeft: 2 }}>TokenHire</span>}
+    </div>
+  );
+}
+
+/* Physical walk-in token: same rounded-square face as TokenMark, number instead of the queue. */
 function tokenDigits(token = "") {
   const s = String(token);
   const m = s.match(/(\d+)\s*$/);
@@ -463,7 +873,7 @@ const NAV = [
       ["sol:bpo", "BPO & customer support", "500-a-day drives without the shouting"],
       ["sol:retail", "Retail & delivery", "Store-by-store hiring, one dashboard"],
       ["sol:campus", "Campus hiring", "A whole batch through in one morning"],
-      ["sol:agency", "Staffing agencies", "One workspace per client company"],
+      ["sol:agency", "Staffing agencies", "Your hall. Their clients."],
     ],
   },
   { id: "pricing", label: "Pricing" },
@@ -471,8 +881,8 @@ const NAV = [
   { id: "about", label: "About us" },
 ];
 
-const chromeStrip = { background: k.cream2, borderBottom: `1px solid ${k.line}` };
-const chromeBox = { background: k.band, border: `1px solid ${k.line}`, borderRadius: 16, boxShadow: "0 10px 28px -18px rgba(11,16,32,.28)" };
+const chromeStrip = { background: k.cream, borderBottom: `1px solid ${k.line}` };
+const chromeBox = { background: "#fff", border: `1px solid ${k.line}`, borderRadius: 16, boxShadow: "0 10px 28px -18px rgba(11,16,32,.28)" };
 
 function Site({ onLaunch, drives }) {
   const [page, setPage] = useState("home");
@@ -491,7 +901,7 @@ function Site({ onLaunch, drives }) {
       {page === "drives" && <PublicDrives drives={drives} onLaunch={onLaunch} />}
       {page === "services" && <Services go={go} onLaunch={onLaunch} />}
       {page.startsWith("sol:") && <SolutionPage id={page.slice(4)} go={go} onLaunch={onLaunch} />}
-      {page === "pricing" && <PricingPage onLaunch={onLaunch} />}
+      {page === "pricing" && <PricingPage onLaunch={onLaunch} go={go} />}
       {page === "about" && <AboutPage go={go} onLaunch={onLaunch} />}
       {page === "contact" && <Contact />}
       {page === "privacy" && <LegalPage kind="privacy" />}
@@ -503,17 +913,21 @@ function Site({ onLaunch, drives }) {
 
 function SiteNav({ page, go, onLaunch }) {
   const [open, setOpen] = useState(null);
-  const navigate = (t) => { setOpen(null); go(t); };
+  const [menu, setMenu] = useState(false);
+  const navigate = (t) => { setOpen(null); setMenu(false); go(t); };
   useEffect(() => {
     const close = () => setOpen(null);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 50, ...chromeStrip, padding: "10px 16px 12px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", ...chromeBox, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 30, flexWrap: "wrap" }}>
+    <div className="chrome-wrap" style={{ position: "sticky", top: 0, zIndex: 50, ...chromeStrip, padding: "10px 16px 12px" }}>
+      <div className="chrome-inner" style={{ maxWidth: 1140, margin: "0 auto", ...chromeBox, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <button onClick={() => navigate("home")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginRight: 4 }}><Wordmark size={20} /></button>
-        <div style={{ display: "flex", alignItems: "center", gap: 26, flexWrap: "wrap" }}>
+        <button className="nav-burger" type="button" aria-label="Menu" onClick={() => setMenu((m) => !m)} style={{ ...iconBtn, padding: 8, display: "none", alignItems: "center" }}>
+          {menu ? <X size={22} /> : <Menu size={22} />}
+        </button>
+        <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: 26, flexWrap: "wrap" }}>
           {NAV.map((n, i) => n.menu ? (
             <div key={i} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
               <button
@@ -546,11 +960,22 @@ function SiteNav({ page, go, onLaunch }) {
             <button key={n.id} className="navitem" onClick={() => navigate(n.id)} style={{ ...navBtn, color: page === n.id ? k.ink : k.ink2, fontWeight: page === n.id ? 600 : 500 }}>{n.label}</button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="nav-ctas" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <button onClick={() => onLaunch("employer")} style={solidSm}>I'm hiring <ArrowRight size={15} /></button>
           <button onClick={() => onLaunch("candidate")} style={outlineSm}>Joining a walk-in?</button>
         </div>
       </div>
+      {menu && (
+        <div style={{ background: "#fff", borderBottom: `1px solid ${k.line}`, padding: "8px 16px 18px" }}>
+          {NAV.flatMap((n) => n.menu ? n.menu.map(([target, label]) => [target, label]) : [[n.id, n.label]]).map(([id, label]) => (
+            <button key={label} type="button" onClick={() => navigate(id)} style={{ display: "block", width: "100%", textAlign: "left", padding: "14px 4px", border: "none", background: "none", borderBottom: `1px solid ${k.line}`, fontFamily: bdy, fontSize: 16, fontWeight: 600, color: k.ink, cursor: "pointer" }}>{label}</button>
+          ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+            <button onClick={() => { setMenu(false); onLaunch("employer"); }} style={{ ...solid, justifyContent: "center", width: "100%" }}>I'm hiring</button>
+            <button onClick={() => { setMenu(false); onLaunch("candidate"); }} style={{ ...outline, justifyContent: "center", width: "100%" }}>Joining a walk-in?</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1136,59 +1561,26 @@ function SplitHero() {
   );
 }
 
-const COMPARE_ROWS = [
-  ["Printed GATE QR (never expires) + rotating DESK proof", true, true, true],
-  ["Live queue and wait times", true, true, true],
-  ["WhatsApp 15-min nudge only", "600 / drive", "3,000 / mo", "10,000 / mo"],
-  ["Outcome report", true, true, true],
-  ["Multi-day drives", false, true, true],
-  ["Number of walk-ins", "1 at a time", "Unlimited", "Unlimited"],
-  ["Recruiters per walk-in", "1", "Multiple", "Multiple"],
-  ["Candidate history across drives", false, true, true],
-  ["Interview rounds & private notes", true, true, true],
-  ["Your branding on candidate screens", false, false, true],
-  ["Separate workspace per client", false, false, true],
-  ["Priority support", false, false, true],
-];
-function PlanCompare({ onLaunch }) {
+function PlanCards({ onChoose, go }) {
   return (
-    <div style={{ maxWidth: 1140, margin: "0 auto", padding: "70px 26px 10px" }}>
-      <h2 style={{ fontFamily: dsp, fontSize: "clamp(28px,3.6vw,40px)", fontWeight: 700, letterSpacing: -1, margin: "0 0 8px", textAlign: "center" }}>Compare plans</h2>
-      <p style={{ fontSize: 15, color: k.ink2, margin: "0 0 34px", textAlign: "center" }}>Every plan includes the core queue. The difference is scale.</p>
-      <div style={{ ...box, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
-          <thead>
-            <tr>
-              <th style={{ padding: "16px 18px", textAlign: "left", borderBottom: `2px solid ${k.ink}` }} />
-              {PLANS.map((p) => (
-                <th key={p.id} style={{ padding: "16px 18px", textAlign: "center", borderBottom: `2px solid ${k.ink}` }}>
-                  <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 15 }}>{p.name}</div>
-                  <div style={{ fontFamily: typ, fontSize: 15, fontWeight: 700, color: p.best ? k.coral : k.ink, marginTop: 3 }}>{p.price}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {COMPARE_ROWS.map(([label, a, b, c], i) => (
-              <tr key={label} style={{ borderTop: i ? `1px solid ${k.line}` : "none", background: i % 2 ? k.cream2 : "transparent" }}>
-                <td style={{ padding: "13px 18px", color: k.ink2 }}>{label}</td>
-                {[a, b, c].map((v, j) => (
-                  <td key={j} style={{ padding: "13px 18px", textAlign: "center" }}>
-                    {typeof v === "boolean" ? (
-                      v ? <Check size={16} color={k.teal} style={{ display: "inline-block" }} /> : <span style={{ color: k.faint }}>—</span>
-                    ) : (
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: k.ink2 }}>{v}</span>
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div style={{ textAlign: "center", marginTop: 26 }}>
-        <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
-      </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 }} className="g3">
+      {PUBLIC_PLANS.map((p) => (
+        <div key={p.id} style={{ border: `1px solid ${p.best ? k.teal : k.line}`, borderRadius: 8, padding: 24, background: "#fff", position: "relative", boxShadow: p.best ? "0 14px 32px -22px rgba(31,111,92,.4)" : "none" }}>
+          {p.ribbon && <div style={{ position: "absolute", top: -9, left: 22, background: p.best ? k.teal : k.ink, color: "#fff", fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 3, fontFamily: typ, letterSpacing: .5 }}>{p.ribbon}</div>}
+          <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700 }}>{p.name}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 7, margin: "12px 0 5px" }}>
+            <span style={{ fontFamily: typ, fontSize: 28, fontWeight: 700, letterSpacing: -0.5 }}>{p.price}</span>
+            <span style={{ fontSize: 12.5, color: k.faint }}>{p.unit}</span>
+          </div>
+          {p.annual && <div style={{ fontSize: 12, color: k.mid, marginBottom: 8 }}>{p.annual}</div>}
+          <div style={{ fontSize: 13, color: k.ink2, lineHeight: 1.55, minHeight: 44, marginBottom: 14 }}>{p.blurb}</div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: k.coralDim, color: k.coral, fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: R.pill, marginBottom: 18 }}>
+            {p.validity}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 20 }}>{p.feats.map((f) => <div key={f} style={{ display: "flex", gap: 8, fontSize: 13, alignItems: "flex-start" }}><Check size={14} color={k.teal} style={{ flexShrink: 0, marginTop: 2 }} />{f}</div>)}</div>
+          <button onClick={() => (p.talk && go ? go("contact") : onChoose(p))} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11 }}>{p.cta}</button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1209,7 +1601,7 @@ function Home({ go, onLaunch, drives }) {
             <button onClick={() => go("demo")} style={outline}><Play size={14} fill="currentColor" /> Watch a walk-in</button>
           </div>
         </div>
-        <div style={{ marginTop: "auto" }}>
+        <div style={{ marginTop: "auto", background: k.bandSoft, padding: "28px 0 36px" }}>
           <SplitHero />
         </div>
       </div>
@@ -1224,7 +1616,7 @@ function Home({ go, onLaunch, drives }) {
               ["bpo", "BPO & support", "500-a-day drives"],
               ["retail", "Retail & delivery", "Store-by-store hiring"],
               ["campus", "Campus hiring", "A batch in one morning"],
-              ["agency", "Staffing agencies", "One workspace per client"],
+              ["agency", "Staffing agencies", "Hire for clients, branded as you"],
             ].map(([id, h, d]) => (
               <button key={id} onClick={() => go(`sol:${id}`)} style={{
                 background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, padding: 26,
@@ -1247,10 +1639,10 @@ function Home({ go, onLaunch, drives }) {
 }
 
 const CTA_COPY = {
-  home: { head: ["The ", "chaos is over"], sub: "Your next walk-in can run without a clipboard. The first one is free.", btn: "Set up a walk-in" },
+  home: { head: ["The ", "chaos is over"], sub: "Your next walk-in can run without a clipboard.", btn: "Set up a walk-in" },
   products: { head: ["Built for ", "the front desk"], sub: "Every piece above works out of the box. Nothing to configure, nothing to install.", btn: "Try it on a real drive" },
   about: { head: ["Come ", "build it with us"], sub: "We're early, and we'd rather hear from ten real recruiters than guess at what they need.", btn: "Talk to us" },
-  solution: { head: ["Run your next walk-in ", "this way"], sub: "Set it up in about two minutes. The first one costs nothing.", btn: "Set up a walk-in" },
+  solution: { head: ["Run your next walk-in ", "this way"], sub: "Set it up in a few minutes. Plans start at a small one-day event.", btn: "Set up a walk-in" },
 };
 function CtaBand({ onLaunch, variant = "home", onContact, flush }) {
   const c = CTA_COPY[variant] || CTA_COPY.home;
@@ -1551,14 +1943,14 @@ const SOLUTIONS = {
   },
   agency: {
     eyebrow: "Staffing agencies",
-    head: ["Every client. ", "Separate books."],
-    sub: "You run drives for a dozen companies. Each one wants their own numbers, their own branding, and no sight of anyone else's.",
+    head: ["You hire for them. ", "The hall is yours."],
+    sub: "Quess, TeamLease, Adecco — you staff banks, BPOs, and factories, and sometimes your own associate bench. Candidates join a Quess walk-in for HDFC, not a TokenHire event. Vistaar next door never sees your books.",
     pains: [
-      ["One workspace per client.", "Separate drives, separate candidate lists, separate reports. Nobody sees another client's data — including their host codes."],
-      ["Your name on the candidate screen.", "White-label the check-in flow so candidates see your agency, not a tool they've never heard of."],
-      ["Proof for the client on Monday.", "Walked in, interviewed, selected, on hold — per drive, per client, ready to send to their ATS."],
+      ["One agency space — not a shared soup.", "Your recruiters and front desks only see Quess drives. Another agency (or a captive like Wipro) cannot open yours. Clients are tags inside your space, not logins that peek at each other."],
+      ["The poster and the TV say Quess.", "GATE, waiting screen, and the admission slip carry your mark and the client name. A small Powered by TokenHire is all we keep."],
+      ["Branches and clients in one login.", "Hyderabad HITEC vs Pune, HDFC sales vs Amazon warehouse vs bench. Tag the drive; the hall and the Monday extract follow."],
     ],
-    stat: ["12", "client companies, one login"],
+    stat: ["1", "agency login, many clients and cities"],
   },
 };
 
@@ -1695,7 +2087,7 @@ function PublicDrives({ drives, onLaunch }) {
                         <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 18 }}>{d.role}</div>
                         <StatusPill status={d.status} />
                       </div>
-                      <div style={{ fontSize: 14, color: k.mid }}>{d.company} · {d.city} · {d.venue}</div>
+                      <div style={{ fontSize: 14, color: k.mid }}>{listingHost(d)} · {listingPlace(d)}</div>
                       <div style={{ display: "flex", gap: 14, marginTop: 10, fontSize: 12.5, color: k.ink2, flexWrap: "wrap" }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 5 }}><ListChecks size={13} color={k.faint} />{(d.rounds || DEFAULT_ROUNDS).length} rounds</span>
                         <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Users2 size={13} color={k.faint} />{d.candidates.length} checked in so far</span>
@@ -1758,41 +2150,26 @@ function QuickStat({ n, label }) {
   );
 }
 
-/* --- Pricing --- *//* --- Pricing --- */
-function PricingPage({ onLaunch }) {
+/* --- Pricing --- */
+function PricingPage({ onLaunch, go }) {
   return (
     <>
       <div style={{ background: k.band }}>
         <div style={{ maxWidth: 780, margin: "0 auto", padding: "70px 26px 74px", textAlign: "center" }}>
           <div style={{ fontSize: 15, color: k.coral, fontWeight: 500, marginBottom: 18 }}>Pricing</div>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(34px,4.8vw,54px)", fontWeight: 400, letterSpacing: -1.6, margin: "0 0 18px", lineHeight: 1.08 }}>
-            Your first drive is <b style={{ fontWeight: 800 }}>free</b>
+          <h1 style={{ fontFamily: dsp, fontSize: "clamp(32px,4.4vw,50px)", fontWeight: 400, letterSpacing: -1.6, margin: "0 0 18px", lineHeight: 1.1 }}>
+            Instead of 300 people waiting, this <b style={{ fontWeight: 800 }}>runs the walk-in</b>.
           </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 460 }}>Pay per drive, or monthly if you're hiring every week.</p>
+          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 520 }}>Register, QR check-in, token, live status, rooms, reports — one system. GST extra.</p>
         </div>
       </div>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "54px 26px 10px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 }} className="g3">
-          {PLANS.map((p) => (
-            <div key={p.id} style={{ border: `1px solid ${p.best ? k.teal : k.line}`, borderRadius: 8, padding: 24, background: "#fff", position: "relative", boxShadow: p.best ? "0 14px 32px -22px rgba(31,111,92,.4)" : "none" }}>
-              {p.best && <div style={{ position: "absolute", top: -9, left: 22, background: k.teal, color: "#fff", fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 3, fontFamily: typ, letterSpacing: .5 }}>MOST PICKED</div>}
-              <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700 }}>{p.name}</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 7, margin: "12px 0 5px" }}>
-                <span style={{ fontFamily: typ, fontSize: 28, fontWeight: 700, letterSpacing: -0.5 }}>{p.price}</span>
-                <span style={{ fontSize: 12.5, color: k.faint }}>{p.unit}</span>
-              </div>
-              <div style={{ fontSize: 13, color: k.ink2, lineHeight: 1.55, minHeight: 40, marginBottom: 14 }}>{p.blurb}</div>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: k.coralDim, color: k.coral, fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: R.pill, marginBottom: 18 }}>
-                <Send size={11} />{p.msgLimit}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 20 }}>{p.feats.map((f) => <div key={f} style={{ display: "flex", gap: 8, fontSize: 13, alignItems: "flex-start" }}><Check size={14} color={k.teal} style={{ flexShrink: 0, marginTop: 2 }} />{f}</div>)}</div>
-              <button onClick={() => onLaunch("employer")} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11 }}>Choose {p.name}</button>
-            </div>
-          ))}
-        </div>
-        <p style={{ fontSize: 12.5, color: k.faint, marginTop: 22, lineHeight: 1.6 }}>Each plan includes the messages shown above. Beyond that, WhatsApp and SMS are billed on what you send — around ₹0.20–0.30 a WhatsApp message, ₹0.15–0.20 an SMS, since that's roughly what we pay too.</p>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "54px 26px 80px" }}>
+        <PlanCards onChoose={() => onLaunch("employer")} go={go} />
+        <p style={{ fontSize: 14, color: k.mid, marginTop: 28, textAlign: "center", lineHeight: 1.6 }}>
+          Need more?{" "}
+          <button type="button" onClick={() => go("contact")} style={{ background: "none", border: "none", padding: 0, color: k.coral, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: "inherit" }}>Contact us</button>.
+        </p>
       </div>
-      <PlanCompare onLaunch={onLaunch} />
     </>
   );
 }
@@ -1934,11 +2311,12 @@ function Pick({ go, back, hasProfile, driveCount }) {
 
 /* ---- candidate side ---- */
 function Candidate({ store, back }) {
-  const { profile, setProfile, drives, setDrives, left } = store;
+  const { profile, setProfile, drives, setDrives, left, orgs } = store;
   const [tab, setTab] = useState("profile");
   const [matched, setMatched] = useState(null);
   const [proven, setProven] = useState(false);
   const [result, setResult] = useState(null);
+  const [joinErr, setJoinErr] = useState("");
 
   function bindDevice(driveId) {
     setProfile((p) => ({ ...p, bound: { ...(p.bound || {}), [driveId]: todayStr() } }));
@@ -1965,6 +2343,10 @@ function Candidate({ store, back }) {
   function handleMatch(drive, via) {
     const live = drives.find((x) => x.id === drive.id) || drive;
     const already = dupOf(live, profile);
+    const hostOrg = orgs.find((o) => o.id === live.orgId);
+    const cap = planLimits(hostOrg).candidates;
+    const full = !already && live.candidates.length >= cap;
+    setJoinErr(full ? `This walk-in is full (${cap} candidates on this plan).` : "");
     if (via === "desk" || via === "pass") {
       if (via === "pass") consumePass(live.id);
       if (already) { showDupSlip(live, already); return; }
@@ -1998,6 +2380,13 @@ function Candidate({ store, back }) {
     const live = drives.find((x) => x.id === d.id) || d;
     const dup = dupOf(live, profile);
     if (dup) { showDupSlip(live, dup); return; }
+    const hostOrg = orgs.find((o) => o.id === live.orgId);
+    const cap = planLimits(hostOrg).candidates;
+    if (live.candidates.length >= cap) {
+      setJoinErr(`This walk-in is full (${cap} candidates on this plan).`);
+      return;
+    }
+    setJoinErr("");
     const seq = live.seq + 1, token = `W-${String(seq).padStart(3, "0")}`;
     const q = live.candidates.filter((x) => x.state === "wait").length;
     const cand = { id: token, token, name: profile.name, phone: profile.phone, whatsapp: profile.whatsapp || profile.phone, email: profile.email, exp: profile.exp, linkedin: profile.linkedin, resume: profile.resume, expBand: profile.expBand || "Fresher", qual: profile.qual || "", room: null, aadhaarHash: profile.aadhaarHash || null, aadhaarLast4: profile.aadhaarLast4 || null, state: "wait", at: Date.now(), pinged: false, calledAt: null, decidedAt: null, roundIdx: 0, roundAssigned: false, notes: {} };
@@ -2013,11 +2402,11 @@ function Candidate({ store, back }) {
 
   return (
     <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
-      <TopBar back={back} title="Candidate" accent={k.teal} tabs={profile ? [["profile", "My profile"], ["join", "Scan GATE"], ["history", "My applications"]] : null} tab={tab} setTab={setTab} />
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: 26 }}>
+      <TopBar back={back} title="Your walk-in" accent={k.teal} tabs={profile ? [["profile", "My profile"], ["join", "Join a walk-in"], ["history", "My applications"]] : null} tab={tab} setTab={setTab} />
+      <div className="pagepad" style={{ maxWidth: 720, margin: "0 auto", padding: 26 }}>
         {!profile ? <BuildProfile onDone={setProfile} />
           : result ? <Slip r={result} drives={drives} onAgain={resetJoin} />
-            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); }} onConfirm={() => join(matched)} />
+            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={() => join(matched)} joinErr={joinErr} nudges={planLimits(orgs.find((o) => o.id === matched.orgId)).notify !== false} />
               : tab === "profile" ? <MyProfile p={profile} setP={setProfile} />
                 : tab === "join" ? <JoinDrive drives={drives} left={left} onMatch={handleMatch} />
                   : <History p={profile} drives={drives} />}
@@ -2026,7 +2415,7 @@ function Candidate({ store, back }) {
   );
 }
 
-function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left }) {
+function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, nudges }) {
   const [deskIn, setDeskIn] = useState("");
   const [proveErr, setProveErr] = useState("");
   function uploadResume(e) {
@@ -2040,15 +2429,17 @@ function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left
   return (
     <div style={{ maxWidth: 480 }}>
       <button onClick={onBack} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, marginBottom: 18 }}><ArrowLeft size={14} /> Back</button>
+      <div style={{ marginBottom: 16 }}><HallBrand name={hallName(matched)} color={orgColor(null, matched)} logo={hallLogo(matched)} sub={clientOf(matched) || null} size={32} /></div>
       <h1 style={{ fontFamily: dsp, fontSize: 21, fontWeight: 700, letterSpacing: -0.4, margin: "0 0 4px" }}>{matched.role}</h1>
-      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 16px" }}>{matched.company} · {matched.city} · {matched.venue}</p>
+      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 16px" }}>{listingPlace(matched)}</p>
       {(matched.jd || (matched.docs || []).length > 0) && (
         <div style={{ ...box, padding: 16, marginBottom: 16 }}>
           <DrivePosting d={matched} flush />
         </div>
       )}
 
-      {!proven && (
+      {joinErr && <div style={{ fontSize: 13.5, color: k.red, margin: "0 0 16px", lineHeight: 1.5 }}>{joinErr}</div>}
+      {!proven && !joinErr && (
         <div style={{ ...box, padding: 18, marginBottom: 18, borderLeft: `3px solid ${k.coral}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .8, textTransform: "uppercase", color: k.coral, marginBottom: 8 }}>You're at the right walk-in</div>
           <p style={{ fontSize: 13.5, color: k.ink, lineHeight: 1.55, margin: "0 0 12px" }}>
@@ -2091,8 +2482,9 @@ function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left
                 </label>
               )} last />
           </div>
-          <button onClick={onConfirm} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14 }}>Confirm & join queue <ArrowRight size={15} /></button>
-          <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Check-in does not send a message. You'll get one WhatsApp ~15 minutes before your turn.</div>
+          {joinErr && <div style={{ fontSize: 13, color: k.red, margin: "0 0 10px", textAlign: "center" }}>{joinErr}</div>}
+          <button onClick={onConfirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Confirm & join queue <ArrowRight size={15} /></>}</button>
+          {nudges !== false && <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Check-in does not send a message. You'll get one WhatsApp ~15 minutes before your turn.</div>}
         </>
       )}
     </div>
@@ -2416,8 +2808,8 @@ function JoinDrive({ drives, left, onMatch }) {
 
   return (
     <div style={{ maxWidth: 520 }}>
-      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Scan the GATE QR</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>GATE finds the walk-in. The rotating DESK code on the TV proves you're in the building. Don't type a HOST code — that's for recruiters.</p>
+      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Join a walk-in</h1>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the GATE poster to find the drive. Then enter the DESK code from the waiting-room TV so a forwarded poster can’t check someone else in.</p>
 
       <div style={{ ...box, padding: 20, marginBottom: 14 }}>
         <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Scan the printed GATE poster</div>
@@ -2480,7 +2872,7 @@ function Slip({ r, onAgain, drives }) {
       <div style={{ border: `1px solid ${k.line}`, borderRadius: 14, overflow: "hidden", background: "#fff", boxShadow: "0 14px 34px -24px rgba(27,24,21,.35)" }}>
         <div style={{ background: isDup ? k.gold : k.ink, color: "#fff", padding: "9px 18px", fontFamily: typ, fontSize: 11, letterSpacing: 1.4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>{isDup ? "ALREADY CHECKED IN" : "ADMISSION SLIP"}</span>
-          {!isDup && r.drive.brand?.name?.trim() && <span style={{ fontSize: 9.5, opacity: .75, letterSpacing: .5 }}>{r.drive.brand.name}</span>}
+          <span style={{ fontSize: 9.5, opacity: .75, letterSpacing: .5 }}>{hallChrome(r.drive)}</span>
         </div>
         <div style={{ padding: "24px 22px 22px" }}>
           {isDup && r.sameAadhaarDiffPhone && (
@@ -2488,7 +2880,7 @@ function Slip({ r, onAgain, drives }) {
               This matches an Aadhaar number already checked in to this drive under a different phone number. Showing that existing check-in below.
             </div>
           )}
-          <div style={{ fontSize: 12, color: k.mid }}>{r.drive.company} · {r.drive.role}</div>
+          <div style={{ fontSize: 12, color: k.mid }}>{hallChrome(r.drive)} · {r.drive.role}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "14px 0 20px" }}>
             <TokenTile token={r.token} size={64} />
             <div style={{ minWidth: 0 }}>
@@ -2510,6 +2902,9 @@ function Slip({ r, onAgain, drives }) {
             <div style={{ marginBottom: 22 }}>
               <QueueStatusPill state={cand.state} />
               <div style={{ fontSize: 13, color: k.ink2, marginTop: 10, lineHeight: 1.6 }}>{QUEUE_STATE_COPY[cand.state] || "Check back on the desk screen for the latest."}</div>
+              {["calling", "interviewing"].includes(cand.state) && (
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: k.coral, marginTop: 8 }}>{roundLabel(rounds, cand)}</div>
+              )}
               {cand.room && ["calling", "interviewing"].includes(cand.state) && (
                 <div style={{ background: k.coralDim, borderRadius: 12, padding: "14px 16px", marginTop: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: k.coral, letterSpacing: .7, textTransform: "uppercase", marginBottom: 5 }}>Go to</div>
@@ -2578,7 +2973,7 @@ function History({ p, drives }) {
             <div key={c.drive.id + c.token} style={{ ...box, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14 }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14.5 }}>{c.drive.role}</div>
-                <div style={{ marginTop: 8 }}><TokenChip token={c.token} name={c.drive.company} size={28} muted /></div>
+                <div style={{ marginTop: 8 }}><TokenChip token={c.token} name={listingHost(c.drive)} size={28} muted /></div>
               </div>
               <Pill tone={label[c.state]?.[0]}>{label[c.state]?.[1]}</Pill>
             </div>
@@ -2592,14 +2987,104 @@ function History({ p, drives }) {
 /* ---- employer side ---- */
 const TABS = [["today", "Today", LayoutGrid], ["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone], ["queue", "All candidates", Users2], ["rounds", "Rounds", Building2], ["rooms", "Rooms", Building], ["branding", "Branding", ShieldCheck], ["msgs", "Messages", Send], ["result", "Reports", PieChart]];
 const DESK_TABS = [["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone]];
+function staffTabs(org) {
+  const lim = planLimits(org);
+  return TABS.filter(([id]) => {
+    if (id === "result" && lim.reports === false) return false;
+    if (id === "rooms" && lim.rooms === false) return false;
+    if (id === "msgs" && lim.notify === false) return false;
+    return true;
+  });
+}
+const PRIMARY_TAB_IDS = new Set(["today", "live", "queue", "screen"]);
+
+function AppTabs({ tabs, tab, setTab, accent, msgCount, layout }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const primary = tabs.filter(([id]) => PRIMARY_TAB_IDS.has(id));
+  const extra = tabs.filter(([id]) => !PRIMARY_TAB_IDS.has(id));
+  const extraOn = extra.some(([id]) => id === tab);
+  function pick(id) { setTab(id); setMoreOpen(false); }
+  const short = (lab) => (lab === "Live queue" ? "Live" : lab === "Waiting screen" ? "TV" : lab === "All candidates" ? "Queue" : lab);
+
+  if (layout === "side") {
+    return (
+      <nav style={{ display: "flex", flexDirection: "column", gap: 2, padding: "8px 10px 16px" }}>
+        {tabs.map(([tid, lab, I]) => {
+          const on = tab === tid;
+          return (
+            <button key={tid} type="button" onClick={() => pick(tid)} style={{
+              display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px",
+              border: "none", borderRadius: 10, cursor: "pointer", textAlign: "left",
+              background: on ? `${accent}18` : "transparent", color: on ? accent : k.ink2,
+              fontWeight: on ? 700 : 500, fontSize: 13.5, fontFamily: bdy,
+            }}>
+              <I size={16} />
+              <span style={{ flex: 1 }}>{lab}</span>
+              {tid === "msgs" && msgCount > 0 && <Pill tone="grey">{msgCount}</Pill>}
+            </button>
+          );
+        })}
+      </nav>
+    );
+  }
+
+  return (
+    <>
+      {moreOpen && extra.length > 0 && (
+        <div onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.4)", zIndex: 90, display: "flex", alignItems: "flex-end" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", width: "100%", borderRadius: "18px 18px 0 0", padding: "10px 12px calc(16px + env(safe-area-inset-bottom))" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 4, background: k.line, margin: "4px auto 14px" }} />
+            {extra.map(([tid, lab, I]) => (
+              <button key={tid} type="button" onClick={() => pick(tid)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 12px", border: "none", background: tab === tid ? k.cream2 : "none", borderRadius: 12, fontFamily: bdy, fontSize: 16, fontWeight: 600, color: k.ink, cursor: "pointer" }}>
+                <I size={18} color={accent} /> {lab}{tid === "msgs" && msgCount > 0 ? ` (${msgCount})` : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <nav style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 80, background: "#fff",
+        borderTop: `1px solid ${k.line}`, padding: "4px 4px calc(6px + env(safe-area-inset-bottom))",
+        display: "flex", justifyContent: "space-around", alignItems: "stretch",
+      }}>
+        {(primary.length ? primary : tabs).map(([tid, lab, I]) => {
+          const on = tab === tid;
+          return (
+            <button key={tid} type="button" onClick={() => pick(tid)} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: 4, padding: "8px 4px 6px", minHeight: 56, border: "none", background: "none", cursor: "pointer", flex: 1,
+              fontSize: 10.5, fontWeight: on ? 700 : 500, color: on ? accent : k.mid, fontFamily: bdy,
+            }}>
+              <I size={20} />{short(lab)}
+            </button>
+          );
+        })}
+        {extra.length > 0 && (
+          <button type="button" onClick={() => setMoreOpen(true)} style={{
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+            padding: "8px 4px 6px", minHeight: 56, border: "none", background: "none", cursor: "pointer", flex: 1,
+            fontSize: 10.5, fontWeight: extraOn ? 700 : 500, color: extraOn ? accent : k.mid, fontFamily: bdy,
+          }}>
+            <MoreHorizontal size={20} /> More
+          </button>
+        )}
+      </nav>
+    </>
+  );
+}
 
 function Employer({ store, back }) {
   const { drives, setDrives, left, beat, orgs, setOrgs, activeOrgId, setActiveOrgId, staffRole, setStaffRole } = store;
+  const phone = useNarrow();
   const desk = staffRole === "frontdesk";
-  const tabs = desk ? DESK_TABS : TABS;
+  const tabs = desk ? DESK_TABS : staffTabs(orgs.find((o) => o.id === activeOrgId) || orgs[0]);
   const [id, setId] = useState(null);
   const [tab, setTab] = useState(desk ? "live" : "today");
-  const drive = drives.find((d) => d.id === id);
+  useEffect(() => {
+    const ids = tabs.map(([tid]) => tid);
+    if (ids.length && !ids.includes(tab)) setTab(ids[0]);
+  }, [desk, activeOrgId, tab]);
+  const drive = drives.find((d) => d.id === id && (!activeOrgId || d.orgId === activeOrgId));
   const upd = useCallback((did, fn) => setDrives((p) => p.map((d) => (d.id === did ? fn(d) : d))), [setDrives]);
   const say = useCallback((did, ch, to, name, text) => upd(did, (d) => ({ ...d, msgs: [{ id: Math.random(), at: Date.now(), ch, to, name, text }, ...d.msgs] })), [upd]);
 
@@ -2609,7 +3094,15 @@ function Employer({ store, back }) {
     const cand = drive.candidates.find((x) => x.id === cid);
     const room = (drive.rooms || []).find((r) => r.id === roomId);
     if (!cand) return;
-    upd(drive.id, (d) => ({ ...d, candidates: d.candidates.map((x) => (x.id === cid ? { ...x, state: "calling", calledAt: Date.now(), room: room || null } : x)) }));
+    const startFirst = !inARound(cand);
+    upd(drive.id, (d) => ({ ...d, candidates: d.candidates.map((x) => (x.id === cid ? {
+      ...x,
+      state: "calling",
+      calledAt: Date.now(),
+      room: room || null,
+      roundAssigned: true,
+      roundIdx: startFirst ? 0 : (x.roundIdx || 0),
+    } : x)) }));
   }
 
   // Send someone to the back of the line without losing them (they stepped out, missed the call)
@@ -2632,7 +3125,10 @@ function Employer({ store, back }) {
       if (x.id !== cid) return x;
       const next = { ...x, state };
       if (state === "calling" && !x.calledAt) next.calledAt = Date.now();
-      if (state === "interviewing") next.roundAssigned = true;
+      if (state === "calling" || state === "interviewing") {
+        next.roundAssigned = true;
+        if (!inARound(x)) next.roundIdx = 0;
+      }
       if (state === "wait" || state === "absent") { next.room = null; next.calledAt = state === "wait" ? null : x.calledAt; }
       return next;
     }) }));
@@ -2714,12 +3210,15 @@ function Employer({ store, back }) {
   }
 
   function setBrand(brand) {
-    if (!drive) return;
-    upd(drive.id, (d) => ({ ...d, brand }));
+    if (!drive || !org) return;
+    setDrives((p) => p.map((d) => (d.orgId === org.id ? { ...d, brand: { ...(d.brand || {}), ...brand } } : d)));
+    setOrgs((p) => p.map((o) => (o.id === org.id ? { ...o, short: brand.name || o.short, color: brand.color || o.color, logo: brand.logo || o.logo, wash: o.wash } : o)));
   }
 
   useEffect(() => {
     if (!drive) return;
+    const o = orgs.find((x) => x.id === drive.orgId);
+    if (!o || planLimits(o).notify === false || planLimits(o).wa <= 0) return;
     const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
     const t = tat(drive);
     wait.forEach((c, i) => {
@@ -2735,9 +3234,30 @@ function Employer({ store, back }) {
   const org = orgs.find((o) => o.id === activeOrgId);
   if (!org) return <OrgAuth orgs={orgs} setOrgs={setOrgs} onSignedIn={(oid, role) => { setActiveOrgId(oid); setStaffRole(role || "recruiter"); }} back={back} />;
 
-  if (!drive) return <Lobby drives={drives.filter((d) => d.orgId === org.id)} org={org} desk={desk} setOrgs={setOrgs} onSignOut={() => { setActiveOrgId(null); setStaffRole("recruiter"); }}
+  const mine = drives.filter((d) => d.orgId === org.id);
+  const face = { name: hallName(drive, org), color: orgColor(org, drive), logo: hallLogo(drive, org) };
+
+  if (!drive) return <Lobby drives={mine} org={org} desk={desk} setOrgs={setOrgs} setDrives={setDrives} onSignOut={() => { setId(null); setActiveOrgId(null); setStaffRole("recruiter"); }}
     open={(did) => { setId(did); setTab(desk ? "live" : "today"); }}
-    create={desk ? null : (f) => { const nid = `d_${Date.now()}`; setDrives((p) => [...p, { id: nid, orgId: org.id, host: newHost(), gate: newGate(), desk: code(6), visibility: f.visibility || "public", ...f, candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "", color: BRAND_COLORS[0].hex }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })) }]); setId(nid); setTab("today"); }}
+    create={desk ? null : (f) => {
+      if (driveSlotsLeft(org, drives) <= 0) return;
+      const nid = `d_${Date.now()}`;
+      const client = (org.clients || []).find((c) => c.id === f.clientId);
+      const br = (org.branches || []).find((b) => b.id === f.branchId);
+      const agency = isAgencyOrg(org) && planLimits(org).clients;
+      const clientName = agency ? (client?.name || f.clientName || "") : "";
+      const lim = planLimits(org);
+      setDrives((p) => [...p, {
+        id: nid, orgId: org.id, host: newHost(), gate: newGate(), desk: code(6), visibility: f.visibility || "public",
+        company: org.name, role: f.role, venue: f.venue, city: f.city, date: f.date, endDate: f.endDate, status: f.status,
+        jd: f.jd, expNeeded: f.expNeeded, docs: f.docs,
+        clientId: f.clientId || "", clientName, branchId: f.branchId || "", branch: br?.name || f.branch || "",
+        candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })),
+        brand: { name: org.short || org.name, color: org.color || BRAND_COLORS[0].hex, logo: org.logo || "letter" },
+        rooms: lim.rooms === false ? [{ ...DEFAULT_ROOMS[0] }] : DEFAULT_ROOMS.map((r) => ({ ...r })),
+      }]);
+      setId(nid); setTab("today");
+    }}
     back={back} />;
 
   const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
@@ -2755,50 +3275,89 @@ function Employer({ store, back }) {
     absent: drive.candidates.filter((x) => x.state === "absent").length,
   };
 
-  return (
-    <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
-      <div style={{ ...chromeStrip, padding: "10px 16px 12px" }}>
-        <div style={{ maxWidth: 1120, margin: "0 auto", ...chromeBox, overflow: "hidden" }}>
-        <div style={{ padding: "13px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <button onClick={() => setId(null)} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> Drives</button>
-            <div><div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}><span style={{ fontFamily: dsp, fontSize: 15, fontWeight: 700 }}>{drive.company} · {drive.role}</span><StatusPill status={drive.status} />{desk && <Pill tone="grey">FRONT DESK</Pill>}{!desk && <button onClick={() => upd(drive.id, (d) => ({ ...d, visibility: d.visibility === "private" ? "public" : "private" }))} style={{ ...ghostSm, padding: "4px 10px", fontSize: 11 }}>{drive.visibility === "private" ? "Private" : "Public"}</button>}</div><div style={{ fontSize: 12, color: k.faint }}>{drive.city} · {drive.venue} · {fmtDate(drive.date)}</div></div>
+  const panel = (
+    <>
+      {tab === "today" && !desk && <Today s={s} wait={wait} active={active} msgs={drive.msgs} setTab={setTab} drive={drive} lim={planLimits(org)} />}
+      {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} sendToRound={sendToRound} deskMode={desk} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
+      {tab === "screen" && <Screen gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} />}
+      {tab === "queue" && !desk && <Queue rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} sendToRound={sendToRound} />}
+      {tab === "rounds" && !desk && <RoundsTab rounds={drive.rounds} setRounds={setRounds} />}
+      {tab === "rooms" && !desk && <RoomsTab rooms={drive.rooms || []} setRooms={setRooms} org={org} setOrgs={setOrgs} drive={drive} />}
+      {tab === "branding" && !desk && <BrandingTab brand={drive.brand || { name: org.short || org.name, color: org.color, logo: org.logo }} setBrand={setBrand} drive={drive} org={org} />}
+      {tab === "msgs" && !desk && <Msgs msgs={drive.msgs} />}
+      {tab === "result" && !desk && <Result s={s} drive={drive} />}
+    </>
+  );
+
+  if (!phone) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
+        <aside style={{ width: 232, flexShrink: 0, background: "#fff", borderRight: `1px solid ${k.line}`, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "16px 14px 10px", display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setId(null)} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> {isAgencyOrg(org) ? "HQ" : "Campus"}</button>
           </div>
-          <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 12.5, color: k.mid, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: typ, color: k.ink }} title="Staff only">HOST {bare6(drive.host)}</span>
-            <span style={{ fontFamily: typ, color: k.coral }} title="Printed QR — never changes">GATE {bare6(drive.gate)}</span>
-            <span style={{ fontFamily: typ }}>DESK {drive.desk || drive.code} · {left}s</span>
-            <span><b style={{ color: k.ink, fontFamily: typ }}>{s.all}</b> in</span>
-            <span><b style={{ color: k.coral, fontFamily: typ }}>{t}m</b> avg</span>
-          </div>
-        </div>
-        {drive.status === "upcoming" && (
-          <div style={{ background: k.goldDim, borderTop: `1px solid ${k.line}`, borderBottom: `1px solid ${k.line}` }}>
-            <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 26px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12.5, color: k.gold }}>This drive is listed for candidates to browse but isn't accepting check-ins yet.</span>
-              <button onClick={() => upd(drive.id, (d) => ({ ...d, status: "live" }))} style={solidSm}>Open for check-in now</button>
+          <div style={{ padding: "4px 14px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+            <OrgLogo name={face.name} color={face.color} logo={face.logo} size={36} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{hallChrome(drive, org)}</div>
+              <div style={{ fontSize: 12, color: k.mid, marginTop: 2 }}>{drive.role}</div>
             </div>
           </div>
-        )}
-        <div style={{ padding: "0 12px", display: "flex", gap: 2, overflowX: "auto", background: k.cream2, borderTop: `1px solid ${k.line}` }}>
-          {tabs.map(([tid, lab, I]) => {
-            const on = tab === tid;
-            return <button key={tid} onClick={() => setTab(tid)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "11px 14px", border: "none", background: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? k.teal : k.mid, borderBottom: `2px solid ${on ? k.teal : "transparent"}`, fontFamily: bdy, whiteSpace: "nowrap" }}><I size={15} />{lab}{tid === "msgs" && drive.msgs.length > 0 && <Pill tone="grey">{drive.msgs.length}</Pill>}</button>;
-          })}
-        </div>
+          <AppTabs tabs={tabs} tab={tab} setTab={setTab} accent={face.color} msgCount={drive.msgs.length} layout="side" />
+        </aside>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "14px 22px", background: "#fff", borderBottom: `1px solid ${k.line}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <StatusPill status={drive.status} />
+              {desk && <Pill tone="grey">FRONT DESK</Pill>}
+              {!desk && <button onClick={() => upd(drive.id, (d) => ({ ...d, visibility: d.visibility === "private" ? "public" : "private" }))} style={{ ...ghostSm, padding: "4px 10px", fontSize: 11 }}>{drive.visibility === "private" ? "Private" : "Public"}</button>}
+              <span style={{ fontSize: 13, color: k.mid }}>{listingPlace(drive)} · {fmtDate(drive.date)}</span>
+            </div>
+            <div style={{ display: "flex", gap: 14, fontSize: 12.5, color: k.mid, fontFamily: typ, flexWrap: "wrap" }}>
+              <span style={{ color: k.ink }}>HOST {bare6(drive.host)}</span>
+              <span style={{ color: k.coral }}>GATE {bare6(drive.gate)}</span>
+              <span>DESK {drive.desk || drive.code} · {left}s</span>
+              <span><b style={{ color: k.ink }}>{s.all}</b> in · <b style={{ color: k.coral }}>{t}m</b> avg</span>
+            </div>
+          </div>
+          {drive.status === "upcoming" && (
+            <div style={{ background: k.goldDim, padding: "10px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, color: k.gold }}>Listed for candidates but not accepting check-ins yet.</span>
+              <button onClick={() => upd(drive.id, (d) => ({ ...d, status: "live" }))} style={solidSm}>Open for check-in now</button>
+            </div>
+          )}
+          <div style={{ flex: 1, overflow: "auto", padding: 26, maxWidth: 1120 }}>{panel}</div>
         </div>
       </div>
-      <div style={{ maxWidth: 1120, margin: "0 auto", padding: 26 }}>
-        {tab === "today" && !desk && <Today s={s} wait={wait} active={active} msgs={drive.msgs} setTab={setTab} drive={drive} />}
-        {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} sendToRound={sendToRound} deskMode={desk} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
-        {tab === "screen" && <Screen gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} brand={drive.brand} />}
-        {tab === "queue" && !desk && <Queue rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} sendToRound={sendToRound} />}
-        {tab === "rounds" && !desk && <RoundsTab rounds={drive.rounds} setRounds={setRounds} />}
-        {tab === "rooms" && !desk && <RoomsTab rooms={drive.rooms || []} setRooms={setRooms} org={org} setOrgs={setOrgs} drive={drive} />}
-        {tab === "branding" && !desk && <BrandingTab brand={drive.brand || { name: "", color: BRAND_COLORS[0].hex }} setBrand={setBrand} drive={drive} />}
-        {tab === "msgs" && !desk && <Msgs msgs={drive.msgs} />}
-        {tab === "result" && !desk && <Result s={s} drive={drive} />}
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 40, background: face.color, color: "#fff", padding: "10px 14px calc(12px)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => setId(null)} style={{ background: "none", border: "none", color: "#fff", padding: 4, cursor: "pointer" }}><ArrowLeft size={20} /></button>
+          <OrgLogo name={face.name} color={face.color} logo={face.logo} size={28} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: dsp, fontWeight: 800, fontSize: 16, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hallChrome(drive, org)}</div>
+            <div style={{ fontSize: 12, opacity: .85, marginTop: 2 }}>{drive.role} · {s.all} in</div>
+          </div>
+          {desk && <Pill tone="grey">DESK</Pill>}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, overflowX: "auto", fontFamily: typ, fontSize: 11, opacity: .9 }}>
+          <span>GATE {bare6(drive.gate)}</span>
+          <span>DESK {drive.desk || drive.code}</span>
+          <span>{left}s</span>
+        </div>
       </div>
+      {drive.status === "upcoming" && (
+        <div style={{ background: k.goldDim, padding: "10px 14px" }}>
+          <span style={{ fontSize: 12.5, color: k.gold }}>Not accepting check-ins yet. </span>
+          <button onClick={() => upd(drive.id, (d) => ({ ...d, status: "live" }))} style={{ ...solidSm, marginTop: 8 }}>Open now</button>
+        </div>
+      )}
+      <div style={{ padding: "16px 14px 96px" }}>{panel}</div>
+      <AppTabs tabs={tabs} tab={tab} setTab={setTab} accent={face.color} msgCount={drive.msgs.length} layout="bottom" />
     </div>
   );
 }
@@ -2808,6 +3367,7 @@ function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [kind, setKind] = useState("captive");
   const [err, setErr] = useState("");
 
   function signIn(e) {
@@ -2827,7 +3387,16 @@ function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
     if (!companyName.trim() || !email.trim() || !password.trim()) { setErr("Fill in all fields."); return; }
     if (orgs.some((o) => o.email.toLowerCase() === email.trim().toLowerCase())) { setErr("An account with that email already exists — sign in instead."); return; }
     const id = `org_${Date.now()}`;
-    setOrgs((p) => [...p, { id, name: companyName.trim(), email: email.trim(), password, plan: "drive", members: [{ email: email.trim(), role: "recruiter" }] }]);
+    const agency = kind === "agency";
+    const name = companyName.trim();
+    setOrgs((p) => [...p, {
+      id, name, short: name.split(" ")[0], kind, color: agency ? "#0F8A6B" : "#341C8A",
+      logo: agency ? "bars" : "ring", wash: agency ? "#E6F5F0" : "#EEE8F8",
+      email: email.trim(), password, plan: "trial",
+      members: [{ email: email.trim(), role: "recruiter" }],
+      clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
+      branches: [],
+    }]);
     onSignedIn(id, "recruiter");
   }
 
@@ -2836,7 +3405,7 @@ function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
       <div style={{ maxWidth: 420, width: "100%" }}>
         <button onClick={back} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, marginBottom: 22 }}><ArrowLeft size={14} /> Back to site</button>
         <div style={{ marginBottom: 8 }}><Wordmark size={20} /></div>
-        <p style={{ color: k.mid, fontSize: 14, margin: "0 0 24px" }}>Sign in to your company account — every HR user on your team sees the same drives, across every city.</p>
+        <p style={{ color: k.mid, fontSize: 14, margin: "0 0 24px" }}>Marketing is TokenHire. After sign-in you land in your company or agency space — only that org’s drives.</p>
 
         <div style={{ display: "flex", gap: 4, background: k.cream2, borderRadius: R.pill, padding: 4, marginBottom: 20 }}>
           <button onClick={() => { setMode("signin"); setErr(""); }} style={{ flex: 1, padding: "9px 0", borderRadius: R.pill, border: "none", cursor: "pointer", fontFamily: bdy, fontSize: 13.5, fontWeight: 600, background: mode === "signin" ? "#fff" : "transparent", color: mode === "signin" ? k.ink : k.mid }}>Sign in</button>
@@ -2849,13 +3418,28 @@ function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
             <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} /></Field>
             {err && <div style={{ fontSize: 12.5, color: k.red }}>{err}</div>}
             <button type="submit" style={{ ...solid, justifyContent: "center", padding: 12, marginTop: 4 }}>Sign in</button>
-            <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.6, marginTop: 4 }}>
-              Full-floor demo (50 candidates, one live walk-in): <b style={{ fontFamily: typ }}>demo@vistaar.com</b> recruiter · <b style={{ fontFamily: typ }}>desk@vistaar.com</b> front desk. Password <b style={{ fontFamily: typ }}>demo1234</b>.
+            <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.7, marginTop: 4 }}>
+              Password for every demo: <b style={{ fontFamily: typ }}>demo1234</b><br />
+              Plans — <b style={{ fontFamily: typ }}>trial@tokenhire.demo</b> (free) · <b style={{ fontFamily: typ }}>single@tokenhire.demo</b> (₹7,500) · <b style={{ fontFamily: typ }}>monthly@tokenhire.demo</b> (₹15k) · <b style={{ fontFamily: typ }}>pack10@tokenhire.demo</b> · <b style={{ fontFamily: typ }}>pack25@tokenhire.demo</b> · <b style={{ fontFamily: typ }}>enterprise@tokenhire.demo</b><br />
+              Agency floor: <b style={{ fontFamily: typ }}>demo@vistaar.com</b> / <b style={{ fontFamily: typ }}>hr@quesscorp.com</b>. Campus: <b style={{ fontFamily: typ }}>hr@wipro.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.
             </div>
           </form>
         ) : (
           <form onSubmit={createOrg} style={{ ...box, padding: 24, display: "flex", flexDirection: "column", gap: 13 }}>
-            <Field label="Company name"><input value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={input} placeholder="Your company or agency" /></Field>
+            <Field label="Company or agency name"><input value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={input} placeholder="Vistaar Services, or Quess Corp" /></Field>
+            <div>
+              <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>How you hire</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={() => setKind("captive")} style={{ flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: bdy, border: `1px solid ${kind === "captive" ? k.coral : k.line}`, background: kind === "captive" ? k.coralDim : "#fff" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>Enterprise / captive</div>
+                  <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3 }}>Wipro or Genpact — hire for yourselves. No client layer.</div>
+                </button>
+                <button type="button" onClick={() => setKind("agency")} style={{ flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: bdy, border: `1px solid ${kind === "agency" ? k.coral : k.line}`, background: kind === "agency" ? k.coralDim : "#fff" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>Staffing agency</div>
+                  <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3 }}>Quess or Vistaar — walk-ins for clients, branded as you.</div>
+                </button>
+              </div>
+            </div>
             <Field label="Work email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} placeholder="hr@yourcompany.com" /></Field>
             <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} /></Field>
             {err && <div style={{ fontSize: 12.5, color: k.red }}>{err}</div>}
@@ -2868,10 +3452,22 @@ function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
   );
 }
 
-function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs }) {
+function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs, setDrives }) {
+  const agency = isAgencyOrg(org);
+  const clients = org.clients || [];
+  const branches = org.branches || [];
+  const accent = org.color || k.coral;
   const [making, setMaking] = useState(false);
   const [showTeam, setShowTeam] = useState(false);
-  const [f, setF] = useState({ company: org.name, role: "", venue: "", city: CITIES.includes("Hyderabad") ? "Hyderabad" : CITIES[0], date: todayStr(), status: "live", visibility: "public", jd: "", expNeeded: [], docs: DOC_OPTIONS.slice(0, 4) });
+  const [showClients, setShowClients] = useState(false);
+  const [showBrand, setShowBrand] = useState(false);
+  const [filterClient, setFilterClient] = useState("all");
+  const [filterCity, setFilterCity] = useState("all");
+  const [f, setF] = useState({
+    company: org.name, role: "", venue: branches[0]?.name || "", city: branches[0]?.city || (CITIES.includes("Hyderabad") ? "Hyderabad" : CITIES[0]),
+    date: todayStr(), status: "live", visibility: "public", jd: "", expNeeded: [], docs: DOC_OPTIONS.slice(0, 4),
+    clientId: agency ? (clients[0]?.id || "") : "", branchId: branches[0]?.id || "",
+  });
   const [host, setHost] = useState("");
   const [hostErr, setHostErr] = useState("");
   function openByHost() {
@@ -2880,33 +3476,99 @@ function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs }) {
     if (!v) return;
     if (v.startsWith("GATE") || v.startsWith("DESK")) { setHostErr("That's a candidate GATE or DESK code. Staff use HOST-XXXXXX."); return; }
     const hit = drives.find((d) => d.host.toUpperCase() === v || d.host.toUpperCase() === `HOST-${v}` || (v.startsWith("HOST") && bare6(d.host) === bare6(v)));
-    if (!hit) { setHostErr("No walk-in in your company account has that HOST code."); return; }
+    if (!hit) { setHostErr("No walk-in in this space has that HOST code."); return; }
     open(hit.id);
   }
-  const cities = Array.from(new Set(drives.map((d) => d.city))).filter(Boolean);
-  const multiDay = (PLANS.find((p) => p.id === org.plan) || PLANS[0]).multiDay;
+  const cities = Array.from(new Set([...(org.branches || []).map((b) => b.city), ...drives.map((d) => d.city)])).filter(Boolean);
+  const spec = planOf(org);
+  const lim = spec.limits;
+  const multiDay = spec.multiDay;
+  const slots = driveSlotsLeft(org, drives);
+  const canClients = agency && lim.clients;
+  const lockedCity = lim.cities === 1 ? (orgCities(org)[0] || null) : null;
+  const shown = drives.filter((d) => (filterClient === "all" || d.clientId === filterClient) && (filterCity === "all" || d.city === filterCity));
+  const grouped = cities.filter((c) => shown.some((d) => d.city === c));
+  function pickBranch(branchId) {
+    const br = branches.find((b) => b.id === branchId);
+    setF({ ...f, branchId, city: br?.city || f.city, venue: br?.name || f.venue, branch: br?.name || "" });
+  }
   return (
-    <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "40px 26px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <button onClick={back} style={{ ...iconBtn, display: "flex", gap: 7, alignItems: "center", fontSize: 13 }}><ArrowLeft size={15} /> Back</button>
-          <button onClick={onSignOut} style={{ ...iconBtn, fontSize: 12.5, color: k.mid }}>Sign out</button>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: k.coral, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#fff" }}>{org.name[0].toUpperCase()}</div>
-          <div>
-            <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 16 }}>{org.name}</div>
-            <div style={{ fontSize: 12, color: k.mid, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>{org.members.length} team {org.members.length === 1 ? "member" : "members"} · {cities.length || 0} {cities.length === 1 ? "city" : "cities"} <Pill tone={multiDay ? "teal" : "grey"}>{(PLANS.find((p) => p.id === org.plan) || PLANS[0]).name.toUpperCase()}</Pill></div>
+    <div style={{ minHeight: "100vh", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
+      <div style={{ background: accent, color: "#fff", padding: "22px 26px 26px" }}>
+        <div style={{ maxWidth: 920, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <button onClick={back} style={{ background: "none", border: "none", color: "rgba(255,255,255,.85)", display: "flex", gap: 7, alignItems: "center", fontSize: 13, cursor: "pointer", fontFamily: bdy }}><ArrowLeft size={15} /> Back</button>
+            <button onClick={onSignOut} style={{ background: "none", border: "none", color: "rgba(255,255,255,.75)", fontSize: 12.5, cursor: "pointer", fontFamily: bdy }}>Sign out</button>
           </div>
-          {!desk && <button onClick={() => setShowTeam(true)} style={{ ...ghostSm, marginLeft: "auto" }}><Users2 size={13} /> Team</button>}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: 6, display: "flex" }}>
+              <OrgLogo name={org.short || org.name} color={accent} logo={org.logo} size={52} />
+            </div>
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <div style={{ fontSize: 11, letterSpacing: 1.2, fontWeight: 700, textTransform: "uppercase", opacity: .75, marginBottom: 4 }}>{agency ? "Staffing HQ" : "Campus hiring"}</div>
+              <div style={{ fontFamily: dsp, fontWeight: 800, fontSize: 28, letterSpacing: -0.6, lineHeight: 1.1 }}>{org.name}</div>
+              <div style={{ fontSize: 13, opacity: .85, marginTop: 6 }}>{agency ? "Hire for clients. This hall is yours." : "You hire for yourselves — no staffing clients."}</div>
+            </div>
+            {!desk && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => setShowClients(true)} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><HeartHandshake size={13} /> {agency && planLimits(org).clients ? "Clients & sites" : "Sites"}</button>
+                <button onClick={() => setShowBrand(true)} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Palette size={13} /> Brand</button>
+                <button onClick={() => setShowTeam(true)} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Users2 size={13} /> Team</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="pagepad" style={{ maxWidth: 920, margin: "0 auto", padding: "22px 26px 40px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: canClients ? "1.1fr 1fr" : "1fr", gap: 12, marginBottom: 20 }} className={canClients ? "g2" : undefined}>
+          {canClients && (
+            <div style={{ ...box, padding: 16 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 10 }}>Clients</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {clients.map((c) => {
+                  const n = drives.filter((d) => d.clientId === c.id).length;
+                  const on = filterClient === c.id;
+                  return (
+                    <button key={c.id} type="button" onClick={() => setFilterClient(on ? "all" : c.id)} style={{
+                      padding: "8px 12px", borderRadius: 12, cursor: "pointer", fontFamily: bdy, textAlign: "left",
+                      border: `1px solid ${on ? accent : k.line}`, background: on ? `${accent}18` : "#fff",
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: on ? accent : k.ink }}>{c.name}</div>
+                      <div style={{ fontSize: 11, color: k.mid, marginTop: 2 }}>{n} {n === 1 ? "drive" : "drives"}</div>
+                    </button>
+                  );
+                })}
+                {!clients.length && <div style={{ fontSize: 13, color: k.mid }}>Add clients to tag drives.</div>}
+              </div>
+            </div>
+          )}
+          <div style={{ ...box, padding: 16 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 10 }}>{canClients ? "Branches / cities" : "Sites"}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {(branches.length ? branches : cities.map((c) => ({ id: c, name: c, city: c }))).map((b) => {
+                const on = filterCity === b.city;
+                return (
+                  <button key={b.id} type="button" onClick={() => setFilterCity(on ? "all" : b.city)} style={{
+                    padding: "8px 12px", borderRadius: 12, cursor: "pointer", fontFamily: bdy,
+                    border: `1px solid ${on ? k.ink : k.line}`, background: on ? k.ink : "#fff", color: on ? "#fff" : k.ink,
+                    fontSize: 13, fontWeight: 600,
+                  }}>{b.city}{b.name && b.name !== b.city ? ` · ${b.name}` : ""}</button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {!making ? (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
-            <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: 0 }}>{desk ? "Walk-ins today" : "Your company's walk-ins"}</h1>
-              {!desk && create && <button onClick={() => setMaking(true)} style={solid}><Plus size={15} /> New walk-in</button>}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: 0 }}>{desk ? "Walk-ins today" : "Walk-ins"}</h1>
+              {!desk && lim.drives < 999 && slots > 0 && <div style={{ fontSize: 12.5, color: k.mid, marginTop: 4 }}>{slots} left{multiDay ? " this month" : ""}</div>}
             </div>
+              {!desk && create && slots > 0 && <button onClick={() => setMaking(true)} style={{ ...solid, background: accent }}><Plus size={15} /> New walk-in</button>}
+            </div>
+            {!desk && create && slots <= 0 && <div style={{ ...box, padding: 14, marginBottom: 14, fontSize: 13.5, color: k.ink2, lineHeight: 1.5 }}>{driveCapCopy(org)} Contact us if you need more.</div>}
             <div style={{ ...box, padding: 18, marginBottom: 20 }}>
               <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>A teammate started a walk-in on another laptop? Open it with the staff HOST code — never the GATE QR.</div>
               <div style={{ display: "flex", gap: 9 }}>
@@ -2915,32 +3577,61 @@ function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs }) {
               </div>
               {hostErr && <div style={{ fontSize: 12.5, color: k.red, marginTop: 9 }}>{hostErr}</div>}
             </div>
-            {!drives.length && <Blank text="No walk-ins yet for this company. Create your first one." />}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {drives.map((d) => (
-                <div key={d.id} style={{ ...box, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                      <span style={{ fontFamily: dsp, fontWeight: 700, fontSize: 15 }}>{d.role}</span>
-                      <StatusPill status={d.status} />
-                      {d.visibility === "private" ? <Pill tone="grey">PRIVATE</Pill> : <Pill tone="teal">PUBLIC</Pill>}
+            {!shown.length && <Blank text={drives.length ? "No drives match that filter." : (slots <= 0 ? driveCapCopy(org) : `No walk-ins yet for ${org.name}. Create your first one.`)} />}
+            {(grouped.length ? grouped : [""]).map((city) => (
+              <div key={city || "all"} style={{ marginBottom: 16 }}>
+                {city ? <div style={{ fontSize: 11.5, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", margin: "4px 0 8px" }}>{city} {branches.filter((b) => b.city === city).map((b) => b.name).join(" · ")}</div> : null}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {shown.filter((d) => !city || d.city === city).map((d) => (
+                    <div key={d.id} style={{ ...box, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
+                          <span style={{ fontFamily: dsp, fontWeight: 700, fontSize: 15 }}>{d.role}</span>
+                          <StatusPill status={d.status} />
+                          {d.visibility === "private" ? <Pill tone="grey">PRIVATE</Pill> : <Pill tone="teal">PUBLIC</Pill>}
+                          {clientOf(d) ? <Pill tone="coral">{d.clientName}</Pill> : null}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>{listingPlace(d)} · {d.endDate && d.endDate !== d.date ? `${fmtDate(d.date)} – ${fmtDate(d.endDate)}` : fmtDate(d.date)} — {d.candidates.length} checked in</div>
+                        <div style={{ fontFamily: typ, fontSize: 11.5, color: k.faint, marginTop: 4 }}>{d.host} · {d.gate}</div>
+                      </div>
+                      <button onClick={() => open(d.id)} style={outline}>Open <ArrowRight size={14} /></button>
                     </div>
-                    <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>{d.city} · {d.venue} · {d.endDate && d.endDate !== d.date ? `${fmtDate(d.date)} – ${fmtDate(d.endDate)}` : fmtDate(d.date)} — {d.candidates.length} checked in</div>
-                    <div style={{ fontFamily: typ, fontSize: 11.5, color: k.faint, marginTop: 4 }}>{d.host} · {d.gate}</div>
-                  </div>
-                  <button onClick={() => open(d.id)} style={outline}>Open <ArrowRight size={14} /></button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </>
         ) : (
           <div style={{ ...box, padding: 26, maxWidth: 540 }}>
             <h2 style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700, margin: "0 0 5px" }}>Set up a walk-in</h2>
-            <p style={{ fontSize: 13, color: k.mid, margin: "0 0 20px" }}>Owned by {org.name}. Any teammate signed into this account can see and run it.</p>
-            <form onSubmit={(e) => { e.preventDefault(); if (!f.role.trim() || !f.venue.trim() || !f.city.trim()) return; create(f); setMaking(false); }} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+            <p style={{ fontSize: 13, color: k.mid, margin: "0 0 20px" }}>
+              {canClients
+                ? `Tag the client and location. Candidates see ${org.short || org.name} for that client.`
+                : multiDay
+                  ? `Owned by ${org.name}. You can run this across several days.`
+                  : `Owned by ${org.name}. One event — one day, one location.`}
+            </p>
+            <form onSubmit={(e) => { e.preventDefault(); if (driveSlotsLeft(org, drives) <= 0) return; if (!f.role.trim() || !f.venue.trim() || !(lockedCity || f.city.trim())) return; create({ ...f, city: lockedCity || f.city }); setMaking(false); }} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+              {canClients && (
+                <Field label="Client company">
+                  <select value={f.clientId || ""} onChange={(e) => setF({ ...f, clientId: e.target.value })} style={{ ...input, appearance: "auto" }}>
+                    <option value="">Select client…</option>
+                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Walk-in for this client. Use Associate bench when you are hiring onto your own payroll.</div>
+                </Field>
+              )}
+              {!!branches.length && (
+                <Field label="Branch / site">
+                  <select value={f.branchId || ""} onChange={(e) => pickBranch(e.target.value)} style={{ ...input, appearance: "auto" }}>
+                    <option value="">City + venue below</option>
+                    {branches.map((b) => <option key={b.id} value={b.id}>{b.city} · {b.name}</option>)}
+                  </select>
+                </Field>
+              )}
               <Field label="Role"><input value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} style={input} placeholder="Customer Support Executive" /></Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="City"><CitySelect value={f.city} onChange={(city) => setF({ ...f, city })} /></Field>
+                <Field label="City">{lockedCity ? <div style={{ ...input }}>{lockedCity}</div> : <CitySelect value={f.city} onChange={(city) => setF({ ...f, city })} />}</Field>
                 <Field label={multiDay ? "Start date" : "Date"}><input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} style={input} /></Field>
               </div>
               {multiDay ? (
@@ -2948,11 +3639,7 @@ function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs }) {
                   <input type="date" value={f.endDate || f.date} min={f.date} onChange={(e) => setF({ ...f, endDate: e.target.value })} style={input} />
                   <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Runs across multiple days — the same queue and candidate list carries over each morning.</div>
                 </Field>
-              ) : (
-                <div style={{ background: k.cream2, borderRadius: 10, padding: "12px 14px", fontSize: 12.5, color: k.ink2, lineHeight: 1.55 }}>
-                  Your <b>Per drive</b> plan covers a single day. To run a drive across multiple days, upgrade to Monthly or Agency.
-                </div>
-              )}
+              ) : null}
               <Field label="Venue"><input value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} style={input} placeholder="Gachibowli campus, Gate 1" /></Field>
 
               <Field label="Job description">
@@ -3029,6 +3716,135 @@ function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs }) {
         )}
       </div>
       {showTeam && <TeamPanel org={org} setOrgs={setOrgs} onClose={() => setShowTeam(false)} />}
+      {showClients && <ClientsPanel org={org} setOrgs={setOrgs} onClose={() => setShowClients(false)} />}
+      {showBrand && <BrandPanel org={org} setOrgs={setOrgs} setDrives={setDrives} onClose={() => setShowBrand(false)} />}
+    </div>
+  );
+}
+
+function ClientsPanel({ org, setOrgs, onClose }) {
+  const [name, setName] = useState("");
+  const [branch, setBranch] = useState("");
+  const [city, setCity] = useState((org.branches || [])[0]?.city || (CITIES.includes("Hyderabad") ? "Hyderabad" : CITIES[0]));
+  const [err, setErr] = useState("");
+  const clients = org.clients || [];
+  const branches = org.branches || [];
+  const lim = planLimits(org);
+  const canClients = isAgencyOrg(org) && lim.clients;
+  const lockedCity = lim.cities === 1 ? (orgCities(org)[0] || city) : null;
+  function patch(next) {
+    setOrgs((p) => p.map((o) => (o.id === org.id ? { ...o, ...next } : o)));
+  }
+  function addClient() {
+    if (!canClients) return;
+    const v = name.trim();
+    if (!v || clients.some((c) => c.name.toLowerCase() === v.toLowerCase())) return;
+    patch({ clients: [...clients, { id: `cl_${Date.now()}`, name: v }] });
+    setName("");
+  }
+  function addBranch() {
+    setErr("");
+    const v = branch.trim();
+    if (!v) return;
+    if (branches.length >= lim.sites) { setErr(`This plan includes ${lim.sites} site${lim.sites === 1 ? "" : "s"}.`); return; }
+    const nextCity = lockedCity || city;
+    const nextCities = new Set([...orgCities(org), nextCity]);
+    if (nextCities.size > lim.cities) { setErr(`This plan includes ${lim.cities} ${lim.cities === 1 ? "city" : "cities"}.`); return; }
+    patch({ branches: [...branches, { id: `br_${Date.now()}`, name: v, city: nextCity }] });
+    setBranch("");
+  }
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: 28, maxWidth: 480, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <div>
+            <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>{org.name} — {canClients ? "Clients & sites" : "Sites"}</div>
+            <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3, lineHeight: 1.5 }}>
+              {canClients
+                ? "Clients are companies you staff (HDFC, Amazon) or your own bench. Sites are branches. Other agencies never see this list."
+                : "Sites are campuses or branches for this company. Other orgs never see this list."}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
+        </div>
+        {canClients && (
+          <>
+            <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .5, textTransform: "uppercase", margin: "16px 0 8px" }}>Clients</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+              {clients.map((c) => (
+                <div key={c.id} style={{ padding: "9px 12px", background: k.cream2, borderRadius: 10, fontSize: 13.5, fontWeight: 600 }}>{c.name}</div>
+              ))}
+              {!clients.length && <div style={{ fontSize: 13, color: k.mid }}>No clients yet.</div>}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+              <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addClient()} placeholder="e.g. HDFC sales" style={{ ...input, flex: 1 }} />
+              <button onClick={addClient} style={solidSm}>Add client</button>
+            </div>
+          </>
+        )}
+        <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .5, textTransform: "uppercase", margin: "16px 0 8px" }}>Sites</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+          {branches.map((b) => (
+            <div key={b.id} style={{ padding: "9px 12px", background: k.cream2, borderRadius: 10, fontSize: 13.5 }}><b>{b.name}</b><span style={{ color: k.mid }}> · {b.city}</span></div>
+          ))}
+          {!branches.length && <div style={{ fontSize: 13, color: k.mid }}>No sites yet — city + venue on each drive still works.</div>}
+        </div>
+        {err && <div style={{ fontSize: 12.5, color: k.red, marginBottom: 10 }}>{err}</div>}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input value={branch} onChange={(e) => setBranch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addBranch()} placeholder="Site name — e.g. HITEC Tower B" style={{ ...input, flex: "1 1 160px" }} />
+          {lockedCity ? <div style={{ ...input, width: "auto", display: "flex", alignItems: "center" }}>{lockedCity}</div> : <CitySelect value={city} onChange={setCity} />}
+          <button onClick={addBranch} style={outlineSm} disabled={branches.length >= lim.sites}>Add site</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BrandPanel({ org, setOrgs, setDrives, onClose }) {
+  const [name, setName] = useState(org.short || org.name);
+  const [color, setColor] = useState(org.color || k.coral);
+  const [logo, setLogo] = useState(org.logo || "letter");
+  function save() {
+    const short = name.trim() || org.short;
+    setOrgs((p) => p.map((o) => (o.id === org.id ? { ...o, short, color, logo } : o)));
+    if (setDrives) setDrives((p) => p.map((d) => (d.orgId === org.id ? { ...d, brand: { ...(d.brand || {}), name: short, color, logo } } : d)));
+    onClose();
+  }
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: 28, maxWidth: 460, width: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>Location brand</div>
+          <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
+        </div>
+        <p style={{ fontSize: 13, color: k.mid, margin: "0 0 16px", lineHeight: 1.5 }}>
+          GATE, TV, and check-in carry this mark.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <OrgLogo name={name} color={color} logo={logo} size={48} />
+          <HallBrand name={name} color={color} logo={logo} credit={planLimits(org).credit} sub={isAgencyOrg(org) && planLimits(org).clients ? ((org.clients || [])[0]?.name || "Client") : null} />
+        </div>
+        <Field label="Display name"><input value={name} onChange={(e) => setName(e.target.value)} style={input} /></Field>
+        <div style={{ height: 12 }} />
+        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Logo</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+          {LOGO_PRESETS.map((p) => (
+            <button key={p.id} type="button" onClick={() => setLogo(p.id)} style={{ padding: 6, borderRadius: 10, border: `2px solid ${logo === p.id ? color : k.line}`, background: "#fff", cursor: "pointer" }}>
+              <OrgLogo name={name} color={color} logo={p.id} size={32} />
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Primary color</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+          {BRAND_COLORS.map((c) => (
+            <button key={c.hex} type="button" onClick={() => setColor(c.hex)} title={c.name} style={{
+              width: 30, height: 30, borderRadius: "50%", background: c.hex, cursor: "pointer",
+              border: color === c.hex ? `3px solid ${k.ink}` : "3px solid transparent",
+            }} />
+          ))}
+        </div>
+        <button onClick={save} style={{ ...solid, background: color, width: "100%", justifyContent: "center" }}>Apply to this space</button>
+      </div>
     </div>
   );
 }
@@ -3044,6 +3860,7 @@ function TeamPanel({ org, setOrgs, onClose }) {
   function invite() {
     const v = email.trim();
     if (!v || members.some((m) => memberEmail(m).toLowerCase() === v.toLowerCase())) return;
+    if (members.length >= planLimits(org).seats) return;
     commit([...members, { email: v, role }]);
     setEmail("");
   }
@@ -3056,7 +3873,7 @@ function TeamPanel({ org, setOrgs, onClose }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
             <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>{org.name} — Team</div>
-            <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>Add multiple recruiters, then map them to rooms on a drive. Front desk only runs the live queue and waiting screen.</div>
+            <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>Add recruiters, then map them to rooms on a drive. Front desk only runs the live queue and waiting screen.</div>
           </div>
           <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
         </div>
@@ -3081,14 +3898,28 @@ function TeamPanel({ org, setOrgs, onClose }) {
             <option value="recruiter">Recruiter</option>
             <option value="frontdesk">Front desk</option>
           </select>
-          <button onClick={invite} style={solidSm}>Invite</button>
+          <button onClick={invite} style={solidSm} disabled={members.length >= planLimits(org).seats}>Invite</button>
         </div>
-        <div style={{ fontSize: 11, color: k.faint, marginTop: 10, lineHeight: 1.5 }}>Front desk never sees who is in an interview room, resumes, or round decisions. Map recruiters to rooms on the drive’s Rooms tab.</div>
+        <div style={{ fontSize: 11, color: k.faint, marginTop: 10, lineHeight: 1.5 }}>
+          {members.length >= planLimits(org).seats
+            ? `This plan includes ${planLimits(org).seats} team seat${planLimits(org).seats === 1 ? "" : "s"}.`
+            : "Front desk never sees who is in an interview room, resumes, or round decisions. Map recruiters to rooms on the drive’s Rooms tab."}
+        </div>
       </div>
     </div>
   );
 }
 
+
+function OutcomeBtns({ cand, rounds, decide }) {
+  return (
+    <>
+      <Btn onClick={() => decide(cand.id, "selected")}>{passLabel(rounds, cand)}</Btn>
+      <Btn q onClick={() => decide(cand.id, "onhold")}>Hold</Btn>
+      <Btn q onClick={() => decide(cand.id, "rejected")}>Reject</Btn>
+    </>
+  );
+}
 
 function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, decide, sendToRound, deskMode, issuePass }) {
   const rooms = drive.rooms || [];
@@ -3120,7 +3951,7 @@ function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, de
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{r.name}</div>
                   <div style={{ fontSize: 12, color: k.ink2, marginTop: 2 }}>{r.interviewer || "Unassigned"}</div>
                   <div style={{ fontSize: 11.5, color: who ? k.coral : k.faint, marginTop: 6, fontWeight: 600 }}>
-                    {who ? `${who.token} · ${who.state === "calling" ? "Calling" : "In interview"}` : "Free"}
+                    {who ? `${who.token} · ${roundLabel(rounds, who)} · ${who.state === "calling" ? "Calling" : "In interview"}` : "Free"}
                   </div>
                 </div>
               );
@@ -3164,12 +3995,8 @@ function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, de
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                       {x.state === "calling" && <Btn onClick={() => move(x.id, "interviewing")}>Started</Btn>}
-                      {x.state === "interviewing" && <>
-                        <Btn onClick={() => decide(x.id, "selected")}>Select</Btn>
-                        <Btn q onClick={() => decide(x.id, "onhold")}>Hold</Btn>
-                        <Btn q onClick={() => decide(x.id, "rejected")}>Reject</Btn>
-                        <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />
-                      </>}
+                      {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
+                      <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />
                       <Btn q onClick={() => skip(x.id)}>Skip</Btn>
                     </div>
                   </div>
@@ -3229,7 +4056,13 @@ function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, de
               {x.skipped ? <Pill tone="gold">SKIPPED {x.skipped}×</Pill> : null}
             </span>
             <span style={{ fontSize: 12.5, color: k.mid, fontFamily: typ }}>~{eta(x)}m</span>
-            {!deskMode && <span style={{ fontSize: 12.5, color: k.ink2, fontWeight: 600 }}>{roundLabel(rounds, x)}</span>}
+            {!deskMode && (
+              <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {clientOf(drive) ? <Pill tone="coral">{clientOf(drive)}</Pill> : null}
+                <span style={{ fontSize: 12.5, color: k.ink2, fontWeight: 600 }}>{roundLabel(rounds, x)}</span>
+                <Pill tone="grey">Waiting</Pill>
+              </span>
+            )}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
               {pickFor === x.id ? (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -3289,8 +4122,10 @@ function Elapsed({ since }) {
   return <span style={{ fontFamily: typ }}>{m}m elapsed</span>;
 }
 
-function Today({ s, wait, active, msgs, setTab, drive }) {
+function Today({ s, wait, active, msgs, setTab, drive, lim }) {
   const rooms = drive?.rooms || [];
+  const canRooms = lim?.rooms !== false;
+  const canMsgs = lim?.notify !== false;
   return (
     <div>
       <div style={{ display: "flex", gap: 22, flexWrap: "wrap", marginBottom: 26 }}>
@@ -3302,7 +4137,7 @@ function Today({ s, wait, active, msgs, setTab, drive }) {
       </div>
       {!!rooms.length && (
         <div style={{ marginBottom: 18 }}>
-          <Head title="Rooms today" action={<button onClick={() => setTab("rooms")} style={link}>Manage rooms <ArrowRight size={12} /></button>} />
+          <Head title="Rooms today" action={canRooms ? <button onClick={() => setTab("rooms")} style={link}>Manage rooms <ArrowRight size={12} /></button> : null} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
             {rooms.map((r) => {
               const who = occupantOf(drive, r.id);
@@ -3311,7 +4146,7 @@ function Today({ s, wait, active, msgs, setTab, drive }) {
                   <div style={{ fontSize: 11, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase" }}>{r.name}</div>
                   <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700, marginTop: 4 }}>{r.interviewer || "Unassigned"}</div>
                   <div style={{ fontSize: 12, color: who ? k.coral : k.mid, marginTop: 8, fontWeight: 600 }}>
-                    {who ? `${who.token} · ${who.name.split(" ")[0]}` : "Free"}
+                    {who ? `${who.token} · ${roundLabel(drive.rounds || [], who)}` : "Free"}
                   </div>
                 </div>
               );
@@ -3319,7 +4154,7 @@ function Today({ s, wait, active, msgs, setTab, drive }) {
           </div>
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 18 }} className="g2">
+      <div style={{ display: "grid", gridTemplateColumns: canMsgs ? "1.35fr 1fr" : "1fr", gap: 18 }} className="g2">
         <div style={{ ...box, padding: 20 }}>
           <Head title="The queue right now" action={<button onClick={() => setTab("queue")} style={link}>Open queue <ArrowRight size={12} /></button>} />
           {!active.length && !wait.length ? <Blank text="Nobody has checked in. Switch to the candidate side and join this drive." /> : (
@@ -3341,6 +4176,7 @@ function Today({ s, wait, active, msgs, setTab, drive }) {
             </div>
           )}
         </div>
+        {canMsgs && (
         <div style={{ ...box, padding: 20 }}>
           <Head title="Messages sent" action={<button onClick={() => setTab("msgs")} style={link}>All <ArrowRight size={12} /></button>} />
           {!msgs.length ? <Blank text="Messages go out as candidates move." /> : (
@@ -3354,6 +4190,7 @@ function Today({ s, wait, active, msgs, setTab, drive }) {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );
@@ -3368,31 +4205,30 @@ function TallyStat({ label, v, color }) {
   );
 }
 
-function Screen({ gate, desk, left, active, wait, eta, brand }) {
-  const branded = !!brand?.name?.trim();
-  const accent = branded ? brand.color : k.coral;
+function Screen({ gate, desk, left, active, wait, eta, brand, clientName, branch, role, credit = "on" }) {
+  const name = (brand?.name || "").trim() || "Walk-in";
+  const accent = brand?.color || k.coral;
+  const logo = brand?.logo || "letter";
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 16 }}>
-        {branded ? (
-          <>
-            <div style={{ width: 26, height: 26, borderRadius: 8, background: accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#fff" }}>
-              {brand.name.trim()[0].toUpperCase()}
-            </div>
-            <span style={{ fontFamily: dsp, fontWeight: 700, fontSize: 16 }}>{brand.name}</span>
-            <span style={{ fontSize: 10.5, color: k.faint, marginLeft: 4 }}>powered by TokenHire</span>
-          </>
-        ) : <Wordmark size={15} />}
+      <div style={{ marginBottom: 16 }}>
+        <HallBrand name={name} color={accent} logo={logo} sub={clientName || null} size={32} credit={credit} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 30 }} className="g2">
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 30 }} className="g2">
         <div>
-          <div style={{ ...box, padding: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 10.5, color: k.coral, fontFamily: typ, letterSpacing: 1, fontWeight: 700 }}>GATE · PRINT THIS</div>
+          <div style={{ ...box, padding: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, border: `2px solid ${accent}` }}>
+            <OrgLogo name={name} color={accent} logo={logo} size={40} />
+            <div style={{ fontFamily: dsp, fontWeight: 800, fontSize: 16, textAlign: "center", lineHeight: 1.25 }}>{clientName ? `${name} · ${clientName}` : name}</div>
+            {role ? <div style={{ fontSize: 12, color: k.mid, textAlign: "center" }}>{role}</div> : null}
+            {branch ? <div style={{ fontSize: 11.5, color: k.faint }}>{branch}</div> : null}
+            <div style={{ fontSize: 10.5, color: accent, fontFamily: typ, letterSpacing: 1, fontWeight: 700, marginTop: 4 }}>GATE · PRINT THIS</div>
             <img src={gateQr(gate, 165)} width={165} height={165} alt="Printed GATE QR — identifies the walk-in" />
             <div style={{ fontFamily: typ, fontSize: 16, fontWeight: 700, letterSpacing: 1.5 }}>{gate}</div>
             <div style={{ fontSize: 11, color: k.mid, textAlign: "center", lineHeight: 1.45 }}>Never expires. Finds the walk-in — does not check anyone in.</div>
+            {credit === "on" && <div style={{ fontSize: 11, fontWeight: 700, color: k.coral }}>Powered by TokenHire</div>}
+            {credit === "tiny" && <div style={{ fontSize: 9, color: k.faint }}>TokenHire</div>}
           </div>
-          <div style={{ ...box, marginTop: 10, padding: "12px 10px", textAlign: "center", background: k.cream2 }}>
+          <div style={{ ...box, marginTop: 10, padding: "12px 10px", textAlign: "center", background: `${accent}14` }}>
             <div style={{ fontSize: 10.5, color: k.mid, fontFamily: typ, letterSpacing: 1, marginBottom: 4 }}>DESK · TV ONLY</div>
             <div style={{ fontFamily: typ, fontSize: 22, fontWeight: 700, letterSpacing: 3, color: k.ink }}>DESK-{desk}</div>
             <div style={{ fontSize: 11, color: k.faint, fontFamily: typ, marginTop: 4 }}>ROTATES IN {left}s · proves you're in the room</div>
@@ -3400,7 +4236,7 @@ function Screen({ gate, desk, left, active, wait, eta, brand }) {
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 14, lineHeight: 1.5, textAlign: "center" }}>Names hidden here. Recruiters see full profiles.</div>
         </div>
         <div style={{ ...box, overflow: "hidden" }}>
-          <div style={{ padding: "12px 18px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 11, letterSpacing: 1.2, color: k.ink2 }}>NOW CALLING</div>
+          <div style={{ padding: "12px 18px", borderBottom: `2px solid ${accent}`, fontFamily: typ, fontSize: 11, letterSpacing: 1.2, color: accent, fontWeight: 700 }}>NOW CALLING</div>
           {!active.length ? <Blank text="Nobody is being called yet." /> : active.map((x) => (
             <div key={x.id} style={{ padding: 18, display: "flex", alignItems: "center", gap: 16, background: `${accent}18`, borderBottom: `1px solid ${k.line}` }}>
               <TokenChip token={x.token} name={mask(x.name)} size={52} color={accent} pulse />
@@ -3420,6 +4256,7 @@ function Screen({ gate, desk, left, active, wait, eta, brand }) {
 }
 
 function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], callTo, sendToRound }) {
+  const phone = useNarrow();
   const [q, setQ] = useState("");
   const [fExp, setFExp] = useState("All");
   const [fRound, setFRound] = useState("All");
@@ -3470,6 +4307,38 @@ function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], callTo, 
         ))}
       </div>
 
+      {phone ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {!list.length && <Blank text="Nobody matches these filters." />}
+          {list.map((x) => {
+            const noteCount = Object.values(x.notes || {}).filter(Boolean).length;
+            return (
+              <div key={x.id} style={{ ...box, padding: 14 }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <TokenTile token={x.token} size={40} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{x.name}</div>
+                    <div style={{ fontSize: 12, color: k.mid, marginTop: 2, fontFamily: typ }}>{x.phone}</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                      <Pill tone={label[x.state]?.[0]}>{label[x.state]?.[1]}</Pill>
+                      <Pill tone="grey">{roundLabel(rounds, x)}</Pill>
+                      {x.expBand && <Pill tone={x.expBand === "Fresher" ? "grey" : "coral"}>{x.expBand}</Pill>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
+                  {x.state === "wait" && <ActionSelect label="Call to room" options={(rooms || []).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
+                  {x.state === "calling" && <><Btn onClick={() => move(x.id, "interviewing")}>Start</Btn><Btn q onClick={() => move(x.id, "absent")}>Absent</Btn></>}
+                  {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
+                  {x.state === "onhold" && <Btn onClick={() => move(x.id, "wait")}>Back to queue</Btn>}
+                  {!isTerminal(x.state) && <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />}
+                  <Btn q onClick={() => setNoteFor(x)}>Notes{noteCount ? ` (${noteCount})` : ""}</Btn>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div style={{ ...box, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 1000 }}>
           <thead><tr style={{ background: k.cream2 }}>{["No.", "Candidate", "Experience", "Round", "Status", "Actions"].map((h) => <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, letterSpacing: .6, color: k.mid, fontWeight: 700, textTransform: "uppercase", borderBottom: `1px solid ${k.line}` }}>{h}</th>)}</tr></thead>
@@ -3498,11 +4367,7 @@ function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], callTo, 
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                       {x.state === "wait" && <ActionSelect label="Call to room" options={(rooms || []).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
                       {x.state === "calling" && <><Btn onClick={() => move(x.id, "interviewing")}>Start</Btn><Btn q onClick={() => move(x.id, "absent")}>Absent</Btn></>}
-                      {x.state === "interviewing" && <>
-                        <Btn onClick={() => decide(x.id, "selected")}>Select</Btn>
-                        <Btn q onClick={() => decide(x.id, "onhold")}>Hold</Btn>
-                        <Btn q onClick={() => decide(x.id, "rejected")}>Reject</Btn>
-                      </>}
+                      {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
                       {x.state === "onhold" && <Btn onClick={() => move(x.id, "wait")}>Back to queue</Btn>}
                       {!isTerminal(x.state) && <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />}
                       <Btn q onClick={() => setNoteFor(x)}>Notes{noteCount ? ` (${noteCount})` : ""}</Btn>
@@ -3514,6 +4379,7 @@ function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], callTo, 
           </tbody>
         </table>
       </div>
+      )}
 
       {noteFor && <NotesPanel cand={rows.find((r) => r.id === noteFor.id) || noteFor} rounds={rounds} onClose={() => setNoteFor(null)} saveNote={saveNote} />}
     </div>
@@ -3576,58 +4442,51 @@ function NotesPanel({ cand, rounds, onClose, saveNote }) {
   );
 }
 
-function BrandingTab({ brand, setBrand, drive }) {
-  const active = !!brand.name.trim();
+function BrandingTab({ brand, setBrand, drive, org }) {
+  const hall = (brand.name || "").trim() || org?.short || org?.name || drive.company;
+  const accent = brand.color || org?.color || k.coral;
+  const logo = brand.logo || org?.logo || "letter";
+  const patch = (partial) => setBrand({ name: hall, color: accent, logo, ...brand, ...partial });
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Candidate-facing branding</h1>
+      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Location branding</h1>
       <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.6 }}>
-        For staffing agencies running drives on behalf of a client — candidates see your name on the desk screen and their check-in confirmation, not TokenHire's. Leave this blank to use the default TokenHire branding.
+        Applies across this {isAgencyOrg(org) ? "agency" : "campus"} — GATE, waiting TV, and check-in.
       </p>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 30 }} className="g2">
         <div>
           <div style={{ ...box, padding: 22, marginBottom: 18 }}>
-            <Field label="Name shown to candidates">
-              <input value={brand.name} onChange={(e) => setBrand({ ...brand, name: e.target.value })} style={input} placeholder="e.g. Quess Corp, or your agency name" />
+            <Field label="Display name">
+              <input value={brand.name || ""} onChange={(e) => patch({ name: e.target.value })} style={input} placeholder={org?.short || org?.name} />
             </Field>
             <div style={{ height: 14 }} />
-            <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Accent color</div>
+            <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Logo</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              {LOGO_PRESETS.map((p) => (
+                <button key={p.id} type="button" onClick={() => patch({ logo: p.id })} style={{ padding: 6, borderRadius: 10, border: `2px solid ${logo === p.id ? accent : k.line}`, background: "#fff", cursor: "pointer" }}>
+                  <OrgLogo name={hall} color={accent} logo={p.id} size={32} />
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Primary color</div>
             <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
               {BRAND_COLORS.map((c) => (
-                <button key={c.hex} onClick={() => setBrand({ ...brand, color: c.hex })} title={c.name} style={{
+                <button key={c.hex} onClick={() => patch({ color: c.hex })} title={c.name} style={{
                   width: 34, height: 34, borderRadius: "50%", background: c.hex, cursor: "pointer",
-                  border: brand.color === c.hex ? `3px solid ${k.ink}` : "3px solid transparent",
-                  outline: brand.color === c.hex ? `2px solid ${c.hex}` : "none", outlineOffset: 2,
+                  border: accent === c.hex ? `3px solid ${k.ink}` : "3px solid transparent",
                 }} />
               ))}
             </div>
           </div>
-          <div style={{ background: active ? k.tealDim : k.cream2, borderRadius: 10, padding: "12px 16px", fontSize: 12.5, color: active ? k.teal : k.mid, lineHeight: 1.5 }}>
-            {active
-              ? `Candidates on this drive will see "${brand.name}" — not TokenHire — on the desk screen and their check-in confirmation. A small "Powered by TokenHire" credit stays in the corner.`
-              : "No custom branding set — candidates will see TokenHire's own name and color, as usual."}
-          </div>
         </div>
-
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .5, textTransform: "uppercase", marginBottom: 10 }}>Live preview — desk screen</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .5, textTransform: "uppercase", marginBottom: 10 }}>Waiting TV</div>
           <div style={{ background: "#0F1116", borderRadius: 14, padding: 22 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              {active ? (
-                <>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, background: brand.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#fff" }}>
-                    {brand.name.trim()[0].toUpperCase()}
-                  </div>
-                  <span style={{ color: "#fff", fontFamily: dsp, fontWeight: 700, fontSize: 14 }}>{brand.name}</span>
-                </>
-              ) : <Wordmark size={13} light />}
-            </div>
-            <div style={{ background: "#fff", borderRadius: 10, padding: 16, marginBottom: 10 }}>
-              <TokenChip token="W-014" name="R···l" size={40} color={active ? brand.color : k.coral} />
+            <HallBrand name={hall} color={accent} logo={logo} light sub={clientOf(drive) || null} credit={planLimits(org).credit} />
+            <div style={{ background: "#fff", borderRadius: 10, padding: 16, marginTop: 16 }}>
+              <TokenChip token="W-014" name="R···l" size={40} color={accent} />
               <div style={{ fontSize: 11.5, color: k.mid, marginTop: 8 }}>{drive.role}</div>
             </div>
-            {active && <div style={{ textAlign: "right", fontSize: 9.5, color: "#5B617A" }}>Powered by TokenHire</div>}
           </div>
         </div>
       </div>
@@ -3644,7 +4503,7 @@ function RoundsTab({ rounds, setRounds }) {
   return (
     <div style={{ maxWidth: 620 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Interview rounds</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px" }}>The stages of this walk-in. Recruiters can send a candidate to any round, or advance one at a time with Select. Each round gets its own private notes field.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>Calling someone to a room starts the first round. Pass moves them to the next; Select on the last round is the same-day selected outcome. Reject ends them immediately. On hold stays available. Each round has its own private notes.</p>
       <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
         {rounds.map((r, i) => (
           <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderTop: i ? `1px solid ${k.line}` : "none" }}>
@@ -3674,7 +4533,7 @@ function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
     return m ? memberName(m) : email.split("@")[0];
   };
   const add = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || planLimits(org).rooms === false) return;
     const email = recruiterEmail;
     setRooms([...rooms, { id: `rm${Date.now()}`, name: name.trim(), interviewer: email ? pickName(email) : "", recruiterEmail: email || null }]);
     setName("");
@@ -3685,6 +4544,7 @@ function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   function inviteRecruiter() {
     const v = invite.trim();
     if (!v || !setOrgs) return;
+    if ((org.members || []).length >= planLimits(org).seats) { setInvite(""); return; }
     if ((org.members || []).some((m) => memberEmail(m).toLowerCase() === v.toLowerCase())) { setInvite(""); return; }
     setOrgs((p) => p.map((o) => (o.id === org.id ? { ...o, members: [...(o.members || []), { email: v, role: "recruiter" }] } : o)));
     setInvite("");
@@ -3694,7 +4554,7 @@ function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   return (
     <div style={{ maxWidth: 720 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Rooms and interviewers</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>Each desk is a room plus a recruiter from your company team. Calling a candidate picks one of these rooms — the slip shows the room and interviewer.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>Each desk is a room plus a recruiter from your company team. Call to room assigns that desk and starts round 1 on the slip. Pass moves them to the next round; reject takes them out immediately.</p>
       <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
         {!rooms.length && <Blank text="No rooms yet. Add one below." />}
         {rooms.map((r, i) => {
@@ -3713,6 +4573,7 @@ function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
           );
         })}
       </div>
+      {planLimits(org).rooms !== false && (
       <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginBottom: 18 }}>
         <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Room name — e.g. Room 6" style={{ ...input, flex: "1 1 160px" }} />
         <select value={recruiterEmail} onChange={(e) => setRecruiterEmail(e.target.value)} style={{ ...input, flex: "1 1 180px", appearance: "auto" }}>
@@ -3721,6 +4582,7 @@ function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
         </select>
         <button onClick={add} style={solidSm}><Plus size={15} /> Add room</button>
       </div>
+      )}
       <div style={{ ...box, padding: 18 }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Add a recruiter to the team</div>
         <div style={{ fontSize: 12.5, color: k.mid, marginBottom: 10, lineHeight: 1.5 }}>They can sign in with this email (same company password) and appear in the room assignment list.</div>
@@ -3736,7 +4598,7 @@ function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
 function Msgs({ msgs }) {
   return (
     <div style={{ maxWidth: 560 }}>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 16px" }}>Only the 15-minute “you’re up soon” WhatsApp. No messages when someone is called, selected, or rejected — they see that on their phone.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 16px" }}>Only the 15-minute “you’re up soon” WhatsApp. No extra message types — not called, selected, or rejected.</p>
       {!msgs.length && <Blank text="No 15-minute nudges sent yet." />}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {msgs.map((m) => (
@@ -3834,8 +4696,8 @@ function RateCard({ label, v, color }) {
 /* ---- shared primitives ---- */
 function TopBar({ back, title, accent, tabs, tab, setTab }) {
   return (
-    <div style={{ ...chromeStrip, padding: "10px 16px 12px" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto", ...chromeBox, overflow: "hidden" }}>
+    <div className="chrome-wrap" style={{ ...chromeStrip, padding: "10px 16px 12px" }}>
+      <div className="chrome-inner" style={{ maxWidth: 720, margin: "0 auto", ...chromeBox, overflow: "hidden" }}>
         <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 14 }}>
           <button onClick={back} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> Back</button>
           <span style={{ width: 1, height: 16, background: k.line }} />
@@ -3843,8 +4705,8 @@ function TopBar({ back, title, accent, tabs, tab, setTab }) {
           <Pill tone={accent === k.teal ? "teal" : "coral"}>{title}</Pill>
         </div>
         {tabs && (
-          <div style={{ padding: "0 10px", display: "flex", gap: 2, background: k.cream2, borderTop: `1px solid ${k.line}` }}>
-            {tabs.map(([id, label]) => { const on = tab === id; return <button key={id} onClick={() => setTab(id)} style={{ padding: "10px 14px", border: "none", background: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? accent : k.mid, borderBottom: `2px solid ${on ? accent : "transparent"}`, fontFamily: bdy }}>{label}</button>; })}
+          <div className="tabscroll" style={{ padding: "0 10px", display: "flex", gap: 2, background: k.cream2, borderTop: `1px solid ${k.line}` }}>
+            {tabs.map(([id, label]) => { const on = tab === id; return <button key={id} onClick={() => setTab(id)} style={{ padding: "12px 14px", minHeight: 44, border: "none", background: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? accent : k.mid, borderBottom: `2px solid ${on ? accent : "transparent"}`, fontFamily: bdy, whiteSpace: "nowrap" }}>{label}</button>; })}
           </div>
         )}
       </div>
