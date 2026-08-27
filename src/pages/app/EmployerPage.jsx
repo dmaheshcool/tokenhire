@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { LayoutGrid, MonitorSmartphone, ListChecks, Send, PieChart, ArrowRight, Plus, ArrowLeft, Mail, ShieldCheck, FileText, Building2, Download, Users2, Building, HeartHandshake, Globe, Lock, Palette, MoreHorizontal, Search, Linkedin, Check } from "lucide-react";
 import { bdy, dsp, typ, k, R, box, input, solid, solidSm, outline, outlineSm, ghostSm, iconBtn, link, cell } from "../../theme.js";
 import { HallBrand, OrgLogo, TokenChip, Wordmark } from "../../components/brand.jsx";
@@ -99,13 +100,24 @@ export function AppTabs({ tabs, tab, setTab, accent, msgCount, layout }) {
   );
 }
 
-export function Employer({ store, back }) {
-  const { drives, setDrives, left, beat, orgs, setOrgs, activeOrgId, setActiveOrgId, staffRole, setStaffRole } = store;
+export function Employer({ store, back, initialDriveId }) {
+  const nav = useNavigate();
+  const { drives, setDrives, left, beat, orgs, setOrgs, activeOrgId, staffRole, signOut } = store;
   const phone = useNarrow();
   const desk = staffRole === "frontdesk";
   const tabs = desk ? DESK_TABS : staffTabs(orgs.find((o) => o.id === activeOrgId) || orgs[0]);
-  const [id, setId] = useState(null);
+  const [id, setId] = useState(initialDriveId || null);
   const [tab, setTab] = useState(desk ? "live" : "today");
+  useEffect(() => { if (initialDriveId) setId(initialDriveId); }, [initialDriveId]);
+  function openDrive(did) {
+    setId(did);
+    setTab(desk ? "live" : "today");
+    nav(`/app/hiring/${did}`);
+  }
+  function closeDrive() {
+    setId(null);
+    nav("/app/hiring");
+  }
   useEffect(() => {
     const ids = tabs.map(([tid]) => tid);
     if (ids.length && !ids.includes(tab)) setTab(ids[0]);
@@ -258,13 +270,13 @@ export function Employer({ store, back }) {
   }, [beat, drive?.candidates.length]);
 
   const org = orgs.find((o) => o.id === activeOrgId);
-  if (!org) return <OrgAuth orgs={orgs} setOrgs={setOrgs} onSignedIn={(oid, role) => { setActiveOrgId(oid); setStaffRole(role || "recruiter"); }} back={back} />;
+  if (!org) return null;
 
   const mine = drives.filter((d) => d.orgId === org.id);
   const face = { name: hallName(drive, org), color: orgColor(org, drive), logo: hallLogo(drive, org) };
 
-  if (!drive) return <Lobby drives={mine} org={org} desk={desk} setOrgs={setOrgs} setDrives={setDrives} onSignOut={() => { setId(null); setActiveOrgId(null); setStaffRole("recruiter"); }}
-    open={(did) => { setId(did); setTab(desk ? "live" : "today"); }}
+  if (!drive) return <Lobby drives={mine} org={org} desk={desk} setOrgs={setOrgs} setDrives={setDrives} onSignOut={() => { setId(null); signOut(); }}
+    open={openDrive}
     create={desk ? null : (f) => {
       if (driveSlotsLeft(org, drives) <= 0) return;
       const nid = `d_${Date.now()}`;
@@ -282,7 +294,7 @@ export function Employer({ store, back }) {
         brand: { name: org.short || org.name, color: org.color || BRAND_COLORS[0].hex, logo: org.logo || "letter" },
         rooms: lim.rooms === false ? [{ ...DEFAULT_ROOMS[0] }] : DEFAULT_ROOMS.map((r) => ({ ...r })),
       }]);
-      setId(nid); setTab("today");
+      setId(nid); setTab("today"); nav(`/app/hiring/${nid}`);
     }}
     back={back} />;
 
@@ -320,7 +332,7 @@ export function Employer({ store, back }) {
       <div style={{ minHeight: "100vh", display: "flex", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
         <aside style={{ width: 232, flexShrink: 0, background: "#fff", borderRight: `1px solid ${k.line}`, display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "16px 14px 10px", display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => setId(null)} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> {isAgencyOrg(org) ? "HQ" : "Campus"}</button>
+            <button onClick={closeDrive} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> {isAgencyOrg(org) ? "HQ" : "Campus"}</button>
           </div>
           <div style={{ padding: "4px 14px 12px", display: "flex", alignItems: "center", gap: 10 }}>
             <OrgLogo name={face.name} color={face.color} logo={face.logo} size={36} />
@@ -362,7 +374,7 @@ export function Employer({ store, back }) {
     <div style={{ minHeight: "100vh", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
       <div style={{ position: "sticky", top: 0, zIndex: 40, background: face.color, color: "#fff", padding: "10px 14px calc(12px)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={() => setId(null)} style={{ background: "none", border: "none", color: "#fff", padding: 4, cursor: "pointer" }}><ArrowLeft size={20} /></button>
+          <button onClick={closeDrive} style={{ background: "none", border: "none", color: "#fff", padding: 4, cursor: "pointer" }}><ArrowLeft size={20} /></button>
           <OrgLogo name={face.name} color={face.color} logo={face.logo} size={28} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: dsp, fontWeight: 800, fontSize: 16, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hallChrome(drive, org)}</div>
@@ -479,14 +491,12 @@ export function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
 }
 
 export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs, setDrives }) {
+  const nav = useNavigate();
   const agency = isAgencyOrg(org);
   const clients = org.clients || [];
   const branches = org.branches || [];
   const accent = org.color || k.coral;
   const [making, setMaking] = useState(false);
-  const [showTeam, setShowTeam] = useState(false);
-  const [showClients, setShowClients] = useState(false);
-  const [showBrand, setShowBrand] = useState(false);
   const [filterClient, setFilterClient] = useState("all");
   const [filterCity, setFilterCity] = useState("all");
   const [f, setF] = useState({
@@ -537,9 +547,10 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
             </div>
             {!desk && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={() => setShowClients(true)} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><HeartHandshake size={13} /> {agency && planLimits(org).clients ? "Clients & sites" : "Sites"}</button>
-                <button onClick={() => setShowBrand(true)} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Palette size={13} /> Brand</button>
-                <button onClick={() => setShowTeam(true)} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Users2 size={13} /> Team</button>
+                <button onClick={() => nav("/org/sites")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><HeartHandshake size={13} /> {agency && planLimits(org).clients ? "Clients & sites" : "Sites"}</button>
+                <button onClick={() => nav("/org/brand")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Palette size={13} /> Brand</button>
+                <button onClick={() => nav("/org/team")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Users2 size={13} /> Team</button>
+                <button onClick={() => nav("/org/billing")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><PieChart size={13} /> Plan</button>
               </div>
             )}
           </div>
@@ -741,14 +752,11 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
           </div>
         )}
       </div>
-      {showTeam && <TeamPanel org={org} setOrgs={setOrgs} onClose={() => setShowTeam(false)} />}
-      {showClients && <ClientsPanel org={org} setOrgs={setOrgs} onClose={() => setShowClients(false)} />}
-      {showBrand && <BrandPanel org={org} setOrgs={setOrgs} setDrives={setDrives} onClose={() => setShowBrand(false)} />}
     </div>
   );
 }
 
-export function ClientsPanel({ org, setOrgs, onClose }) {
+export function ClientsPanel({ org, setOrgs, onClose, embedded }) {
   const [name, setName] = useState("");
   const [branch, setBranch] = useState("");
   const [city, setCity] = useState((org.branches || [])[0]?.city || (CITIES.includes("Hyderabad") ? "Hyderabad" : CITIES[0]));
@@ -779,9 +787,8 @@ export function ClientsPanel({ org, setOrgs, onClose }) {
     patch({ branches: [...branches, { id: `br_${Date.now()}`, name: v, city: nextCity }] });
     setBranch("");
   }
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: 28, maxWidth: 480, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+  const card = (
+      <div style={{ background: embedded ? "transparent" : "#fff", borderRadius: embedded ? 0 : 18, padding: embedded ? 0 : 28, maxWidth: 560, width: "100%", maxHeight: embedded ? "none" : "90vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
           <div>
             <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>{org.name} — {canClients ? "Clients & sites" : "Sites"}</div>
@@ -791,7 +798,7 @@ export function ClientsPanel({ org, setOrgs, onClose }) {
                 : "Sites are campuses or branches for this company. Other orgs never see this list."}
             </div>
           </div>
-          <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
+          {!embedded && <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>}
         </div>
         {canClients && (
           <>
@@ -822,11 +829,16 @@ export function ClientsPanel({ org, setOrgs, onClose }) {
           <button onClick={addBranch} style={outlineSm} disabled={branches.length >= lim.sites}>Add site</button>
         </div>
       </div>
+  );
+  if (embedded) return card;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()}>{card}</div>
     </div>
   );
 }
 
-export function BrandPanel({ org, setOrgs, setDrives, onClose }) {
+export function BrandPanel({ org, setOrgs, setDrives, onClose, embedded }) {
   const [name, setName] = useState(org.short || org.name);
   const [color, setColor] = useState(org.color || k.coral);
   const [logo, setLogo] = useState(org.logo || "letter");
@@ -834,14 +846,13 @@ export function BrandPanel({ org, setOrgs, setDrives, onClose }) {
     const short = name.trim() || org.short;
     setOrgs((p) => p.map((o) => (o.id === org.id ? { ...o, short, color, logo } : o)));
     if (setDrives) setDrives((p) => p.map((d) => (d.orgId === org.id ? { ...d, brand: { ...(d.brand || {}), name: short, color, logo } } : d)));
-    onClose();
+    if (onClose) onClose();
   }
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: 28, maxWidth: 460, width: "100%" }}>
+  const card = (
+      <div style={{ background: embedded ? "transparent" : "#fff", borderRadius: embedded ? 0 : 18, padding: embedded ? 0 : 28, maxWidth: 460, width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>Location brand</div>
-          <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
+          {!embedded && <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>}
         </div>
         <p style={{ fontSize: 13, color: k.mid, margin: "0 0 16px", lineHeight: 1.5 }}>
           GATE, TV, and check-in carry this mark.
@@ -871,11 +882,16 @@ export function BrandPanel({ org, setOrgs, setDrives, onClose }) {
         </div>
         <button onClick={save} style={{ ...solid, background: color, width: "100%", justifyContent: "center" }}>Apply to this space</button>
       </div>
+  );
+  if (embedded) return card;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()}>{card}</div>
     </div>
   );
 }
 
-export function TeamPanel({ org, setOrgs, onClose }) {
+export function TeamPanel({ org, setOrgs, onClose, embedded }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("recruiter");
   const members = org.members || [];
@@ -893,15 +909,14 @@ export function TeamPanel({ org, setOrgs, onClose }) {
   function setMemberRole(em, r) {
     commit(members.map((m) => (memberEmail(m) === em ? { ...(typeof m === "string" ? { email: em } : m), email: em, role: r } : m)));
   }
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, padding: 28, maxWidth: 460, width: "100%" }}>
+  const card = (
+      <div style={{ background: embedded ? "transparent" : "#fff", borderRadius: embedded ? 0 : 18, padding: embedded ? 0 : 28, maxWidth: 560, width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
             <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>{org.name} — Team</div>
             <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>Add recruiters, then map them to rooms on a drive. Front desk only runs the live queue and waiting screen.</div>
           </div>
-          <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
+          {!embedded && <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "18px 0" }}>
           {members.map((m) => (
@@ -932,6 +947,11 @@ export function TeamPanel({ org, setOrgs, onClose }) {
             : "Front desk never sees who is in an interview room, resumes, or round decisions. Map recruiters to rooms on the drive’s Rooms tab."}
         </div>
       </div>
+  );
+  if (embedded) return card;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()}>{card}</div>
     </div>
   );
 }

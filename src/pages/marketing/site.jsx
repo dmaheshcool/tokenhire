@@ -73,6 +73,7 @@ export function SiteNav({ page, go, onLaunch }) {
           ))}
         </div>
         <div className="nav-ctas" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <button onClick={() => navigate("login")} style={{ ...textLink, textDecoration: "none" }}>Sign in</button>
           <button onClick={() => onLaunch("employer")} style={solidSm}>I'm hiring <ArrowRight size={15} /></button>
           <button onClick={() => onLaunch("candidate")} style={outlineSm}>Joining a walk-in?</button>
         </div>
@@ -96,7 +97,7 @@ export function SiteFooter({ go, onLaunch }) {
   const cols = [
     ["Company", [["home", "Home"], ["services", "Products"], ["about", "About us"], ["contact", "Contact us"]]],
     ["Solutions", [["services", "Walk-in drives"], ["services", "Campus hiring"], ["drives", "Staffing agencies"], ["pricing", "Pricing"]]],
-    ["Resources", [["demo", "Watch a walk-in"], ["drives", "Upcoming walk-ins"], ["contact", "Contact us"], ["privacy", "Privacy"], ["terms", "Terms of use"]]],
+    ["Resources", [["demo", "Watch a walk-in"], ["drives", "Upcoming walk-ins"], ["login", "Sign in"], ["status", "Server status"], ["contact", "Contact us"], ["privacy", "Privacy"], ["terms", "Terms of use"]]],
   ];
   return (
     <footer style={{ background: "#fff", borderTop: `1px solid ${k.line}`, marginTop: 60 }}>

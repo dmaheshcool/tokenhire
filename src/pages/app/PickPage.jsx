@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, User, Building2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Wordmark } from "../../components/brand.jsx";
-import { bdy, dsp, box, iconBtn, k } from "../../theme.js";
+import { bdy, dsp, box, iconBtn, k, textLink } from "../../theme.js";
 
 export function Pick({ go, back, hasProfile, driveCount }) {
   return (
@@ -23,7 +24,11 @@ export function Pick({ go, back, hasProfile, driveCount }) {
             <div style={{ marginTop: 12, fontSize: 12.5, color: k.coral, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>{driveCount ? "Open console" : "Set up a walk-in"} <ArrowRight size={13} /></div>
           </button>
         </div>
-        <div style={{ marginTop: 18, fontSize: 12, color: k.faint }}>First time here? Open "I'm hiring" — there's already a sample drive in progress to explore.</div>
+        <div style={{ marginTop: 18, fontSize: 12, color: k.faint, display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <Link to="/login" style={textLink}>Employer sign in</Link>
+          <Link to="/signup" style={textLink}>New company</Link>
+          <Link to="/candidate/login" style={textLink}>Candidate sign in</Link>
+        </div>
       </div>
     </div>
   );

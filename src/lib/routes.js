@@ -8,6 +8,10 @@ export const PATHS = {
   privacy: "/privacy",
   terms: "/terms",
   demo: "/watch",
+  login: "/login",
+  signup: "/signup",
+  status: "/status",
+  developers: "/developers",
 };
 
 export function pathFor(id) {
