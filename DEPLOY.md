@@ -79,3 +79,13 @@ npm run dev               # API on :8787, web on :5173
 
 `npm run dev` prints the web port it settled on. Only the client reads `VITE_*`, so
 restart it after changing those.
+
+`npm run build` runs `eslint . --quiet` first and fails on any error. Keep it that way:
+`no-undef` and `react/jsx-no-undef` catch components and helpers that are used but never
+imported, which otherwise build cleanly and crash only when that branch renders. Both
+rules are needed — `no-undef` doesn't inspect JSX element names and `jsx-no-undef` only
+inspects those.
+
+If a code change doesn't show up in the dev server, its file watcher has gone stale in
+this project. Restart with `rm -rf node_modules/.vite && npm run dev` rather than
+trusting hot reload.

@@ -8,7 +8,7 @@ import { DrivePosting } from "../../components/DrivePosting.jsx";
 import { KeepTokenLink } from "../../components/KeepTokenLink.jsx";
 import { rememberTicket, readTickets } from "../../lib/api.js";
 import { gateCodeFrom, startQrScan } from "../../lib/scanner.js";
-import { DEFAULT_ROUNDS, DEMO_OTP, boundToday, code, dupOf, hallChrome, hashAadhaar, inARound, isTerminal, listingHost, liveDesk, livePass, listingPlace, mask, planLimits, roundLabel, tat, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
+import { DEFAULT_ROUNDS, DEMO_OTP, EXP_BANDS, QUALIFICATIONS, boundToday, code, dupOf, hallChrome, hashAadhaar, inARound, isTerminal, listingHost, liveDesk, livePass, listingPlace, mask, planLimits, roundLabel, tat, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
 
 export function Candidate({ store, back }) {
   const nav = useNavigate();
