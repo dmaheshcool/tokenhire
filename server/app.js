@@ -1,11 +1,12 @@
 import express from "express";
 import {
-  candidateByPhone, consumeReset, createSession, DEMO_RESET, dropSession, findOrgByEmail,
-  getState, publicSnapshot, roleFor, saveCandidate, sessionOf, setReset, setSnapshot, tickDesk, upsertOrg,
+  candidateByPhone, checkOrgPassword, consumeReset, createSession, DEMO_RESET, dropSession, findOrgByEmail,
+  flushWrites, getState, publicSnapshot, ready, roleFor, saveCandidate, sessionOf, setOrgPassword, setReset,
+  setSnapshot, storageMode, upsertOrg,
 } from "./db.js";
 
 const app = express();
-app.use(express.json({ limit: "4mb" }));
+app.use(express.json({ limit: "8mb" }));
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -14,7 +15,15 @@ app.use((req, res, next) => {
   next();
 });
 
-setInterval(tickDesk, 1000);
+// A cold serverless instance holds only seed data until this resolves.
+app.use(async (_req, res, next) => {
+  try {
+    await ready();
+    next();
+  } catch {
+    res.status(503).json({ ok: false, error: "Store unavailable." });
+  }
+});
 
 function bearer(req) {
   const h = req.headers.authorization || "";
@@ -28,6 +37,23 @@ function requireStaff(req, res, next) {
   next();
 }
 
+// Small in-memory throttle. Per-instance only, but enough to stop a password guessing
+// loop from a single client; a real edge rate limit belongs in front of this.
+const attempts = new Map();
+function throttled(keyStr) {
+  const now = Date.now();
+  const rec = attempts.get(keyStr);
+  if (!rec || now - rec.first > 10 * 60 * 1000) {
+    attempts.set(keyStr, { first: now, n: 1 });
+    return false;
+  }
+  rec.n += 1;
+  return rec.n > 10;
+}
+function clearThrottle(keyStr) {
+  attempts.delete(keyStr);
+}
+
 app.get("/api/health", (_req, res) => {
   const s = getState();
   res.json({
@@ -38,30 +64,43 @@ app.get("/api/health", (_req, res) => {
     orgs: s.orgs.length,
     drives: s.drives.length,
     sessions: Object.keys(s.sessions).length,
-    deskLeft: s.deskLeft,
+    deskLeft: publicSnapshot().deskLeft,
+    storage: storageMode,
   });
 });
 
-app.get("/api/snapshot", (_req, res) => res.json(publicSnapshot()));
-
-app.put("/api/snapshot", (req, res) => {
-  const s = sessionOf(bearer(req));
-  if (!s && req.body?.requireAuth) return res.status(401).json({ ok: false, error: "Sign in required." });
-  res.json(setSnapshot(req.body || {}));
+app.get("/api/snapshot", (req, res) => {
+  const snap = publicSnapshot();
+  const only = req.query.drive;
+  if (!only) return res.json(snap);
+  // A candidate's phone needs one drive, not every org's entire queue.
+  const drive = snap.drives.find((d) => d.id === only);
+  res.json({ ...snap, drives: drive ? [drive] : [], orgs: snap.orgs.filter((o) => o.id === drive?.orgId) });
 });
 
-app.post("/api/auth/login", (req, res) => {
+app.put("/api/snapshot", async (req, res) => {
+  const staff = sessionOf(bearer(req));
+  const snap = setSnapshot(req.body || {}, { scope: staff ? "all" : "queue" });
+  await flushWrites();
+  res.json(snap);
+});
+
+app.post("/api/auth/login", async (req, res) => {
   const email = (req.body?.email || "").trim();
   const password = req.body?.password || "";
+  const key = `login:${email.toLowerCase()}`;
+  if (throttled(key)) return res.status(429).json({ ok: false, error: "Too many attempts. Wait a few minutes and try again." });
   const org = findOrgByEmail(email);
   if (!org) return res.status(401).json({ ok: false, error: "No company account found with that email." });
-  if (org.password !== password) return res.status(401).json({ ok: false, error: "Incorrect password." });
+  if (!(await checkOrgPassword(org, password))) return res.status(401).json({ ok: false, error: "Incorrect password." });
+  clearThrottle(key);
   const role = roleFor(org, email);
   const token = createSession(org, email, role);
+  await flushWrites();
   res.json({ ok: true, token, orgId: org.id, role, email, org: publicOrg(org) });
 });
 
-app.post("/api/auth/signup", (req, res) => {
+app.post("/api/auth/signup", async (req, res) => {
   const { companyName, email, password, kind } = req.body || {};
   if (!companyName?.trim() || !email?.trim() || !password?.trim()) {
     return res.status(400).json({ ok: false, error: "Fill in all fields." });
@@ -80,15 +119,15 @@ app.post("/api/auth/signup", (req, res) => {
     logo: agency ? "bars" : "ring",
     wash: agency ? "#E6F5F0" : "#EEE8F8",
     email: email.trim(),
-    password,
     plan: "trial",
     verified: false,
     members: [{ email: email.trim(), role: "recruiter" }],
     clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
     branches: [],
   };
-  upsertOrg(org);
+  await setOrgPassword(org, password);
   const token = createSession(org, email.trim(), "recruiter");
+  await flushWrites();
   res.json({ ok: true, token, orgId: org.id, role: "recruiter", email: email.trim(), org: publicOrg(org), verify: true });
 });
 
@@ -100,21 +139,23 @@ app.post("/api/auth/forgot", (req, res) => {
   res.json({ ok: true, demoCode: reset.code, hint: "Demo reset code (would be emailed)." });
 });
 
-app.post("/api/auth/reset", (req, res) => {
+app.post("/api/auth/reset", async (req, res) => {
   const { email, code: c, password } = req.body || {};
+  if (!password || password.length < 8) return res.status(400).json({ ok: false, error: "Use at least 8 characters." });
   if (!consumeReset(email, c)) return res.status(400).json({ ok: false, error: "Invalid or expired reset code." });
   const org = findOrgByEmail(email);
   if (!org) return res.status(404).json({ ok: false, error: "No company account found." });
-  org.password = password;
-  upsertOrg(org);
+  await setOrgPassword(org, password);
+  await flushWrites();
   res.json({ ok: true });
 });
 
-app.post("/api/auth/verify", requireStaff, (req, res) => {
+app.post("/api/auth/verify", requireStaff, async (req, res) => {
   const c = (req.body?.code || "").trim();
   if (c !== "618204") return res.status(400).json({ ok: false, error: "That email code is not valid. Demo code is 618204." });
   req.staff.org.verified = true;
   upsertOrg(req.staff.org);
+  await flushWrites();
   res.json({ ok: true, org: publicOrg(req.staff.org) });
 });
 
@@ -128,25 +169,26 @@ app.post("/api/auth/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/auth/invite/accept", (req, res) => {
+app.post("/api/auth/invite/accept", async (req, res) => {
   const email = (req.body?.email || "").trim();
   const password = req.body?.password || "";
+  const key = `invite:${email.toLowerCase()}`;
+  if (throttled(key)) return res.status(429).json({ ok: false, error: "Too many attempts. Wait a few minutes and try again." });
   const org = findOrgByEmail(email);
   if (!org) return res.status(404).json({ ok: false, error: "No invite found for that email. Ask your admin to add you under Team." });
-  if (password && org.password !== password && !(org.members || []).some((m) => memberEmailSafe(m) === email.toLowerCase())) {
-    /* invited members share org password in this demo */
-  }
-  if (org.password !== password && password !== "demo1234") {
-    return res.status(401).json({ ok: false, error: "Use the org demo password, or demo1234 for invited seats." });
-  }
+  const invited = (org.members || []).some((m) => memberEmailSafe(m) === email.toLowerCase());
+  const ok = (await checkOrgPassword(org, password)) || (invited && password === "demo1234");
+  if (!ok) return res.status(401).json({ ok: false, error: "Use the org password, or demo1234 for invited demo seats." });
+  clearThrottle(key);
   const role = roleFor(org, email);
   const token = createSession(org, email, role);
+  await flushWrites();
   res.json({ ok: true, token, orgId: org.id, role, email, org: publicOrg(org) });
 });
 
 app.get("/api/org", requireStaff, (req, res) => res.json({ ok: true, org: publicOrg(req.staff.org) }));
 
-app.patch("/api/org", requireStaff, (req, res) => {
+app.patch("/api/org", requireStaff, async (req, res) => {
   const patch = req.body || {};
   const org = req.staff.org;
   const next = {
@@ -157,13 +199,14 @@ app.patch("/api/org", requireStaff, (req, res) => {
     logo: patch.logo ?? org.logo,
     kind: patch.kind ?? org.kind,
     email: patch.email ?? org.email,
-    password: patch.password || org.password,
     members: patch.members ?? org.members,
     clients: patch.clients ?? org.clients,
     branches: patch.branches ?? org.branches,
     plan: patch.plan ?? org.plan,
   };
   upsertOrg(next);
+  if (patch.password) await setOrgPassword(next, patch.password);
+  await flushWrites();
   res.json({ ok: true, org: publicOrg(next) });
 });
 
@@ -198,8 +241,8 @@ app.get("/api/routes", (_req, res) => {
 
 function publicOrg(org) {
   if (!org) return null;
-  const { password, ...rest } = org;
-  return { ...rest, hasPassword: !!password };
+  const { password, passwordHash, ...rest } = org;
+  return { ...rest, hasPassword: !!(passwordHash || password) };
 }
 
 function memberEmailSafe(m) {

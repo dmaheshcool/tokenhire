@@ -4,3 +4,6 @@ dist
 *.local
 .vercel
 data/store.json
+.env
+.env.*
+!.env.example

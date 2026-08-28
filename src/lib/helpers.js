@@ -137,7 +137,15 @@ export const newGate = () => `GATE-${code(6)}`;
 export const newPass = () => code(4);
 export const PASS_TTL = 2 * MIN;
 export const bare6 = (s = "") => s.toUpperCase().replace(/^(HOST|GATE|DESK|PASS)-/, "").replace(/[^A-Z0-9]/g, "").slice(0, 6);
-export const gateQr = (gate, s = 180) => qr(`https://tokenhire.app/j?g=${bare6(gate)}`, s);
+// Posters are printed once and reused, so the QR must resolve on whatever host the
+// tenant actually runs on. VITE_PUBLIC_URL pins it when posters are printed from a
+// laptop on localhost but scanned against production.
+export const publicOrigin = () => {
+  const pinned = (import.meta.env?.VITE_PUBLIC_URL || "").replace(/\/+$/, "");
+  if (pinned) return pinned;
+  return typeof window === "undefined" ? "" : window.location.origin;
+};
+export const gateUrl = (gate) => `${publicOrigin()}/j?g=${bare6(gate)}`;
 export const liveDesk = (d) => d?.desk || d?.code || "";
 export const livePass = (d, at = Date.now()) => {
   const p = d?.gatePass;
@@ -161,7 +169,6 @@ export async function hashAadhaar(num) {
   const buf = await crypto.subtle.digest("SHA-256", enc);
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-export const qr = (d, s = 180) => `https://api.qrserver.com/v1/create-qr-code/?size=${s}x${s}&margin=6&color=27-24-21&bgcolor=251-247-238&data=${encodeURIComponent(d)}`;
 export const pc = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
 export const mask = (s = "") => { const v = s.trim(); return v.length <= 2 ? v : `${v[0]}${"·".repeat(Math.min(3, v.length - 2))}${v[v.length - 1]}`; };
 export const tat = (w) => { const d = w.candidates.filter((x) => x.calledAt && x.decidedAt); return d.length ? Math.max(2, Math.round(d.reduce((s, x) => s + (x.decidedAt - x.calledAt), 0) / d.length / MIN)) : FALLBACK_TAT; };
@@ -234,6 +241,14 @@ export function downloadFile(name, body, mime) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 500);
+}
+
+export function tokenPath(driveId, token, claim) {
+  const p = `/t/${encodeURIComponent(driveId)}/${encodeURIComponent(token)}`;
+  return claim ? `${p}?k=${encodeURIComponent(claim)}` : p;
+}
+export function tokenHref(driveId, token, claim) {
+  return `${publicOrigin()}${tokenPath(driveId, token, claim)}`;
 }
 
 export function todayStr(offsetDays = 0) {

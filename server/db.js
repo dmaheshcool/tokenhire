@@ -1,11 +1,9 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import bcrypt from "bcryptjs";
 import { ROTATE, code, memberEmail, memberRole } from "../src/lib/helpers.js";
 import { seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../src/data/seed.js";
+import { mode, readState, settled, writeState } from "./persist.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA = join(__dirname, "..", "data", "store.json");
+export const storageMode = mode;
 
 function fresh() {
   return {
@@ -20,59 +18,109 @@ function fresh() {
   };
 }
 
-function load() {
-  try {
-    const raw = JSON.parse(readFileSync(DATA, "utf8"));
-    return { ...fresh(), ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, candidates: raw.candidates || {} };
-  } catch {
-    return fresh();
-  }
+function merge(raw) {
+  if (!raw) return fresh();
+  return { ...fresh(), ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, candidates: raw.candidates || {} };
 }
 
-let state = load();
+let state = fresh();
+let hydrated = null;
+
+// Every serverless invocation may start cold, so requests wait on this once before
+// touching state. Without it a cold start would serve the seed data and then
+// overwrite the real queue.
+export function ready() {
+  if (!hydrated) {
+    hydrated = readState()
+      .then((raw) => { state = merge(raw); if (!raw) writeState(state); })
+      .catch(() => { state = fresh(); });
+  }
+  return hydrated;
+}
+
+export const flushWrites = settled;
 
 function save() {
-  try {
-    mkdirSync(dirname(DATA), { recursive: true });
-    writeFileSync(DATA, JSON.stringify(state, null, 2));
-  } catch {
-    /* ephemeral on serverless */
-  }
+  writeState(state);
 }
 
 export function getState() {
   return state;
 }
 
-export function setSnapshot({ orgs, drives, candidates }) {
-  if (Array.isArray(orgs)) state.orgs = orgs;
-  if (Array.isArray(drives)) state.drives = drives;
+/**
+ * Staff sessions may replace org and drive configuration. Candidate devices share the
+ * same endpoint but are limited to the queue itself, so a phone can check itself in
+ * without being able to rewrite another company's drives, plan, or team.
+ */
+export function setSnapshot({ orgs, drives, candidates }, { scope = "queue" } = {}) {
+  if (scope === "all") {
+    if (Array.isArray(orgs)) {
+      // Clients never receive credentials, so they cannot echo them back — carry the
+      // stored hash forward instead of letting a round-trip erase it.
+      const creds = new Map(state.orgs.map((o) => [o.id, { password: o.password, passwordHash: o.passwordHash }]));
+      state.orgs = orgs.map((o) => {
+        const prev = creds.get(o.id) || {};
+        const next = { ...o };
+        delete next.hasPassword;
+        if (prev.passwordHash) next.passwordHash = prev.passwordHash;
+        else delete next.passwordHash;
+        if (prev.password) next.password = prev.password;
+        else delete next.password;
+        return next;
+      });
+    }
+    if (Array.isArray(drives)) state.drives = drives;
+  } else if (Array.isArray(drives)) {
+    const incoming = new Map(drives.map((d) => [d.id, d]));
+    state.drives = state.drives.map((d) => {
+      const next = incoming.get(d.id);
+      if (!next || !Array.isArray(next.candidates)) return d;
+      return { ...d, candidates: next.candidates };
+    });
+  }
   if (candidates && typeof candidates === "object") state.candidates = candidates;
   state.version += 1;
   save();
   return publicSnapshot();
 }
 
+const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+
+// Derived from the clock rather than a timer: serverless instances don't share
+// setInterval state, so every instance (and the TV, and each phone) must be able to
+// compute the same DESK code independently for the current rotation window.
+function deriveDesk(seed, window) {
+  let h = 2166136261;
+  for (const ch of `${seed}:${window}`) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    h = Math.imul(h ^ (h >>> 13), 16777619);
+    out += ALPHABET[(h >>> 8) % ALPHABET.length];
+  }
+  return out;
+}
+
+export function deskWindow(at = Date.now()) {
+  const period = ROTATE * 1000;
+  return { index: Math.floor(at / period), left: Math.ceil((period - (at % period)) / 1000) };
+}
+
 export function publicSnapshot() {
+  const { index, left } = deskWindow();
   return {
     ok: true,
     version: state.version,
     startedAt: state.startedAt,
-    deskLeft: state.deskLeft,
-    orgs: state.orgs,
-    drives: state.drives,
+    deskLeft: left,
+    // This endpoint is read by every candidate phone, so credentials never ride along.
+    orgs: state.orgs.map(({ password, passwordHash, ...rest }) => ({ ...rest, hasPassword: !!(password || passwordHash) })),
+    drives: state.drives.map((d) => ({ ...d, desk: deriveDesk(d.gate || d.id, index) })),
     now: Date.now(),
   };
-}
-
-export function tickDesk() {
-  state.deskLeft -= 1;
-  if (state.deskLeft <= 0) {
-    state.deskLeft = ROTATE;
-    state.drives = state.drives.map((d) => ({ ...d, desk: code(6) }));
-    state.version += 1;
-    save();
-  }
 }
 
 export function findOrgByEmail(email) {
@@ -94,10 +142,17 @@ export function createSession(org, email, role) {
   return token;
 }
 
+export const SESSION_TTL = 12 * 60 * 60 * 1000; // one hiring day
+
 export function sessionOf(token) {
   if (!token) return null;
   const s = state.sessions[token];
   if (!s) return null;
+  if (Date.now() - s.at > SESSION_TTL) {
+    delete state.sessions[token];
+    save();
+    return null;
+  }
   const org = state.orgs.find((o) => o.id === s.orgId);
   if (!org) return null;
   return { ...s, org };
@@ -131,6 +186,26 @@ export function consumeReset(email, codeStr) {
   delete state.resets[email.trim().toLowerCase()];
   save();
   return true;
+}
+
+// Seeded demo orgs ship with a plaintext password so the published demo logins keep
+// working. Any real password is stored only as a bcrypt hash, and legacy plaintext is
+// upgraded in place the first time it is used.
+export async function setOrgPassword(org, plain) {
+  org.passwordHash = await bcrypt.hash(plain, 10);
+  delete org.password;
+  upsertOrg(org);
+  return org;
+}
+
+export async function checkOrgPassword(org, plain) {
+  if (!plain) return false;
+  if (org.passwordHash) return bcrypt.compare(plain, org.passwordHash);
+  if (org.password && org.password === plain) {
+    await setOrgPassword(org, plain);
+    return true;
+  }
+  return false;
 }
 
 export function saveCandidate(profile) {

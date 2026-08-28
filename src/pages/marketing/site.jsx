@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowRight, Mail, Linkedin, Phone, ChevronDown, Menu, X, Play, Pause, RotateCcw, Maximize2, Minimize2, Search, MapPin, Users2, QrCode, Check, ListChecks } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
+import { ArrowLeft, ArrowRight, Mail, Linkedin, Phone, ChevronDown, Menu, X, Play, Pause, RotateCcw, Maximize2, Minimize2, Search, MapPin, Users2, QrCode, Check, ListChecks, ShieldCheck, FileText, HeartHandshake, Send, BadgeCheck } from "lucide-react";
 import { bdy, dsp, typ, k, R, solid, solidSm, outline, outlineSm, iconBtn, navBtn, chromeStrip, chromeBox, box, input, ghostSm, textLink } from "../../theme.js";
-import { HallBrand, OrgLogo, TokenChip, TokenMark, Wordmark } from "../../components/brand.jsx";
+import { HallBrand, OrgLogo, TokenChip, TokenMark, TokenTile, Wordmark } from "../../components/brand.jsx";
+import { Link } from "react-router-dom";
 import { pc, PUBLIC_PLANS, listingHost, listingPlace, EXP_BANDS, DEFAULT_ROUNDS } from "../../lib/helpers.js";
-import { Pill, fmtDate, CitySelect, Blank, StatusPill } from "../../components/ui.jsx";
+import { pathFor } from "../../lib/routes.js";
+import { Pill, fmtDate, CitySelect, Blank, Field, StatusPill } from "../../components/ui.jsx";
 
 export const PAGES = [["home", "Home"], ["services", "Products"], ["drives", "Upcoming walk-ins"], ["about", "About us"], ["contact", "Contact us"]];
 
 export const NAV = [
-  { id: "home", label: "Home" },
   {
     label: "Solutions", menu: [
       ["sol:bpo", "BPO & customer support", "500-a-day drives without the shouting"],
@@ -35,7 +35,7 @@ export function SiteNav({ page, go, onLaunch }) {
   return (
     <div className="chrome-wrap" style={{ position: "sticky", top: 0, zIndex: 50, ...chromeStrip, padding: "10px 16px 12px" }}>
       <div className="chrome-inner" style={{ maxWidth: 1140, margin: "0 auto", ...chromeBox, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <button onClick={() => navigate("home")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginRight: 4 }}><Wordmark size={20} /></button>
+        <Link to="/" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginRight: 4, textDecoration: "none" }}><Wordmark size={20} /></Link>
         <button className="nav-burger" type="button" aria-label="Menu" onClick={() => setMenu((m) => !m)} style={{ ...iconBtn, padding: 8, display: "none", alignItems: "center" }}>
           {menu ? <X size={22} /> : <Menu size={22} />}
         </button>
@@ -43,6 +43,7 @@ export function SiteNav({ page, go, onLaunch }) {
           {NAV.map((n, i) => n.menu ? (
             <div key={i} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
               <button
+                type="button"
                 onClick={() => setOpen(open === i ? null : i)}
                 onMouseEnter={() => setOpen(i)}
                 style={{ ...navBtn, color: open === i ? k.ink : k.ink2, display: "flex", alignItems: "center", gap: 5 }}>
@@ -54,26 +55,26 @@ export function SiteNav({ page, go, onLaunch }) {
                   style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", paddingTop: 12, zIndex: 60 }}>
                   <div style={{ background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, boxShadow: "0 22px 50px -20px rgba(11,16,32,.22)", padding: 10, width: 310 }}>
                     {n.menu.map(([target, label, desc]) => (
-                      <button key={label} onClick={() => navigate(target)} style={{
-                        display: "block", width: "100%", textAlign: "left", background: "none", border: "none",
-                        cursor: "pointer", padding: "11px 13px", borderRadius: 12, fontFamily: bdy,
+                      <Link key={label} to={pathFor(target)} onClick={() => { setOpen(null); setMenu(false); }} style={{
+                        display: "block", width: "100%", textAlign: "left", textDecoration: "none",
+                        padding: "11px 13px", borderRadius: 12, fontFamily: bdy,
                       }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = k.cream2)}
                         onMouseLeave={(e) => (e.currentTarget.style.background = "none")}>
                         <div style={{ fontSize: 14.5, fontWeight: 600, color: k.ink }}>{label}</div>
                         <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>{desc}</div>
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <button key={n.id} className="navitem" onClick={() => navigate(n.id)} style={{ ...navBtn, color: page === n.id ? k.ink : k.ink2, fontWeight: page === n.id ? 600 : 500 }}>{n.label}</button>
+            <Link key={n.id} to={pathFor(n.id)} className="navitem" style={{ ...navBtn, textDecoration: "none", color: page === n.id ? k.ink : k.ink2, fontWeight: page === n.id ? 600 : 500 }}>{n.label}</Link>
           ))}
         </div>
         <div className="nav-ctas" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <button onClick={() => navigate("login")} style={{ ...textLink, textDecoration: "none" }}>Sign in</button>
+          <Link to="/login" style={{ ...textLink, textDecoration: "none" }}>Sign in</Link>
           <button onClick={() => onLaunch("employer")} style={solidSm}>I'm hiring <ArrowRight size={15} /></button>
           <button onClick={() => onLaunch("candidate")} style={outlineSm}>Joining a walk-in?</button>
         </div>
@@ -81,7 +82,7 @@ export function SiteNav({ page, go, onLaunch }) {
       {menu && (
         <div style={{ background: "#fff", borderBottom: `1px solid ${k.line}`, padding: "8px 16px 18px" }}>
           {NAV.flatMap((n) => n.menu ? n.menu.map(([target, label]) => [target, label]) : [[n.id, n.label]]).map(([id, label]) => (
-            <button key={label} type="button" onClick={() => navigate(id)} style={{ display: "block", width: "100%", textAlign: "left", padding: "14px 4px", border: "none", background: "none", borderBottom: `1px solid ${k.line}`, fontFamily: bdy, fontSize: 16, fontWeight: 600, color: k.ink, cursor: "pointer" }}>{label}</button>
+            <Link key={label} to={pathFor(id)} onClick={() => setMenu(false)} style={{ display: "block", width: "100%", textAlign: "left", padding: "14px 4px", textDecoration: "none", borderBottom: `1px solid ${k.line}`, fontFamily: bdy, fontSize: 16, fontWeight: 600, color: k.ink }}>{label}</Link>
           ))}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
             <button onClick={() => { setMenu(false); onLaunch("employer"); }} style={{ ...solid, justifyContent: "center", width: "100%" }}>I'm hiring</button>
@@ -93,11 +94,11 @@ export function SiteNav({ page, go, onLaunch }) {
   );
 }
 
-export function SiteFooter({ go, onLaunch }) {
+export function SiteFooter() {
   const cols = [
-    ["Company", [["home", "Home"], ["services", "Products"], ["about", "About us"], ["contact", "Contact us"]]],
-    ["Solutions", [["services", "Walk-in drives"], ["services", "Campus hiring"], ["drives", "Staffing agencies"], ["pricing", "Pricing"]]],
-    ["Resources", [["demo", "Watch a walk-in"], ["drives", "Upcoming walk-ins"], ["login", "Sign in"], ["status", "Server status"], ["contact", "Contact us"], ["privacy", "Privacy"], ["terms", "Terms of use"]]],
+    ["Company", [["services", "Products"], ["contact", "Contact us"]]],
+    ["Legal", [["privacy", "Privacy"], ["terms", "Terms of use"]]],
+    ["See it", [["demo", "Watch a walk-in"]]],
   ];
   return (
     <footer style={{ background: "#fff", borderTop: `1px solid ${k.line}`, marginTop: 60 }}>
@@ -105,10 +106,12 @@ export function SiteFooter({ go, onLaunch }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr) 1.1fr", gap: 30 }} className="g3">
           {cols.map(([title, links]) => (
             <div key={title}>
-              <div style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{title}</div>
+              {title === "Legal"
+                ? <Link to="/legal" style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700, marginBottom: 16, display: "block", color: k.ink, textDecoration: "none" }}>Legal</Link>
+                : <div style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{title}</div>}
               <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-                {links.map(([target, label], i) => (
-                  <button key={i} onClick={() => go(target)} style={{ background: "none", border: "none", color: k.ink2, fontSize: 14.5, cursor: "pointer", fontFamily: bdy, padding: 0, textAlign: "left" }}>{label}</button>
+                {links.map(([target, label]) => (
+                  <Link key={target} to={pathFor(target)} style={{ color: k.ink2, fontSize: 14.5, fontFamily: bdy, textDecoration: "none" }}>{label}</Link>
                 ))}
               </div>
             </div>
@@ -709,7 +712,7 @@ export function Home({ go, onLaunch, drives }) {
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 40 }}>
             <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
-            <button onClick={() => go("demo")} style={outline}><Play size={14} fill="currentColor" /> Watch a walk-in</button>
+            <Link to="/watch" style={{ ...outline, textDecoration: "none" }}><Play size={14} fill="currentColor" /> Watch a walk-in</Link>
           </div>
         </div>
         <div style={{ marginTop: "auto", background: k.bandSoft, padding: "28px 0 36px" }}>
@@ -1314,7 +1317,17 @@ const LEGAL = {
 };
 
 export function LegalPage({ kind }) {
+  if (kind === "all") {
+    return (
+      <div>
+        <LegalPage kind="privacy" />
+        <div style={{ height: 1, background: k.line, maxWidth: 720, margin: "0 auto" }} />
+        <LegalPage kind="terms" />
+      </div>
+    );
+  }
   const l = LEGAL[kind];
+  if (!l) return null;
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "60px 26px 80px" }}>
       <div style={{ fontSize: 15, color: k.coral, fontWeight: 500, marginBottom: 10 }}>{l.updated}</div>

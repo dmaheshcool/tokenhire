@@ -23,6 +23,9 @@ export function StoreProvider({ children }) {
   const [left, setLeft] = useState(ROTATE);
   const [beat, setBeat] = useState(0);
   const [apiOk, setApiOk] = useState(false);
+  // Screens that look up a single token must not answer "no such token" from seed data
+  // while the real queue is still in flight.
+  const [hydrated, setHydrated] = useState(false);
   const versionRef = useRef(0);
   const skipPoll = useRef(false);
 
@@ -55,6 +58,8 @@ export function StoreProvider({ children }) {
         }
       } catch {
         setApiOk(false);
+      } finally {
+        if (!cancelled) setHydrated(true);
       }
     })();
     return () => { cancelled = true; };
@@ -169,8 +174,8 @@ export function StoreProvider({ children }) {
 
   const value = useMemo(() => ({
     drives, setDrives, orgs, setOrgs, activeOrgId, setActiveOrgId, staffRole, setStaffRole, staffEmail,
-    profile, setProfile, left, beat, apiOk, signInWithPassword, signUpOrg, signOut, signInLocal,
-  }), [drives, orgs, activeOrgId, staffRole, staffEmail, profile, left, beat, apiOk]);
+    profile, setProfile, left, beat, apiOk, hydrated, signInWithPassword, signUpOrg, signOut, signInLocal,
+  }), [drives, orgs, activeOrgId, staffRole, staffEmail, profile, left, beat, apiOk, hydrated]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

@@ -1,12 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Mail, Linkedin, Check, ShieldCheck, FileText, User, Download, BadgeCheck, Phone, MessageCircle, Search, QrCode } from "lucide-react";
 import { bdy, dsp, typ, k, R, box, input, solid, solidTeal, solidSm, outline, outlineSm, ghostSm, iconBtn } from "../../theme.js";
-import { HallBrand, TokenChip } from "../../components/brand.jsx";
-import { Blank, CitySelect, Field, Pill, StatusPill, fmtDate } from "../../components/ui.jsx";
+import { HallBrand, TokenChip, TokenTile } from "../../components/brand.jsx";
+import { Blank, CitySelect, Field, Pill, SectionLabel, StatusPill, TopBar, fmtDate } from "../../components/ui.jsx";
 import { DrivePosting } from "../../components/DrivePosting.jsx";
-import { DEMO_OTP, boundToday, dupOf, gateQr, hashAadhaar, inARound, listingHost, livePass, listingPlace, mask, planLimits, roundLabel, tat, todayStr, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
+import { KeepTokenLink } from "../../components/KeepTokenLink.jsx";
+import { rememberTicket, readTickets } from "../../lib/api.js";
+import { gateCodeFrom, startQrScan } from "../../lib/scanner.js";
+import { DEFAULT_ROUNDS, DEMO_OTP, boundToday, code, dupOf, hallChrome, hashAadhaar, inARound, isTerminal, listingHost, liveDesk, livePass, listingPlace, mask, planLimits, roundLabel, tat, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
 
 export function Candidate({ store, back }) {
+  const nav = useNavigate();
   const { profile, setProfile, drives, setDrives, left, orgs } = store;
   const [tab, setTab] = useState("profile");
   const [matched, setMatched] = useState(null);
@@ -26,14 +31,16 @@ export function Candidate({ store, back }) {
     }));
   }
 
+  function openTicket(drive, cand) {
+    rememberTicket({ driveId: drive.id, token: cand.token, claim: cand.claim, role: drive.role });
+    nav(tokenPath(drive.id, cand.token, cand.claim));
+  }
+
   function showDupSlip(d, dup) {
-    const waiting = d.candidates.filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
-    const posInLine = waiting.findIndex((x) => x.id === dup.id);
-    const t = tat(d);
     bindDevice(d.id);
     setMatched(null);
     setProven(false);
-    setResult({ dup: true, sameAadhaarDiffPhone: dup.phone !== profile.phone, token: dup.token, drive: d, cand: dup, pos: posInLine >= 0 ? posInLine + 1 : null, eta: posInLine >= 0 ? posInLine * t : null, waitingCount: waiting.length, avgTat: t });
+    openTicket(d, dup);
   }
 
   function handleMatch(drive, via) {
@@ -84,14 +91,13 @@ export function Candidate({ store, back }) {
     }
     setJoinErr("");
     const seq = live.seq + 1, token = `W-${String(seq).padStart(3, "0")}`;
-    const q = live.candidates.filter((x) => x.state === "wait").length;
-    const cand = { id: token, token, name: profile.name, phone: profile.phone, whatsapp: profile.whatsapp || profile.phone, email: profile.email, exp: profile.exp, linkedin: profile.linkedin, resume: profile.resume, expBand: profile.expBand || "Fresher", qual: profile.qual || "", room: null, aadhaarHash: profile.aadhaarHash || null, aadhaarLast4: profile.aadhaarLast4 || null, state: "wait", at: Date.now(), pinged: false, calledAt: null, decidedAt: null, roundIdx: 0, roundAssigned: false, notes: {} };
+    const cand = { id: token, token, claim: code(6), name: profile.name, phone: profile.phone, whatsapp: profile.whatsapp || profile.phone, email: profile.email, exp: profile.exp, linkedin: profile.linkedin, resume: profile.resume, expBand: profile.expBand || "Fresher", qual: profile.qual || "", room: null, aadhaarHash: profile.aadhaarHash || null, aadhaarLast4: profile.aadhaarLast4 || null, state: "wait", at: Date.now(), pinged: false, calledAt: null, decidedAt: null, roundIdx: 0, roundAssigned: false, notes: {} };
     setDrives((prev) => prev.map((x) => x.id === live.id ? { ...x, seq, candidates: [...x.candidates, cand] } : x));
     profile.applications.push(live.id);
     bindDevice(live.id);
     setMatched(null);
     setProven(false);
-    setResult({ dup: false, token, pos: q + 1, eta: q * tat(live), drive: live, cand });
+    openTicket(live, cand);
   }
 
   function resetJoin() { setResult(null); setMatched(null); setProven(false); }
@@ -180,7 +186,9 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
           </div>
           {joinErr && <div style={{ fontSize: 13, color: k.red, margin: "0 0 10px", textAlign: "center" }}>{joinErr}</div>}
           <button onClick={onConfirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Confirm & join queue <ArrowRight size={15} /></>}</button>
-          {nudges !== false && <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Check-in does not send a message. You'll get one WhatsApp ~15 minutes before your turn.</div>}
+          {nudges !== false
+            ? <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>You’ll get a page with your token link. Save it — that’s how you see your turn if you close this tab. WhatsApp is extra on paid plans.</div>
+            : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>You’ll get a page with your token link. Save it so you can reopen your place in line.</div>}
         </>
       )}
     </div>
@@ -418,11 +426,14 @@ export function DocRow({ icon: I, title, sub, done, action, last }) {
 }
 
 export function JoinDrive({ drives, left, onMatch }) {
+  const nav = useNavigate();
+  const tickets = readTickets();
   const [entered, setEntered] = useState("");
   const [err, setErr] = useState("");
-  const [scan, setScan] = useState("idle"); // idle | starting | scanning | unsupported
+  const [scan, setScan] = useState("idle"); // idle | starting | scanning | denied | unsupported
   const videoRef = useRef(null);
-  const scanningRef = useRef(false);
+  const stopRef = useRef(null);
+  const abortRef = useRef(false);
 
   function resolve(codeStr) {
     setErr("");
@@ -469,58 +480,69 @@ export function JoinDrive({ drives, left, onMatch }) {
   async function startScan() {
     setErr("");
     setScan("starting");
-    try {
-      if (!("BarcodeDetector" in window)) throw new Error("unsupported");
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-      scanningRef.current = true;
-      setScan("scanning");
-      const tick = async () => {
-        if (!scanningRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          if (codes.length) {
-            const raw = codes[0].rawValue;
-            const g = new URL(raw).searchParams.get("g") || new URL(raw).searchParams.get("c");
-            if (g) { stopScan(); setEntered(`GATE-${g.toUpperCase()}`); resolve(`GATE-${g}`); return; }
-          }
-        } catch { /* keep trying */ }
-        requestAnimationFrame(tick);
-      };
-      tick();
-    } catch {
-      setScan("unsupported");
-    }
+    abortRef.current = false;
+    const stop = await startQrScan(
+      videoRef.current,
+      (raw) => {
+        const found = gateCodeFrom(raw);
+        setScan("idle");
+        if (!found) { setErr("That QR isn't a TokenHire gate poster. Type the GATE code printed under it instead."); return; }
+        setEntered(`GATE-${found}`);
+        resolve(`GATE-${found}`);
+      },
+      (reason) => {
+        setScan(reason === "denied" ? "denied" : "unsupported");
+      },
+    );
+    // The camera can take a second to open; honour a stop pressed in the meantime so
+    // the torch and preview don't stay on behind a closed panel.
+    if (abortRef.current) { stop(); return; }
+    stopRef.current = stop;
+    // startQrScan only reports failures, so a silent return means frames are flowing.
+    setScan((s) => (s === "starting" ? "scanning" : s));
   }
   function stopScan() {
-    scanningRef.current = false;
-    const stream = videoRef.current?.srcObject;
-    stream?.getTracks?.().forEach((t) => t.stop());
+    abortRef.current = true;
+    stopRef.current?.();
+    stopRef.current = null;
     setScan("idle");
   }
-  useEffect(() => () => stopScan(), []);
+  useEffect(() => () => { abortRef.current = true; stopRef.current?.(); }, []);
 
   return (
     <div style={{ maxWidth: 520 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Join a walk-in</h1>
       <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the GATE poster to find the drive. Then enter the DESK code from the waiting-room TV so a forwarded poster can’t check someone else in.</p>
+      {!!tickets.length && (
+        <div style={{ ...box, padding: 14, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Your tokens</div>
+          {tickets.slice(0, 4).map((t) => (
+            <button key={t.driveId + t.token} type="button" onClick={() => nav(tokenPath(t.driveId, t.token, t.claim))} style={{ ...ghostSm, marginRight: 8, marginBottom: 6 }}>
+              {t.token}{t.role ? ` · ${t.role}` : ""}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={{ ...box, padding: 20, marginBottom: 14 }}>
         <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Scan the printed GATE poster</div>
-        <div style={{ position: "relative", borderRadius: 6, overflow: "hidden", background: scan === "scanning" ? "#000" : "transparent", display: scan === "scanning" ? "block" : "none" }}>
+        {/* iOS will not start playback on a hidden element, so keep it mounted while starting. */}
+        <div style={{ position: "relative", borderRadius: 6, overflow: "hidden", background: "#000", display: scan === "scanning" || scan === "starting" ? "block" : "none" }}>
           <video ref={videoRef} muted playsInline style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "cover" }} />
           <div style={{ position: "absolute", inset: 28, border: `2px solid ${k.teal}`, borderRadius: 8, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "7px 10px", background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 11.5, textAlign: "center" }}>
+            Point at the GATE poster — it scans by itself
+          </div>
         </div>
-        {scan === "scanning" ? (
-          <button onClick={stopScan} style={{ ...ghostSm, marginTop: 10 }}>Stop scanning</button>
+        {scan === "scanning" || scan === "starting" ? (
+          <button onClick={stopScan} style={{ ...ghostSm, marginTop: 10 }}>
+            {scan === "starting" ? "Opening camera…" : "Stop scanning"}
+          </button>
         ) : (
           <>
-            <button onClick={startScan} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 11 }}>
-              {scan === "starting" ? "Opening camera…" : "Open camera to scan"}
-            </button>
-            {scan === "unsupported" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>Camera scanning isn't available on this device/browser — enter the code below instead.</div>}
+            <button onClick={startScan} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 11 }}>Open camera to scan</button>
+            {scan === "denied" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>Camera access was blocked. Allow the camera in your browser settings, or just type the GATE code below.</div>}
+            {scan === "unsupported" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>No camera available on this device — enter the code below instead.</div>}
           </>
         )}
       </div>
@@ -555,7 +577,7 @@ export function QueueStatusPill({ state }) {
   return <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: color }} />{label}</span>;
 }
 
-export function Slip({ r, onAgain, drives }) {
+export function Slip({ r, onAgain, drives, keep }) {
   const live = (drives || []).find((d) => d.id === r.drive.id);
   const rounds = live?.rounds || r.drive.rounds || DEFAULT_ROUNDS;
   const cand = (live?.candidates || []).find((c) => c.token === r.token || c.id === r.token) || r.cand || { state: "wait", roundIdx: 0 };
@@ -616,11 +638,12 @@ export function Slip({ r, onAgain, drives }) {
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 18, paddingTop: 14, borderTop: `1px solid ${k.line}`, lineHeight: 1.5 }}>
             {isDup
               ? `Drive average right now: ~${live ? tat(live) : r.avgTat} min per candidate · ${waiting.length} still waiting.`
-              : "You can step away. We'll WhatsApp you about 15 minutes before your turn — nothing else."}
+              : "You can close this tab. Copy or bookmark the link below — that’s how you see your turn."}
           </div>
         </div>
       </div>
-      <button onClick={onAgain} style={{ ...ghostSm, marginTop: 16 }}>Back</button>
+      <KeepTokenLink driveId={r.drive.id} token={r.token} claim={cand.claim} />
+      <button onClick={onAgain} style={{ ...ghostSm, marginTop: 16 }}>{keep ? "Back to join" : "Back"}</button>
     </div>
   );
 }
@@ -658,21 +681,23 @@ export function RoundTracker({ rounds, cand, roundIdx, state }) {
 }
 
 export function History({ p, drives }) {
+  const nav = useNavigate();
   const mine = drives.flatMap((d) => d.candidates.filter((c) => c.phone === p.phone).map((c) => ({ ...c, drive: d })));
   const label = { wait: ["grey", "Waiting"], calling: ["teal", "Being called"], interviewing: ["teal", "In interview"], selected: ["teal", "Selected"], rejected: ["red", "Rejected"], onhold: ["gold", "On hold"], absent: ["grey", "Missed turn"] };
   return (
     <div style={{ maxWidth: 560 }}>
-      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 18px" }}>My applications</h1>
+      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 8px" }}>My applications</h1>
+      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 18px" }}>Open a token to see live wait — even if you closed the check-in page.</p>
       {!mine.length ? <Blank text="You haven't joined a drive yet." /> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {mine.map((c) => (
-            <div key={c.drive.id + c.token} style={{ ...box, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14 }}>
+            <button key={c.drive.id + c.token} type="button" onClick={() => nav(tokenPath(c.drive.id, c.token, c.claim))} style={{ ...box, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", fontFamily: bdy, width: "100%" }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14.5 }}>{c.drive.role}</div>
                 <div style={{ marginTop: 8 }}><TokenChip token={c.token} name={listingHost(c.drive)} size={28} muted /></div>
               </div>
               <Pill tone={label[c.state]?.[0]}>{label[c.state]?.[1]}</Pill>
-            </div>
+            </button>
           ))}
         </div>
       )}

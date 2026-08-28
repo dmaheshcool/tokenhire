@@ -1,6 +1,7 @@
+import { Check } from "lucide-react";
 import { typ, k } from "../theme.js";
 import { listingPlace } from "../lib/helpers.js";
-import { fmtDate } from "./ui.jsx";
+import { Pill, fmtDate } from "./ui.jsx";
 
 export function expLabel(bands) {
   if (!bands || !bands.length) return "All experience levels";

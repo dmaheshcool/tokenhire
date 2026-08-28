@@ -17,11 +17,16 @@ export default function StatusPage() {
       {err && <div style={{ fontSize: 13.5, color: k.red, marginBottom: 12 }}>{err}</div>}
       {h && (
         <div style={{ display: "grid", gap: 10, fontSize: 13.5 }}>
-          {[["Service", h.service], ["Version", h.version], ["Uptime", `${h.uptimeSec}s`], ["Orgs", h.orgs], ["Drives", h.drives], ["Sessions", h.sessions], ["DESK rotates in", `${h.deskLeft}s`]].map(([l, v]) => (
+          {[["Service", h.service], ["Version", h.version], ["Uptime", `${h.uptimeSec}s`], ["Orgs", h.orgs], ["Drives", h.drives], ["Sessions", h.sessions], ["DESK rotates in", `${h.deskLeft}s`], ["Storage", h.storage === "postgres" ? "Postgres (durable)" : "Local file (demo only)"]].map(([l, v]) => (
             <div key={l} style={{ ...box, padding: "10px 12px", display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: k.mid }}>{l}</span><b>{v}</b>
             </div>
           ))}
+        </div>
+      )}
+      {h?.storage === "file" && (
+        <div style={{ marginTop: 12, background: k.goldDim, color: k.gold, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.5 }}>
+          Queues are held in a local file. On a serverless host this is erased between requests — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before a real drive.
         </div>
       )}
       <div style={{ marginTop: 16 }}>

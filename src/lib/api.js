@@ -1,6 +1,15 @@
 const SESSION_KEY = "tokenhire.session";
 const PROFILE_KEY = "tokenhire.candidate";
+const TICKETS_KEY = "tokenhire.tickets";
 
+export function readTickets() {
+  try { return JSON.parse(localStorage.getItem(TICKETS_KEY) || "[]"); } catch { return []; }
+}
+export function rememberTicket(t) {
+  if (!t?.driveId || !t?.token) return;
+  const next = [t, ...readTickets().filter((x) => !(x.driveId === t.driveId && x.token === t.token))].slice(0, 12);
+  localStorage.setItem(TICKETS_KEY, JSON.stringify(next));
+}
 export function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch { return null; }
 }

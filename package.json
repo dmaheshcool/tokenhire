@@ -6,14 +6,19 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:web": "vite",
-    "dev:api": "node server/index.js",
-    "start": "node server/index.js",
-    "build": "vite build",
+    "dev:api": "node --env-file-if-exists=.env server/index.js",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "check": "node scripts/check-refs.mjs",
+    "build": "node scripts/check-refs.mjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
+    "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.511.0",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.18.2",

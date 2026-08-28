@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { LayoutGrid, MonitorSmartphone, ListChecks, Send, PieChart, ArrowRight, Plus, ArrowLeft, Mail, ShieldCheck, FileText, Building2, Download, Users2, Building, HeartHandshake, Globe, Lock, Palette, MoreHorizontal, Search, Linkedin, Check } from "lucide-react";
 import { bdy, dsp, typ, k, R, box, input, solid, solidSm, outline, outlineSm, ghostSm, iconBtn, link, cell } from "../../theme.js";
-import { HallBrand, OrgLogo, TokenChip, Wordmark } from "../../components/brand.jsx";
+import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { HallBrand, OrgLogo, TokenChip, TokenTile, Wordmark } from "../../components/brand.jsx";
 import { ActionSelect, Blank, Btn, CitySelect, Field, Head, Pill, StatusPill, fmtDate } from "../../components/ui.jsx";
 import { useNarrow } from "../../hooks/useNarrow.js";
 import {
@@ -10,7 +11,9 @@ import {
   bare6, clientOf, code, driveCapCopy, driveSlotsLeft, hallChrome, hallLogo, hallName, inARound, inNudgeWindow,
   isAgencyOrg, isTerminal, listingPlace, livePass, memberEmail, memberName, memberRole, newGate, newHost, newPass,
   nudgeText, occupantOf, orgColor, orgWash, orgCities, passLabel, planLimits, planOf, recruitersOf, roundLabel, siteOf, tat, todayStr, downloadFile,
+  gateUrl,
 } from "../../lib/helpers.js";
+import QrCode from "../../components/QrCode.jsx";
 
 const TABS = [["today", "Today", LayoutGrid], ["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone], ["queue", "All candidates", Users2], ["rounds", "Rounds", Building2], ["rooms", "Rooms", Building], ["branding", "Branding", ShieldCheck], ["msgs", "Messages", Send], ["result", "Reports", PieChart]];
 const DESK_TABS = [["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone]];
@@ -317,7 +320,7 @@ export function Employer({ store, back, initialDriveId }) {
     <>
       {tab === "today" && !desk && <Today s={s} wait={wait} active={active} msgs={drive.msgs} setTab={setTab} drive={drive} lim={planLimits(org)} />}
       {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} sendToRound={sendToRound} deskMode={desk} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
-      {tab === "screen" && <Screen gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} />}
+      {tab === "screen" && <Screen driveId={drive.id} gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} />}
       {tab === "queue" && !desk && <Queue rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} sendToRound={sendToRound} />}
       {tab === "rounds" && !desk && <RoundsTab rounds={drive.rounds} setRounds={setRounds} />}
       {tab === "rooms" && !desk && <RoomsTab rooms={drive.rooms || []} setRooms={setRooms} org={org} setOrgs={setOrgs} drive={drive} />}
@@ -1251,14 +1254,19 @@ export function TallyStat({ label, v, color }) {
   );
 }
 
-export function Screen({ gate, desk, left, active, wait, eta, brand, clientName, branch, role, credit = "on" }) {
+export function Screen({ driveId, gate, desk, left, active, wait, eta, brand, clientName, branch, role, credit = "on" }) {
   const name = (brand?.name || "").trim() || "Walk-in";
   const accent = brand?.color || k.coral;
   const logo = brand?.logo || "letter";
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <HallBrand name={name} color={accent} logo={logo} sub={clientName || null} size={32} credit={credit} />
+        {driveId && (
+          <a href={`/tv/${encodeURIComponent(driveId)}`} target="_blank" rel="noreferrer" style={{ ...solidSm, textDecoration: "none" }}>
+            <MonitorSmartphone size={15} /> Open on the hall TV
+          </a>
+        )}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 30 }} className="g2">
         <div>
@@ -1268,7 +1276,7 @@ export function Screen({ gate, desk, left, active, wait, eta, brand, clientName,
             {role ? <div style={{ fontSize: 12, color: k.mid, textAlign: "center" }}>{role}</div> : null}
             {branch ? <div style={{ fontSize: 11.5, color: k.faint }}>{branch}</div> : null}
             <div style={{ fontSize: 10.5, color: accent, fontFamily: typ, letterSpacing: 1, fontWeight: 700, marginTop: 4 }}>GATE · PRINT THIS</div>
-            <img src={gateQr(gate, 165)} width={165} height={165} alt="Printed GATE QR — identifies the walk-in" />
+            <QrCode value={gateUrl(gate)} size={165} alt="Printed GATE QR — identifies the walk-in" />
             <div style={{ fontFamily: typ, fontSize: 16, fontWeight: 700, letterSpacing: 1.5 }}>{gate}</div>
             <div style={{ fontSize: 11, color: k.mid, textAlign: "center", lineHeight: 1.45 }}>Never expires. Finds the walk-in — does not check anyone in.</div>
             {credit === "on" && <div style={{ fontSize: 11, fontWeight: 700, color: k.coral }}>Powered by TokenHire</div>}
@@ -1740,22 +1748,3 @@ export function RateCard({ label, v, color }) {
 }
 
 /* ---- shared primitives ---- */
-export function TopBar({ back, title, accent, tabs, tab, setTab }) {
-  return (
-    <div className="chrome-wrap" style={{ ...chromeStrip, padding: "10px 16px 12px" }}>
-      <div className="chrome-inner" style={{ maxWidth: 720, margin: "0 auto", ...chromeBox, overflow: "hidden" }}>
-        <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-          <button onClick={back} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> Back</button>
-          <span style={{ width: 1, height: 16, background: k.line }} />
-          <Wordmark size={15} />
-          <Pill tone={accent === k.teal ? "teal" : "coral"}>{title}</Pill>
-        </div>
-        {tabs && (
-          <div className="tabscroll" style={{ padding: "0 10px", display: "flex", gap: 2, background: k.cream2, borderTop: `1px solid ${k.line}` }}>
-            {tabs.map(([id, label]) => { const on = tab === id; return <button key={id} onClick={() => setTab(id)} style={{ padding: "12px 14px", minHeight: 44, border: "none", background: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? accent : k.mid, borderBottom: `2px solid ${on ? accent : "transparent"}`, fontFamily: bdy, whiteSpace: "nowrap" }}>{label}</button>; })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

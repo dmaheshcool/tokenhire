@@ -5,6 +5,7 @@ export const PATHS = {
   drives: "/walk-ins",
   about: "/about",
   contact: "/contact",
+  legal: "/legal",
   privacy: "/privacy",
   terms: "/terms",
   demo: "/watch",
