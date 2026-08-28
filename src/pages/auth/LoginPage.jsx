@@ -28,7 +28,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthShell title="Sign in" sub="Work email for your company or agency space. Only that org’s drives.">
+    <AuthShell title="Sign in" sub="For recruiters and front-desk staff running a walk-in.">
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <Field label="Work email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} placeholder="hr@yourcompany.com" autoComplete="username" /></Field>
         <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} autoComplete="current-password" /></Field>
@@ -36,7 +36,11 @@ export default function LoginPage() {
         <button type="submit" disabled={busy} style={{ ...solid, justifyContent: "center", padding: 12 }}>{busy ? "Signing in…" : "Sign in"}</button>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <Link to="/forgot-password" style={textLink}>Forgot password</Link>
-          <Link to="/signup" style={textLink}>New company</Link>
+          <Link to="/signup" style={textLink}>Create an account</Link>
+        </div>
+        <div style={{ borderTop: `1px solid ${k.line}`, marginTop: 4, paddingTop: 14, fontSize: 12.5, color: k.mid, lineHeight: 1.55 }}>
+          Here for an interview? You don’t need an account —{" "}
+          <Link to="/app/join" style={{ ...textLink, fontSize: 12.5 }}>check in here</Link>.
         </div>
         {demoHint}
       </form>

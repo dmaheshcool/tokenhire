@@ -1,7 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap');
 
 *{box-sizing:border-box}
-body{margin:0}
+/* Inter is designed for optical smoothing; without these it looks heavy and muddy
+   on macOS, which is most of the difference between "designed" and "default". */
+body{margin:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+h1,h2,h3{font-weight:700}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes storyIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}

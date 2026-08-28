@@ -20,7 +20,7 @@ export class ErrorBoundary extends React.Component {
     if (!this.state.error) return this.props.children;
     const detail = import.meta.env.DEV ? String(this.state.error?.stack || this.state.error) : "";
     return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, fontFamily: "'Outfit', system-ui, sans-serif", background: "#F5F8FF", color: "#0B1020" }}>
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, fontFamily: "'Inter', -apple-system, system-ui, sans-serif", background: "#F5F8FF", color: "#0B1020" }}>
         <div style={{ maxWidth: 440, textAlign: "center" }}>
           <div style={{ fontSize: 21, fontWeight: 700, marginBottom: 8 }}>Something went wrong</div>
           <p style={{ fontSize: 14, color: "#737C93", lineHeight: 1.55, margin: "0 0 18px" }}>

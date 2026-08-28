@@ -5,8 +5,9 @@ export const k = {
   band: "#D9E5FF", bandSoft: "#EDF3FF",
 };
 export const R = { pill: 999, card: 20, inner: 14 };
-export const dsp = "'Outfit', system-ui, sans-serif";
-export const bdy = "'Outfit', system-ui, sans-serif";
+const STACK = "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+export const dsp = STACK;
+export const bdy = STACK;
 export const typ = "'Roboto Mono', monospace";
 
 export const box = { background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.inner };

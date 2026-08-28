@@ -4,16 +4,17 @@ import { LayoutGrid, MonitorSmartphone, ListChecks, Send, PieChart, ArrowRight, 
 import { bdy, dsp, typ, k, R, box, input, solid, solidSm, outline, outlineSm, ghostSm, iconBtn, link, cell, textLink } from "../../theme.js";
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { HallBrand, OrgLogo, TokenChip, TokenTile, Wordmark } from "../../components/brand.jsx";
-import { ActionSelect, Blank, Btn, CitySelect, Field, Head, Pill, StatusPill, fmtDate } from "../../components/ui.jsx";
+import { ActionSelect, Blank, Btn, CitySelect, Field, Head, Pill, StatusPill, TopBar, fmtDate } from "../../components/ui.jsx";
 import { useNarrow } from "../../hooks/useNarrow.js";
 import {
   BRAND_COLORS, CITIES, DEFAULT_ROOMS, DEFAULT_ROUNDS, DOC_OPTIONS, EXP_BANDS, LOGO_PRESETS, PASS_TTL,
   bare6, clientOf, code, driveCapCopy, driveSlotsLeft, hallChrome, hallLogo, hallName, inARound, inNudgeWindow,
   isAgencyOrg, isTerminal, listingPlace, livePass, memberEmail, memberName, memberRole, newGate, newHost, newPass,
   nudgeText, occupantOf, orgColor, orgWash, orgCities, passLabel, planLimits, planOf, recruitersOf, roundLabel, siteOf, tat, todayStr, downloadFile,
-  gateUrl, mask, pc,
+  gateUrl, mask, pc, roomsForRound,
 } from "../../lib/helpers.js";
 import QrCode from "../../components/QrCode.jsx";
+import DriveSetup from "./DriveSetup.jsx";
 
 const TABS = [["today", "Today", LayoutGrid], ["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone], ["queue", "All candidates", Users2], ["rounds", "Rounds", Building2], ["rooms", "Rooms", Building], ["branding", "Branding", ShieldCheck], ["msgs", "Messages", Send], ["result", "Reports", PieChart]];
 const DESK_TABS = [["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone]];
@@ -296,10 +297,30 @@ export function Employer({ store, back, initialDriveId }) {
         candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })),
         brand: { name: org.short || org.name, color: org.color || BRAND_COLORS[0].hex, logo: org.logo || "letter" },
         rooms: lim.rooms === false ? [{ ...DEFAULT_ROOMS[0] }] : DEFAULT_ROOMS.map((r) => ({ ...r })),
+        // The rounds and rooms above are only placeholders until the host walks the
+        // setup steps, which is where the real panel and room assignments come from.
+        setupDone: false,
       }]);
       setId(nid); setTab("today"); nav(`/app/hiring/${nid}`);
     }}
     back={back} />;
+
+  // Front desk staff run an already-configured hall, so only a host sees the setup steps.
+  if (!desk && drive.setupDone === false) {
+    return (
+      <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
+        <TopBar back={closeDrive} title={hallName(drive, org)} accent={face.color} />
+        <div className="pagepad" style={{ padding: 26 }}>
+          <DriveSetup
+            drive={drive}
+            maxRooms={planLimits(org).rooms === false ? 1 : planLimits(org).tvsPerSite * 4}
+            onCancel={closeDrive}
+            onDone={({ rounds, rooms }) => upd(drive.id, (d) => ({ ...d, rounds, rooms, setupDone: true }))}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
   const callingNow = drive.candidates.filter((x) => x.state === "calling");
@@ -1067,7 +1088,7 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
                 <div style={{ marginTop: 16 }}>
                   <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Call into which room?</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {rooms.map((r) => (
+                    {roomsForRound(rooms, rounds, next).map((r) => (
                       <button key={r.id} onClick={() => { callTo(next.id, r.id); setPickFor(null); }} style={{
                         padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontFamily: bdy, textAlign: "left",
                         border: `1px solid ${k.line}`, background: "#fff",
@@ -1115,7 +1136,7 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
               {pickFor === x.id ? (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  {rooms.map((r) => (
+                  {roomsForRound(rooms, rounds, x).map((r) => (
                     <button key={r.id} onClick={() => { callTo(x.id, r.id); setPickFor(null); }} style={{
                       padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontFamily: bdy, textAlign: "left",
                       border: `1px solid ${k.line}`, background: "#fff", fontSize: 11.5,
@@ -1381,7 +1402,7 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], c
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
-                  {x.state === "wait" && <ActionSelect label="Call to room" options={(rooms || []).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
+                  {x.state === "wait" && <ActionSelect label="Call to room" options={roomsForRound(rooms, rounds, x).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
                   {x.state === "calling" && <><Btn onClick={() => move(x.id, "interviewing")}>Start</Btn><Btn q onClick={() => move(x.id, "absent")}>Absent</Btn></>}
                   {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
                   {x.state === "onhold" && <Btn onClick={() => move(x.id, "wait")}>Back to queue</Btn>}
@@ -1419,7 +1440,7 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], c
                   <td style={cell}><Pill tone={label[x.state]?.[0]}>{label[x.state]?.[1]}</Pill></td>
                   <td style={{ ...cell }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      {x.state === "wait" && <ActionSelect label="Call to room" options={(rooms || []).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
+                      {x.state === "wait" && <ActionSelect label="Call to room" options={roomsForRound(rooms, rounds, x).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
                       {x.state === "calling" && <><Btn onClick={() => move(x.id, "interviewing")}>Start</Btn><Btn q onClick={() => move(x.id, "absent")}>Absent</Btn></>}
                       {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
                       {x.state === "onhold" && <Btn onClick={() => move(x.id, "wait")}>Back to queue</Btn>}

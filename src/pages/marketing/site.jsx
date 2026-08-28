@@ -4,6 +4,7 @@ import { bdy, dsp, typ, k, R, solid, solidSm, outline, outlineSm, iconBtn, navBt
 import { HallBrand, OrgLogo, TokenChip, TokenMark, TokenTile, Wordmark } from "../../components/brand.jsx";
 import { Link } from "react-router-dom";
 import { pc, PLANS, PLAN_ROWS, PRODUCT_FEATS, PUBLIC_PLANS, listingHost, listingPlace, EXP_BANDS, DEFAULT_ROUNDS } from "../../lib/helpers.js";
+import { readSession } from "../../lib/api.js";
 import { pathFor } from "../../lib/routes.js";
 import { Pill, fmtDate, CitySelect, Blank, Field, StatusPill } from "../../components/ui.jsx";
 
@@ -26,6 +27,7 @@ export const NAV = [
 export function SiteNav({ page, go, onLaunch }) {
   const [open, setOpen] = useState(null);
   const [menu, setMenu] = useState(false);
+  const signedIn = !!readSession()?.orgId;
   const navigate = (t) => { setOpen(null); setMenu(false); go(t); };
   useEffect(() => {
     const close = () => setOpen(null);
@@ -74,9 +76,17 @@ export function SiteNav({ page, go, onLaunch }) {
           ))}
         </div>
         <div className="nav-ctas" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <Link to="/login" style={{ ...textLink, textDecoration: "none" }}>Sign in</Link>
-          <button onClick={() => onLaunch("employer")} style={solidSm}>I'm hiring <ArrowRight size={15} /></button>
-          <button onClick={() => onLaunch("candidate")} style={outlineSm}>Joining a walk-in?</button>
+          {/* Three audiences, three destinations. "Sign in" and "I'm hiring" both
+              landed on /login when signed out, which is what made this ambiguous. */}
+          <Link to="/app/join" style={{ ...textLink, textDecoration: "none" }}>Candidate check-in</Link>
+          {signedIn ? (
+            <button onClick={() => onLaunch("employer")} style={solidSm}>Go to console <ArrowRight size={15} /></button>
+          ) : (
+            <>
+              <Link to="/login" style={{ ...outlineSm, textDecoration: "none" }}>Sign in</Link>
+              <Link to="/signup" style={{ ...solidSm, textDecoration: "none" }}>Start free <ArrowRight size={15} /></Link>
+            </>
+          )}
         </div>
       </div>
       {menu && (
@@ -85,8 +95,15 @@ export function SiteNav({ page, go, onLaunch }) {
             <Link key={label} to={pathFor(id)} onClick={() => setMenu(false)} style={{ display: "block", width: "100%", textAlign: "left", padding: "14px 4px", textDecoration: "none", borderBottom: `1px solid ${k.line}`, fontFamily: bdy, fontSize: 16, fontWeight: 600, color: k.ink }}>{label}</Link>
           ))}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-            <button onClick={() => { setMenu(false); onLaunch("employer"); }} style={{ ...solid, justifyContent: "center", width: "100%" }}>I'm hiring</button>
-            <button onClick={() => { setMenu(false); onLaunch("candidate"); }} style={{ ...outline, justifyContent: "center", width: "100%" }}>Joining a walk-in?</button>
+            {signedIn ? (
+              <button onClick={() => { setMenu(false); onLaunch("employer"); }} style={{ ...solid, justifyContent: "center", width: "100%" }}>Go to console</button>
+            ) : (
+              <>
+                <Link to="/signup" onClick={() => setMenu(false)} style={{ ...solid, justifyContent: "center", width: "100%", textDecoration: "none" }}>Start free</Link>
+                <Link to="/login" onClick={() => setMenu(false)} style={{ ...outline, justifyContent: "center", width: "100%", textDecoration: "none" }}>Sign in</Link>
+              </>
+            )}
+            <Link to="/app/join" onClick={() => setMenu(false)} style={{ ...outline, justifyContent: "center", width: "100%", textDecoration: "none" }}>Candidate check-in</Link>
           </div>
         </div>
       )}

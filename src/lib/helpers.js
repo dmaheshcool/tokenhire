@@ -126,6 +126,16 @@ export function driveCapCopy(org) {
   return spec.multiDay ? `This plan allows ${n} ${unit} this month.` : `This plan allows ${n} ${unit}.`;
 }
 export function orgCities(org) { return Array.from(new Set((org?.branches || []).map((b) => b.city).filter(Boolean))); }
+// Only the rooms running the round this candidate is actually on. Drives created
+// before rooms carried a round binding have no roundId at all, so those fall back to
+// offering every room rather than silently offering none.
+export function roomsForRound(rooms = [], rounds = [], cand) {
+  if (!rooms.some((r) => r.roundId)) return rooms;
+  const idx = inARound(cand) ? cand.roundIdx : 0;
+  const roundId = rounds[idx]?.id;
+  const match = rooms.filter((r) => r.roundId === roundId);
+  return match.length ? match : rooms;
+}
 export const DEFAULT_ROOMS = [
   { id: "rm1", name: "Room 1", interviewer: "Priya" },
   { id: "rm2", name: "Room 2", interviewer: "Arun" },
