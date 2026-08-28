@@ -778,10 +778,10 @@ export function Home({ go, onLaunch, drives }) {
       <div style={{ background: k.cream, minHeight: "100vh", padding: "0 0 48px", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto", padding: "64px 26px 0", textAlign: "center" }}>
           <h1 style={{ fontFamily: dsp, fontSize: "clamp(36px, 5vw, 58px)", lineHeight: 1.12, letterSpacing: -1.4, margin: "0 auto 20px", color: k.ink, fontWeight: 700, maxWidth: 780 }}>
-            One line. Two screens. <Highlight>Nobody's forgotten.</Highlight>
+            Walk-in hiring, <Highlight>without the queue.</Highlight>
           </h1>
-          <p style={{ fontSize: 17.5, color: k.ink2, lineHeight: 1.6, margin: "0 auto 34px", maxWidth: 520 }}>
-            Candidates watch their own turn approach from their phone. Recruiters run the whole line from one screen. Same queue, two honest views.
+          <p style={{ fontSize: 17.5, color: k.ink2, lineHeight: 1.6, margin: "0 auto 34px", maxWidth: 440 }}>
+            Candidates watch their turn from their phone. You run the floor from one screen.
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 40 }}>
             <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
@@ -901,7 +901,7 @@ function LiveBoard() {
 /* --- About --- */
 export function AboutPage({ go, onLaunch }) {
   const principles = [
-    [ShieldCheck, "Privacy by default", "Public screens show a token and a masked name. Only recruiters signed in to that drive see anything more."],
+    [ShieldCheck, "Privacy by default", "A token and a masked name. Nothing else."],
     [FileText, "We store as little as possible", "Aadhaar is optional, and even then we keep a one-way hash — never the number."],
     [HeartHandshake, "One job, done properly", "Walk-in hiring drives. Not general queueing, not an ATS. That focus is the point."],
   ];
@@ -950,12 +950,12 @@ export function AboutPage({ go, onLaunch }) {
 /* --- Services --- */
 export function Services({ go, onLaunch }) {
   const blocks = [
-    { h: "One scan and they're in the queue", d: "The waiting-room screen shows a QR that refreshes every 45 seconds. Scanning it checks a candidate in and issues their token in one step. Because the code is live, a screenshot sent to someone outside the building stops working within the minute.", art: <ArtCode /> },
-    { h: "One queue, many recruiters", d: "Every recruiter screening today works off the identical list. Nobody ever calls the same token twice, because there's only one source of truth.", art: <ArtQueue /> },
-    { h: "A nudge 15 minutes before", d: "Candidates don't have to stand around watching a screen. WhatsApp tells them exactly when to come back, timed off your actual pace.", art: <ArtNudge /> },
-    { h: "Names stay private in public", d: "The screen on the wall shows a token and a masked name — R···l, not Rahul. Only recruiters signed in to that drive see anything more.", art: <ArtMasked /> },
-    { h: "Wait times from today's pace", d: "Estimates aren't set once at 9am and left stale. They recalculate continuously from how long your interviews are actually running.", art: <ArtPace /> },
-    { h: "The report you never had", d: "Checked in, interviewed, selected, rejected, on hold — a real extract at the end of the day, ready to drop into your ATS. Offers stay off the walk-in floor.", art: <ArtReport /> },
+    { h: "One scan", d: "Scan the screen. Get a token. Done.", art: <ArtCode /> },
+    { h: "One queue", d: "Every recruiter, the same list.", art: <ArtQueue /> },
+    { h: "One nudge", d: "WhatsApp, 15 minutes before their turn.", art: <ArtNudge /> },
+    { h: "Names stay private", d: "The wall shows R···l, never Rahul.", art: <ArtMasked /> },
+    { h: "Honest wait times", d: "Recalculated from today's actual pace.", art: <ArtPace /> },
+    { h: "A real record", d: "Every outcome, exported to your ATS.", art: <ArtReport /> },
   ];
 
   return (
@@ -963,10 +963,10 @@ export function Services({ go, onLaunch }) {
       <div style={{ background: k.band }}>
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "76px 26px 80px", textAlign: "center" }}>
           <h1 style={{ fontFamily: dsp, fontSize: "clamp(34px,4.8vw,52px)", fontWeight: 700, letterSpacing: -1.5, margin: "0 0 20px", lineHeight: 1.12 }}>
-            One queue. <Highlight>One honest record.</Highlight>
+            One queue. <Highlight>One record.</Highlight>
           </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 480 }}>
-            Everything that happens at the front desk of a walk-in drive — handled in one place.
+          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 420 }}>
+            The whole front desk, in one place.
           </p>
         </div>
       </div>
@@ -1094,29 +1094,29 @@ const SOLUTIONS = {
     head: ["Five hundred walk-ins. ", "One calm room."],
     sub: "Voice and non-voice drives run at volumes nothing else in hiring touches. The bottleneck isn't sourcing — it's the four hours between arriving and being seen.",
     pains: [
-      ["The room holds 80. The queue is 400.", "Candidates spill into corridors and car parks because nobody knows who's next. Tokens and honest wait times let people leave and come back."],
-      ["Six recruiters, six paper lists.", "Names get called twice, or never. One shared queue means every screener works off the same order."],
-      ["Decisions stay in your ATS.", "The walk-in records selected, rejected, and on hold by round. Offers and joining happen later, in the system you already use."],
+      ["The room holds 80. The queue is 400.", "Nobody knows who is next, so nobody leaves."],
+      ["Six recruiters, six paper lists.", "Names get called twice, or never."],
+      ["Decisions stay in your ATS.", "Outcomes by round. Offers stay in your ATS."],
     ],
     stat: ["500+", "candidates in a single day's drive"],
   },
   retail: {
     eyebrow: "Retail & delivery",
     head: ["Hiring in ", "forty stores at once."],
-    sub: "Store managers run their own walk-ins, usually with a notebook. Nothing rolls up, so head office finds out how it went a week later.",
+    sub: "Every store keeps its own notebook. Head office finds out a week later.",
     pains: [
-      ["Every store does it differently.", "One store's register is a WhatsApp group, another's is paper. The same check-in flow everywhere makes the data comparable."],
+      ["Every store does it differently.", "One flow everywhere, so the numbers compare."],
       ["Head office is flying blind.", "Each drive posts its own numbers as it happens, instead of a spreadsheet emailed on Monday."],
-      ["Walk-ins clash with the shop floor.", "Candidates waiting inside the store hurt trade. Send the 15-minute WhatsApp nudge so they can wait outside, and the aisle stays clear."],
+      ["Walk-ins clash with the shop floor.", "Keep the aisle clear. They wait outside until nudged."],
     ],
     stat: ["40+", "store drives running the same week"],
   },
   campus: {
     eyebrow: "Campus hiring",
     head: ["A whole batch, ", "through by lunch."],
-    sub: "Placement drives cram three hundred students into a corridor for a process that takes eight minutes each. The maths never works, and the students know it.",
+    sub: "Three hundred students. Eight minutes each. The maths never works.",
     pains: [
-      ["Everyone arrives at 9am.", "All of them, at once, because nobody's told them otherwise. Staggered wait times spread the same crowd across the day."],
+      ["Everyone arrives at 9am.", "Everyone arrives at 9am. Staggered times spread the same crowd."],
       ["The placement cell is the queue.", "Two coordinators managing three hundred students by memory. The queue runs itself instead."],
       ["No record for the college.", "Placement officers need real numbers per drive. They get a report instead of a headcount."],
     ],
@@ -1125,11 +1125,11 @@ const SOLUTIONS = {
   agency: {
     eyebrow: "Staffing agencies",
     head: ["You hire for them. ", "The hall is yours."],
-    sub: "Quess, TeamLease, Adecco — you staff banks, BPOs, and factories, and sometimes your own associate bench. Candidates join a Quess walk-in for HDFC, not a TokenHire event. Vistaar next door never sees your books.",
+    sub: "Candidates join your walk-in, under your name. Rival agencies never see your books.",
     pains: [
       ["One agency space — not a shared soup.", "Your recruiters and front desks only see Quess drives. Another agency (or a captive like Wipro) cannot open yours. Clients are tags inside your space, not logins that peek at each other."],
-      ["The poster and the TV say Quess.", "GATE, waiting screen, and the admission slip carry your mark and the client name. A small Powered by TokenHire is all we keep."],
-      ["Branches and clients in one login.", "Hyderabad HITEC vs Pune, HDFC sales vs Amazon warehouse vs bench. Tag the drive; the hall and the Monday extract follow."],
+      ["The hall says Quess.", "Your mark and your client name on every screen and slip."],
+      ["Branches and clients in one login.", "Tag the drive. The hall and the extract follow."],
     ],
     stat: ["1", "agency login, many clients and cities"],
   },
@@ -1211,7 +1211,7 @@ export function PublicDrives({ drives, onLaunch }) {
             Find a walk-in <b style={{ fontWeight: 800 }}>near you</b>
           </h1>
           <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto 30px", maxWidth: 500 }}>
-            Sorted by date. Public walk-ins for the weekend show up here. Joining still means being at that venue: scan GATE, then enter the rotating DESK code from the TV.
+            Public walk-ins, sorted by date. You still have to be at the venue to join.
           </p>
           <button onClick={() => onLaunch("candidate")} style={solid}>Set up my profile <ArrowRight size={16} /></button>
         </div>
@@ -1341,8 +1341,8 @@ export function PricingPage({ onLaunch, go }) {
           <h1 style={{ fontFamily: dsp, fontSize: "clamp(32px,4.4vw,50px)", fontWeight: 400, letterSpacing: -1.6, margin: "0 0 18px", lineHeight: 1.1 }}>
             Priced by <b style={{ fontWeight: 800 }}>how often you hire</b>.
           </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 520 }}>
-            Every plan runs a complete walk-in. Larger plans add volume, seats and venues. Prices exclude GST.
+          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 400 }}>
+            Every plan is the full product. Bigger plans add volume. Excludes GST.
           </p>
         </div>
       </div>
@@ -1353,10 +1353,7 @@ export function PricingPage({ onLaunch, go }) {
 
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 26px 0" }}>
         <div style={{ border: `1px solid ${k.line}`, borderRadius: 10, background: k.bandSoft, padding: "24px 26px" }}>
-          <div style={{ fontFamily: dsp, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Included in every plan, free one too</div>
-          <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 16px", lineHeight: 1.6 }}>
-            The difference between plans is volume, not capability.
-          </p>
+          <div style={{ fontFamily: dsp, fontSize: 15, fontWeight: 700, marginBottom: 16 }}>In every plan</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "10px 22px" }}>
             {PRODUCT_FEATS.map((f) => (
               <div key={f} style={{ display: "flex", gap: 8, fontSize: 13.5, alignItems: "center", color: k.ink2 }}>
@@ -1374,9 +1371,9 @@ export function PricingPage({ onLaunch, go }) {
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 26px 80px" }}>
         <div style={{ border: `1px solid ${k.line}`, borderRadius: 10, background: "#fff", padding: "24px 26px", display: "flex", gap: 20, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div style={{ maxWidth: 560 }}>
-            <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700, marginBottom: 5 }}>Staffing agency or 25+ drives a month?</div>
+            <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700, marginBottom: 5 }}>25+ drives a month?</div>
             <p style={{ fontSize: 13.5, color: k.mid, margin: 0, lineHeight: 1.6 }}>
-              Volume and Enterprise add client branding, separate records per client, SSO and a signed SLA.
+              Client branding, SSO and an SLA.
             </p>
           </div>
           <button type="button" onClick={() => go("contact")} style={{ ...outline, whiteSpace: "nowrap" }}>Talk to us</button>
@@ -1407,7 +1404,7 @@ const LEGAL = {
       ["What TokenHire is", "A queue and check-in system for walk-in hiring drives. We are not a staffing agency, a recruiter, or a party to any employment decision — we provide the software; the hiring company makes the calls."],
       ["Accounts", "A company account belongs to the business that creates it. Anyone invited to that account can see and manage every drive under it. It's the company's responsibility to manage who has access."],
       ["Candidate use", "Creating a candidate profile is free and always will be. You're responsible for the accuracy of what you submit — a false experience claim or fabricated verification status can get an application rejected by the hiring company, not by us."],
-      ["Fair use of check-in codes", "GATE codes and the printed QR identify which walk-in you're at. They do not complete check-in. Joining the queue requires a live DESK code from the waiting-room screen (it rotates every 45 seconds) or a one-time pass issued by front desk. HOST codes are for recruiters only. Sharing or forwarding a GATE QR, DESK code, or gate pass so someone who isn't at the venue can check in is a violation of these terms and may result in account suspension."],
+      ["Fair use of check-in codes", "Joining a queue requires the live code shown on the waiting-room screen, which refreshes every 45 seconds, or a one-time pass issued by front desk. HOST codes are for recruiters only. Sharing or forwarding a check-in code so that someone who is not at the venue can join the queue is a violation of these terms and may result in account suspension."],
       ["No guarantee of hiring outcomes", "TokenHire manages the queue and the record-keeping. We don't guarantee interviews, offers, or job placement — those decisions rest entirely with the hiring company running the drive."],
       ["Changes", "We may update these terms as the product changes. Material changes will be reflected here with an updated date."],
     ],

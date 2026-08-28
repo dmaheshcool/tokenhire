@@ -88,10 +88,10 @@ export function Candidate({ store, back }) {
     const live = drives.find((x) => x.id === matched.id) || matched;
     const raw = (codeStr || "").trim().toUpperCase();
     if (raw.startsWith("HOST") || raw.startsWith("GATE")) {
-      return "GATE already found this walk-in. Enter DESK from the TV — that one rotates, so a screenshot of GATE isn't enough.";
+      return "Scan the waiting-room screen, or type the code shown on it.";
     }
     const kind = venueProofOf(live, codeStr);
-    if (!kind) return "That isn't this room's live DESK code or a current gate pass. Look at the waiting-room TV (it changes every 45 seconds), or ask the desk to admit you.";
+    if (!kind) return "Expired or wrong code. Check the screen, or ask the desk.";
     if (kind === "pass") consumePass(live.id);
     const already = dupOf(live, profile);
     if (already) { showDupSlip(live, already); return ""; }
@@ -166,12 +166,12 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
         <div style={{ ...box, padding: 18, marginBottom: 18, borderLeft: `3px solid ${k.coral}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .8, textTransform: "uppercase", color: k.coral, marginBottom: 8 }}>You're at the right walk-in</div>
           <p style={{ fontSize: 13.5, color: k.ink, lineHeight: 1.55, margin: "0 0 12px" }}>
-            GATE finds the walk-in. The rotating DESK code on the TV proves you're in the building. A forwarded GATE QR can't check you in.
+            Scanning the screen does this automatically.
           </p>
-          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Enter DESK from the waiting-room TV</div>
+          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Enter the code from the waiting-room screen</div>
           <div style={{ display: "flex", gap: 9 }}>
             <input value={deskIn} onChange={(e) => { setDeskIn(e.target.value.toUpperCase()); setProveErr(""); }} onKeyDown={(e) => e.key === "Enter" && submitProof()} placeholder="DESK-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={11} />
-            <button onClick={submitProof} style={solidTeal}>Prove I'm here</button>
+            <button onClick={submitProof} style={solidTeal}>Check in</button>
           </div>
           {proveErr ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 10, lineHeight: 1.5 }}>{proveErr}</div>
             : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9, lineHeight: 1.5 }}>That code rotates in {left}s. Front desk can also admit you with a one-time PASS.</div>}
@@ -299,9 +299,9 @@ export function BuildProfile({ onDone }) {
     <div style={{ maxWidth: 460 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 24, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Create your profile</h1>
       <p style={{ fontSize: 14, color: k.mid, margin: "0 0 18px", lineHeight: 1.55 }}>
-        {step === "details" && "First we confirm it's you — phone, WhatsApp, and email. Then you fill the rest once."}
-        {step === "verify" && "Three one-time codes. After this, every walk-in is scan GATE, prove you're in the room, and confirm."}
-        {step === "about" && "Experience and documents. Recruiters see this at the desk."}
+        {step === "details" && "Phone, WhatsApp and email."}
+        {step === "verify" && "Three one-time codes."}
+        {step === "about" && "Experience and documents."}
       </p>
       <button type="button" onClick={fillSample} style={{ ...ghostSm, marginBottom: 16 }}>Fill sample data — skip OTP, just to look around</button>
 
@@ -460,7 +460,7 @@ export function JoinDrive({ drives, left, onMatch }) {
     setErr("");
     const raw = codeStr.trim().toUpperCase();
     if (raw.startsWith("HOST")) {
-      setErr("That's a staff HOST code — it's for recruiters opening the drive on another laptop, not for check-in. Scan the GATE QR at security instead.");
+      setErr("That is a staff code. Scan the waiting-room screen instead.");
       return;
     }
     const kind = raw.startsWith("PASS") ? "pass" : raw.startsWith("DESK") ? "desk" : raw.startsWith("GATE") ? "gate" : null;
@@ -471,31 +471,31 @@ export function JoinDrive({ drives, left, onMatch }) {
     const byPass = live.find((d) => livePass(d)?.code === v);
 
     if (kind === "desk") {
-      if (v.length < 6) { setErr("Enter the full DESK-XXXXXX from the waiting-room TV. It changes every 45 seconds."); return; }
-      if (!byDesk) { setErr("That DESK code isn't on a live TV right now. DESK codes change every 45 seconds — look at the waiting-room screen."); return; }
+      if (v.length < 6) { setErr("Enter the full code from the screen."); return; }
+      if (!byDesk) { setErr("That code has expired. Check the screen again."); return; }
       onMatch(byDesk, "desk");
       return;
     }
     if (kind === "pass") {
-      if (!byPass) { setErr("That gate pass isn't live. Ask the desk to issue a new one — they expire in a couple of minutes and work once."); return; }
+      if (!byPass) { setErr("That pass has expired. Ask the desk for a new one."); return; }
       onMatch(byPass, "pass");
       return;
     }
     if (kind === "gate") {
-      if (v.length < 6) { setErr("Enter the full GATE-XXXXXX from the printed poster."); return; }
+      if (v.length < 6) { setErr("Enter the full code."); return; }
       if (byGate) { onMatch(byGate, "gate"); return; }
       const later = drives.find((d) => d.status === "upcoming" && bare6(d.gate) === v);
-      if (later) { setErr("This walk-in is listed but isn't accepting check-ins yet. Ask the desk to open it."); return; }
-      setErr("No live walk-in matches that GATE code. Check you're at the right venue.");
+      if (later) { setErr("This walk-in has not opened yet."); return; }
+      setErr("No walk-in matches that code.");
       return;
     }
     if (v.length <= 4 && byPass) { onMatch(byPass, "pass"); return; }
-    if (v.length < 6) { setErr("Enter GATE-XXXXXX from the poster, DESK-XXXXXX from the TV, or a one-time PASS from the desk."); return; }
+    if (v.length < 6) { setErr("Enter the full code from the screen."); return; }
     if (byGate) { onMatch(byGate, "gate"); return; }
     if (byDesk) { onMatch(byDesk, "desk"); return; }
     const later = drives.find((d) => d.status === "upcoming" && bare6(d.gate) === v);
-    if (later) { setErr("This walk-in is listed but isn't accepting check-ins yet. Ask the desk to open it."); return; }
-    setErr("No live walk-in matches that code. GATE finds the drive; DESK on the TV is what checks you in.");
+    if (later) { setErr("This walk-in has not opened yet."); return; }
+    setErr("No walk-in matches that code.");
   }
 
   async function startScan() {
@@ -507,7 +507,7 @@ export function JoinDrive({ drives, left, onMatch }) {
       (raw) => {
         const found = gateCodeFrom(raw);
         setScan("idle");
-        if (!found) { setErr("That QR isn't a TokenHire code. Type the code printed under it instead."); return; }
+        if (!found) { setErr("Not a TokenHire code."); return; }
         // A screen QR carries the live desk code as well, so presence is already proven
         // and there is nothing left to ask for.
         if (found.desk) {
@@ -539,7 +539,7 @@ export function JoinDrive({ drives, left, onMatch }) {
   return (
     <div style={{ maxWidth: 520 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Join a walk-in</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the code on the waiting-room screen. That is the whole check-in — you get your token straight away.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the waiting-room screen. That’s it.</p>
       {!!tickets.length && (
         <div style={{ ...box, padding: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Your tokens</div>
@@ -568,7 +568,7 @@ export function JoinDrive({ drives, left, onMatch }) {
         ) : (
           <>
             <button onClick={startScan} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 11 }}>Open camera to scan</button>
-            {scan === "denied" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>Camera access was blocked. Allow the camera in your browser settings, or just type the GATE code below.</div>}
+            {scan === "denied" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>Camera blocked. Type the code below instead.</div>}
             {scan === "unsupported" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>No camera available on this device — enter the code below instead.</div>}
           </>
         )}

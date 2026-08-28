@@ -33,7 +33,7 @@ export const PLAN_ROWS = [
 export const PLANS = [
   {
     id: "trial", name: "Free", price: "₹0", unit: "", annual: "", listed: true,
-    validity: "1 drive · 30 candidates", blurb: "See the whole flow with a real queue before you pay.",
+    validity: "1 drive · 30 candidates", blurb: "Try it on a real queue.",
     ribbon: "FREE", best: false, multiDay: false, cta: "Start free",
     highlights: ["One drive, up to 30 candidates", "QR check-in, tokens and live queue", "Waiting-room screen"],
     missing: ["Candidate notifications", "Reports and analytics"],
@@ -48,7 +48,7 @@ export const PLANS = [
   },
   {
     id: "single", name: "Single drive", price: "₹7,500", unit: " per drive", annual: "", listed: true,
-    validity: "1 drive · 300 candidates", blurb: "For companies that hire in occasional bursts.",
+    validity: "1 drive · 300 candidates", blurb: "For occasional hiring days.",
     best: false, multiDay: false, cta: "Buy one drive",
     builds: "trial",
     highlights: ["Up to 300 candidates", "Candidate notifications", "Interview rooms and rounds", "Reports and analytics", "8 recruiter seats"],
@@ -57,7 +57,7 @@ export const PLANS = [
   },
   {
     id: "pack5", name: "Growth", price: "₹15,000", unit: "/ month", annual: "", listed: true,
-    validity: "5 drives / month · 300 each", blurb: "For teams running a hall most weeks.",
+    validity: "5 drives / month · 300 each", blurb: "For most weeks of the year.",
     ribbon: "MOST POPULAR", best: true, multiDay: true, cta: "Start monthly",
     builds: "single",
     highlights: ["5 drives every month", "12 recruiter seats", "2 waiting screens per venue", "20 venues"],
@@ -66,7 +66,7 @@ export const PLANS = [
   },
   {
     id: "pack10", name: "Scale", price: "₹25,000", unit: "/ month", annual: "", listed: true,
-    validity: "10 drives / month · 500 each", blurb: "For multi-city hiring with several halls a week.",
+    validity: "10 drives / month · 500 each", blurb: "For several halls a week.",
     best: false, multiDay: true, cta: "Start Scale",
     builds: "pack5",
     highlights: ["10 drives every month", "Up to 500 candidates per drive", "20 seats, 4 waiting screens", "Audit log"],
@@ -75,7 +75,7 @@ export const PLANS = [
   },
   {
     id: "pack25", name: "Volume", price: "₹50,000", unit: "/ month", annual: "", listed: false,
-    validity: "25 drives / month · 500 each", blurb: "For staffing agencies billing several clients.",
+    validity: "25 drives / month · 500 each", blurb: "For agencies with clients.",
     best: false, multiDay: true, cta: "Talk to us",
     builds: "pack10",
     highlights: ["25 drives every month", "Client branding and separate client records", "40 seats, 8 waiting screens", "Priority support"],
@@ -84,7 +84,7 @@ export const PLANS = [
   },
   {
     id: "enterprise", name: "Enterprise", price: "Custom", unit: "", annual: "", listed: false, talk: true,
-    validity: "Unlimited drives", blurb: "For named contracts, SSO and a signed SLA.",
+    validity: "Unlimited drives", blurb: "For contracts and SSO.",
     best: false, multiDay: true, cta: "Talk to us",
     builds: "pack25",
     highlights: ["Unlimited drives and candidates", "SSO and SAML", "Signed SLA and named support", "Security review and DPA"],
