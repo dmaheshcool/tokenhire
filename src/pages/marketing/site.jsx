@@ -160,8 +160,8 @@ export function SiteFooter() {
 const STORY_SCENES = [
   { id: "title", ms: 2400, kicker: "TokenHire", line: "A walk-in." },
   { id: "chaos", ms: 3000, kicker: "8:47am", line: "The usual." },
-  { id: "gate", ms: 3600, kicker: "Gate", line: "Printed. It never rotates." },
-  { id: "prove", ms: 3800, kicker: "Waiting room", line: "DESK on the TV. Forty-five seconds." },
+  { id: "gate", ms: 3600, kicker: "Waiting room", line: "One scan. That's check-in." },
+  { id: "prove", ms: 3800, kicker: "Why it can't be faked", line: "The code dies in forty-five seconds." },
   { id: "checkin", ms: 3400, kicker: "Checked in", line: "014 · Priya Nair" },
   { id: "nudge", ms: 3400, kicker: "WhatsApp", line: "Once. Fifteen minutes out." },
   { id: "floor", ms: 4000, kicker: "On the floor", line: "Call her to Room 2." },
@@ -475,28 +475,25 @@ function StoryChaos() {
 function StoryGate() {
   return (
     <StorySet>
-      <div style={{
-        width: 300, background: "#fff", borderRadius: 4, padding: "26px 22px 22px", textAlign: "center", flexShrink: 0,
-        boxShadow: "0 28px 56px -20px rgba(11,16,32,.38)",
-        outline: "1px dashed rgba(11,16,32,.16)", outlineOffset: 10,
-        transform: "rotate(-1.2deg)",
-      }}>
-        <div style={{ fontFamily: typ, fontSize: 11, letterSpacing: 1.8, color: k.coral, fontWeight: 700, marginBottom: 8 }}>GATE · PRINT THIS</div>
-        <div style={{ fontFamily: dsp, fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Vistaar Services</div>
-        <div style={{ fontSize: 13, color: k.mid, marginBottom: 18 }}>Voice Process · HITEC City</div>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><DemoQr seed="GATE-VISTA1" size={188} /></div>
-        <div style={{ fontFamily: typ, fontSize: 20, fontWeight: 700, letterSpacing: 2.2 }}>GATE-VISTA1</div>
-        <div style={{ fontSize: 12.5, color: k.mid, marginTop: 8 }}>Tape at security. Does not rotate.</div>
-      </div>
+      <StoryTv>
+        <div style={{ padding: "14px 20px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 12, letterSpacing: 1.5, color: k.ink2, display: "flex", justifyContent: "space-between" }}>
+          <span>WAITING ROOM</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
+        </div>
+        <div style={{ padding: "26px 22px 24px", textAlign: "center", background: k.cream2 }}>
+          <div style={{ fontFamily: typ, fontSize: 11.5, letterSpacing: 1.8, color: k.coral, fontWeight: 700, marginBottom: 14 }}>SCAN TO GET YOUR TOKEN</div>
+          <div style={{ display: "flex", justifyContent: "center" }}><DemoQr seed="GATE-VISTA1-K7P2N9" size={168} /></div>
+          <div style={{ fontSize: 13, color: k.mid, marginTop: 14 }}>One scan. No codes to type.</div>
+        </div>
+      </StoryTv>
       <StoryPhone glow>
         <div style={{ background: "#0B1020", height: 460, position: "relative", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "20px 16px 8px", color: "rgba(255,255,255,.72)", fontSize: 13, fontWeight: 600, textAlign: "center" }}>Scan GATE QR</div>
+          <div style={{ padding: "20px 16px 8px", color: "rgba(255,255,255,.72)", fontSize: 13, fontWeight: 600, textAlign: "center" }}>Point at the screen</div>
           <div style={{ flex: 1, margin: "10px 22px 36px", borderRadius: 18, overflow: "hidden", position: "relative", background: "#1a2238", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <DemoQr seed="GATE-VISTA1" size={140} />
+            <DemoQr seed="GATE-VISTA1-K7P2N9" size={140} />
             <div style={{ position: "absolute", inset: 18, border: `2px solid ${k.coral}`, borderRadius: 14, pointerEvents: "none" }} />
             <div style={{ position: "absolute", left: 24, right: 24, height: 2, background: k.coral, animation: "scanSweep 1.8s ease-in-out infinite alternate", pointerEvents: "none" }} />
           </div>
-          <div style={{ padding: "0 16px 24px", textAlign: "center", color: "#fff", fontSize: 13.5 }}>Hold over the printed poster</div>
+          <div style={{ padding: "0 16px 24px", textAlign: "center", color: "#fff", fontSize: 13.5 }}>It scans by itself</div>
         </div>
       </StoryPhone>
     </StorySet>
@@ -511,10 +508,9 @@ function StoryProve({ fill = 0 }) {
         <div style={{ padding: "14px 20px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 12, letterSpacing: 1.5, color: k.ink2, display: "flex", justifyContent: "space-between" }}>
           <span>WAITING ROOM</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
         </div>
-        <div style={{ padding: "40px 22px 32px", textAlign: "center", background: k.cream2 }}>
-          <div style={{ fontFamily: typ, fontSize: 12, letterSpacing: 1.8, color: k.mid, fontWeight: 700, marginBottom: 12 }}>DESK · TV ONLY</div>
-          <div style={{ fontFamily: typ, fontSize: 36, fontWeight: 800, letterSpacing: 3.4, color: k.ink }}>DESK-K7P2N9</div>
-          <div style={{ fontSize: 14, color: k.coral, fontFamily: typ, marginTop: 14, fontWeight: 700 }}>ROTATES IN {String(left).padStart(2, "0")}s</div>
+        <div style={{ padding: "30px 22px 26px", textAlign: "center", background: k.cream2 }}>
+          <div style={{ display: "flex", justifyContent: "center", opacity: .9 }}><DemoQr seed={`ROT-${Math.ceil(left / 5)}`} size={150} /></div>
+          <div style={{ fontSize: 14, color: k.coral, fontFamily: typ, marginTop: 14, fontWeight: 700 }}>REFRESHES IN {String(left).padStart(2, "0")}s</div>
         </div>
         <div style={{ padding: "16px 20px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: k.mid }}>
           <span>Now calling</span>
@@ -522,13 +518,15 @@ function StoryProve({ fill = 0 }) {
         </div>
       </StoryTv>
       <StoryPhone glow>
-        <div style={{ padding: "32px 22px 24px" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: .9, textTransform: "uppercase", color: k.coral, marginBottom: 12 }}>You're at the right walk-in</div>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Vistaar Services</div>
-          <div style={{ fontSize: 14, color: k.mid, lineHeight: 1.45, marginBottom: 28 }}>Voice Process · HITEC City</div>
-          <div style={{ fontSize: 12.5, color: k.ink2, marginBottom: 8, fontWeight: 600 }}>DESK from the TV</div>
-          <div style={{ fontFamily: typ, letterSpacing: 2.6, fontSize: 17, fontWeight: 700, border: `1.5px solid ${k.coral}`, borderRadius: 12, padding: "16px 14px", marginBottom: 18, textAlign: "center" }}>DESK-K7P2N9</div>
-          <div style={{ ...solid, justifyContent: "center", padding: 13, fontSize: 15, width: "100%", boxSizing: "border-box" }}>Prove I'm here</div>
+        <div style={{ padding: "30px 22px 24px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: .9, textTransform: "uppercase", color: k.mid, marginBottom: 14 }}>Screenshot sent to a friend</div>
+          <div style={{ border: `1px solid ${k.line}`, borderRadius: 14, padding: 16, marginBottom: 18, textAlign: "center", background: k.cream2 }}>
+            <div style={{ opacity: .3, display: "flex", justifyContent: "center" }}><DemoQr seed="ROT-old" size={104} /></div>
+          </div>
+          <div style={{ background: k.redDim, border: `1px solid ${k.red}33`, borderRadius: 12, padding: "14px 15px" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: k.red, marginBottom: 4 }}>This code has expired</div>
+            <div style={{ fontSize: 13, color: k.ink2, lineHeight: 1.45 }}>Scan the screen in the waiting room.</div>
+          </div>
         </div>
       </StoryPhone>
     </StorySet>

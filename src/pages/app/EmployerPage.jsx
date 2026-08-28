@@ -1610,11 +1610,12 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   const add = () => {
     if (!name.trim() || planLimits(org).rooms === false) return;
     const email = recruiterEmail;
-    setRooms([...rooms, { id: `rm${Date.now()}`, name: name.trim(), interviewer: email ? pickName(email) : "", recruiterEmail: email || null }]);
+    setRooms([...rooms, { id: `rm${Date.now()}`, name: name.trim(), interviewer: email ? pickName(email) : "", recruiterEmail: email || null, roundId: "" }]);
     setName("");
   };
   const remove = (id) => setRooms(rooms.filter((r) => r.id !== id));
   const rename = (id, v) => setRooms(rooms.map((r) => (r.id === id ? { ...r, name: v } : r)));
+  const setRound = (id, roundId) => setRooms(rooms.map((r) => (r.id === id ? { ...r, roundId } : r)));
   const assign = (id, email) => setRooms(rooms.map((r) => (r.id === id ? { ...r, recruiterEmail: email || null, interviewer: email ? pickName(email) : "" } : r)));
   function inviteRecruiter() {
     const v = invite.trim();
@@ -1629,7 +1630,7 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   return (
     <div style={{ maxWidth: 720 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Rooms and interviewers</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>Each desk is a room plus a recruiter from your company team. Call to room assigns that desk and starts round 1 on the slip. Pass moves them to the next round; reject takes them out immediately.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>A room is a desk, the person sitting at it, and the round they run. Candidates are only ever offered rooms running their current round.</p>
       <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
         {!rooms.length && <Blank text="No rooms yet. Add one below." />}
         {rooms.map((r, i) => {
@@ -1641,6 +1642,11 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
               <select value={r.recruiterEmail || ""} onChange={(e) => assign(r.id, e.target.value)} style={{ ...input, flex: "1 1 180px", minWidth: 160, appearance: "auto" }}>
                 <option value="">Unassigned</option>
                 {recruiters.map((m) => <option key={memberEmail(m)} value={memberEmail(m)}>{memberName(m)} · {memberEmail(m)}</option>)}
+              </select>
+              {/* Without this the room drops out of the round-scoped call pickers. */}
+              <select value={r.roundId || ""} onChange={(e) => setRound(r.id, e.target.value)} style={{ ...input, flex: "1 1 150px", minWidth: 130, appearance: "auto" }}>
+                <option value="">Any round</option>
+                {(drive.rounds || []).map((rd) => <option key={rd.id} value={rd.id}>{rd.name}</option>)}
               </select>
               {who ? <Pill tone="coral">{who.token}</Pill> : <Pill tone="grey">FREE</Pill>}
               <button onClick={() => remove(r.id)} style={{ ...ghostSm, padding: "7px 11px", color: k.red }}>Remove</button>
