@@ -2,6 +2,7 @@ import { k } from "../theme.js";
 
 export const ROTATE = 45, NOTIFY_MIN = 15, FALLBACK_TAT = 8, MIN = 6e4;
 
+// Listed on every tier once, above the cards, rather than repeated inside each one.
 export const PRODUCT_FEATS = [
   "Digital candidate registration",
   "QR check-in",
@@ -12,11 +13,30 @@ export const PRODUCT_FEATS = [
   "Interviewer management",
   "Reports and analytics",
 ];
+
+// Drives the pricing comparison table. Keeping it derived from `limits` means the
+// table can never drift from what the app actually enforces.
+export const PLAN_ROWS = [
+  { label: "Drives", get: (l, p) => (l.drives >= 999 ? "Unlimited" : `${l.drives}${p.multiDay ? " / month" : ""}`) },
+  { label: "Candidates per drive", get: (l) => (l.candidates >= 9999 ? "Unlimited" : l.candidates.toLocaleString("en-IN")) },
+  { label: "Recruiter seats", get: (l) => l.seats },
+  { label: "Venues", get: (l) => l.sites },
+  { label: "Waiting screens per venue", get: (l) => l.tvsPerSite },
+  { label: "Candidate notifications", get: (l) => l.notify },
+  { label: "Interview rooms and rounds", get: (l) => l.rooms },
+  { label: "Reports and analytics", get: (l) => l.reports },
+  { label: "Audit log", get: (l) => l.audit },
+  { label: "Client branding", get: (l) => l.whiteLabel },
+  { label: "Priority support", get: (l) => l.sla },
+  { label: "SSO", get: (l) => l.sso },
+];
 export const PLANS = [
   {
-    id: "trial", name: "Free trial", price: "₹0", unit: "", annual: "", listed: true,
-    validity: "1 drive · 30 candidates", blurb: "Enough to run a small hall once — not the full product.",
+    id: "trial", name: "Free", price: "₹0", unit: "", annual: "", listed: true,
+    validity: "1 drive · 30 candidates", blurb: "See the whole flow with a real queue before you pay.",
     ribbon: "FREE", best: false, multiDay: false, cta: "Start free",
+    highlights: ["One drive, up to 30 candidates", "QR check-in, tokens and live queue", "Waiting-room screen"],
+    missing: ["Candidate notifications", "Reports and analytics"],
     feats: [
       "1 drive · up to 30 candidates",
       "Digital registration and QR check-in",
@@ -27,37 +47,47 @@ export const PLANS = [
     limits: { drives: 1, sites: 1, cities: 99, seats: 1, tvsPerSite: 1, wa: 0, candidates: 30, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: false, reports: false, rooms: false },
   },
   {
-    id: "single", name: "Single drive", price: "₹7,500", unit: " once", annual: "", listed: true,
-    validity: "1 drive · 300 candidates", blurb: "One walk-in. The queue, the rooms, the record.",
+    id: "single", name: "Single drive", price: "₹7,500", unit: " per drive", annual: "", listed: true,
+    validity: "1 drive · 300 candidates", blurb: "For companies that hire in occasional bursts.",
     best: false, multiDay: false, cta: "Buy one drive",
+    builds: "trial",
+    highlights: ["Up to 300 candidates", "Candidate notifications", "Interview rooms and rounds", "Reports and analytics", "8 recruiter seats"],
     feats: ["1 drive · up to 300 candidates", ...PRODUCT_FEATS],
     limits: { drives: 1, sites: 8, cities: 99, seats: 8, tvsPerSite: 1, wa: 500, candidates: 300, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
   },
   {
-    id: "pack5", name: "Monthly", price: "₹15,000", unit: "/ month", annual: "", listed: true,
-    validity: "5 drives / month · 300 each", blurb: "Stop 300 people standing around with no idea when they're up.",
-    ribbon: "★", best: true, multiDay: true, cta: "Start monthly",
+    id: "pack5", name: "Growth", price: "₹15,000", unit: "/ month", annual: "", listed: true,
+    validity: "5 drives / month · 300 each", blurb: "For teams running a hall most weeks.",
+    ribbon: "MOST POPULAR", best: true, multiDay: true, cta: "Start monthly",
+    builds: "single",
+    highlights: ["5 drives every month", "12 recruiter seats", "2 waiting screens per venue", "20 venues"],
     feats: ["5 drives / month · 300 candidates each", ...PRODUCT_FEATS],
     limits: { drives: 5, sites: 20, cities: 99, seats: 12, tvsPerSite: 2, wa: 2500, candidates: 300, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
   },
   {
-    id: "pack10", name: "10 drives", price: "₹25,000", unit: "/ month", annual: "", listed: false,
-    validity: "30 days", blurb: "Weekly halls, still one bill.",
-    best: false, multiDay: true, cta: "Take 10 / month",
+    id: "pack10", name: "Scale", price: "₹25,000", unit: "/ month", annual: "", listed: true,
+    validity: "10 drives / month · 500 each", blurb: "For multi-city hiring with several halls a week.",
+    best: false, multiDay: true, cta: "Start Scale",
+    builds: "pack5",
+    highlights: ["10 drives every month", "Up to 500 candidates per drive", "20 seats, 4 waiting screens", "Audit log"],
     feats: ["Up to 10 drives / 30 days", "Up to 500 people per drive", "Anywhere in India", "More seats and TVs"],
     limits: { drives: 10, sites: 30, cities: 99, seats: 20, tvsPerSite: 4, wa: 5000, candidates: 500, clients: false, whiteLabel: false, credit: "on", audit: true, sla: false, sso: false, notify: true, reports: true, rooms: true },
   },
   {
-    id: "pack25", name: "25 drives", price: "₹50,000", unit: "/ month", annual: "", listed: false,
-    validity: "30 days", blurb: "A busy month across many halls.",
-    best: false, multiDay: true, cta: "Take 25 / month",
+    id: "pack25", name: "Volume", price: "₹50,000", unit: "/ month", annual: "", listed: false,
+    validity: "25 drives / month · 500 each", blurb: "For staffing agencies billing several clients.",
+    best: false, multiDay: true, cta: "Talk to us",
+    builds: "pack10",
+    highlights: ["25 drives every month", "Client branding and separate client records", "40 seats, 8 waiting screens", "Priority support"],
     feats: ["Up to 25 drives / 30 days", "Up to 500 people per drive", "Anywhere in India", "Priority support"],
     limits: { drives: 25, sites: 40, cities: 99, seats: 40, tvsPerSite: 8, wa: 12000, candidates: 500, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: false, notify: true, reports: true, rooms: true },
   },
   {
     id: "enterprise", name: "Enterprise", price: "Custom", unit: "", annual: "", listed: false, talk: true,
-    validity: "Monthly", blurb: "High volume, staffing, or a named contract.",
+    validity: "Unlimited drives", blurb: "For named contracts, SSO and a signed SLA.",
     best: false, multiDay: true, cta: "Talk to us",
+    builds: "pack25",
+    highlights: ["Unlimited drives and candidates", "SSO and SAML", "Signed SLA and named support", "Security review and DPA"],
     feats: ["High-volume usage", "Staffing clients", "Anywhere in India", "SLA and SSO-ready"],
     limits: { drives: 999, sites: 80, cities: 99, seats: 80, tvsPerSite: 8, wa: 25000, candidates: 9999, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: true, notify: true, reports: true, rooms: true },
   },
@@ -145,7 +175,13 @@ export const publicOrigin = () => {
   if (pinned) return pinned;
   return typeof window === "undefined" ? "" : window.location.origin;
 };
-export const gateUrl = (gate) => `${publicOrigin()}/j?g=${bare6(gate)}`;
+// A printed poster can only carry the drive (`g`). The waiting-room screen re-renders
+// its QR every rotation, so it can also carry the live desk code (`d`) — that second
+// value is what turns check-in into a single scan.
+export const gateUrl = (gate, desk) => {
+  const base = `${publicOrigin()}/j?g=${bare6(gate)}`;
+  return desk ? `${base}&d=${bare6(desk)}` : base;
+};
 export const liveDesk = (d) => d?.desk || d?.code || "";
 export const livePass = (d, at = Date.now()) => {
   const p = d?.gatePass;

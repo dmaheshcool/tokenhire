@@ -137,23 +137,27 @@ export default function TvScreenPage() {
 
         <aside style={{ display: "flex", flexDirection: "column", gap: "clamp(12px, 1.6vw, 22px)" }}>
           <div style={{ background: PANEL, border: `1px solid ${LINE}`, borderRadius: 18, padding: "clamp(14px, 1.4vw, 22px)", textAlign: "center" }}>
-            <Label color="#8A93AE">Scan to join</Label>
-            <div style={{ display: "grid", placeItems: "center", marginTop: 12 }}>
-              <div style={{ background: "#fff", padding: 10, borderRadius: 12 }}>
-                <QrCode value={gateUrl(drive.gate)} size={168} alt="Scan to join this walk-in" />
-              </div>
-            </div>
-            <div style={{ fontFamily: typ, fontSize: "clamp(15px, 1.4vw, 22px)", fontWeight: 700, letterSpacing: 2, marginTop: 12 }}>{drive.gate}</div>
-          </div>
+                    <Label color={accent}>Scan to get your token</Label>
+                    <div style={{ display: "grid", placeItems: "center", marginTop: 12 }}>
+                      <div style={{ background: "#fff", padding: 10, borderRadius: 12 }}>
+                        {/* Carries the live desk code, so this one scan both finds the drive
+                            and proves the candidate is in the room. */}
+                        <QrCode value={gateUrl(drive.gate, desk)} size={168} alt="Scan to join this walk-in" />
+                      </div>
+                    </div>
+                    <div style={{ color: "#C6CCE0", fontSize: "clamp(11px, 1vw, 15px)", marginTop: 12, lineHeight: 1.45 }}>
+                      One scan. No codes to type.
+                    </div>
+                  </div>
 
-          <div style={{ background: `${accent}1F`, border: `2px solid ${accent}`, borderRadius: 18, padding: "clamp(14px, 1.4vw, 22px)", textAlign: "center" }}>
-            <Label color={accent}>Desk code</Label>
-            <div style={{ fontFamily: typ, fontSize: "clamp(28px, 3.4vw, 56px)", fontWeight: 700, letterSpacing: 4, marginTop: 8, lineHeight: 1 }}>{desk}</div>
-            <div style={{ color: "#8A93AE", fontFamily: typ, fontSize: "clamp(11px, 1vw, 15px)", marginTop: 10 }}>CHANGES IN {left}s</div>
-            <div style={{ color: "#C6CCE0", fontSize: "clamp(11px, 1vw, 15px)", marginTop: 8, lineHeight: 1.45 }}>
-              Type this on your phone to check in. It only works inside this room.
-            </div>
-          </div>
+                  <div style={{ background: `${accent}1F`, border: `2px solid ${accent}`, borderRadius: 18, padding: "clamp(14px, 1.4vw, 22px)", textAlign: "center" }}>
+                    <Label color="#8A93AE">No camera?</Label>
+                    <div style={{ color: "#C6CCE0", fontSize: "clamp(11px, 1vw, 15px)", margin: "8px 0 10px", lineHeight: 1.45 }}>
+                      Type this code on your phone instead.
+                    </div>
+                    <div style={{ fontFamily: typ, fontSize: "clamp(24px, 2.8vw, 44px)", fontWeight: 700, letterSpacing: 4, lineHeight: 1 }}>{desk}</div>
+                    <div style={{ color: "#8A93AE", fontFamily: typ, fontSize: "clamp(11px, 1vw, 15px)", marginTop: 10 }}>CHANGES IN {left}s</div>
+                  </div>
 
           <div style={{ marginTop: "auto", color: "#4E5675", fontSize: "clamp(10px, 0.9vw, 14px)", textAlign: "center", lineHeight: 1.5 }}>
             Names are hidden on this screen. Powered by TokenHire.

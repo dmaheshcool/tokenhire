@@ -2,20 +2,25 @@ import jsQR from "jsqr";
 
 // A GATE poster may be scanned by our in-app camera or by the phone's native camera.
 // Accept the full URL, a bare ?g= param, or someone typing the code into the box.
+const six = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+
+// Returns { gate, desk } — desk is only present when the QR came from a waiting-room
+// screen, which is what lets a single scan both find the drive and prove presence.
 export function gateCodeFrom(raw) {
   const text = (raw || "").trim();
   if (!text) return null;
   try {
     const url = new URL(text);
-    const q = url.searchParams.get("g") || url.searchParams.get("c");
-    if (q) return q.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    const g = six(url.searchParams.get("g") || url.searchParams.get("c"));
+    const d = six(url.searchParams.get("d"));
+    if (g) return { gate: g, desk: d || null };
   } catch {
     // not a URL — fall through to the plain-code forms below
   }
   const m = text.toUpperCase().match(/(?:GATE|DESK|PASS)-?([A-Z0-9]{4,6})/);
-  if (m) return m[1];
-  const bare = text.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return bare.length >= 4 && bare.length <= 6 ? bare : null;
+  if (m) return { gate: m[1], desk: null };
+  const bare = six(text);
+  return bare.length >= 4 ? { gate: bare, desk: null } : null;
 }
 
 /**

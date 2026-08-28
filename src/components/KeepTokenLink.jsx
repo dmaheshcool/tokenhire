@@ -27,17 +27,16 @@ export function KeepTokenLink({ driveId, token, claim }) {
 
   return (
     <div style={{ ...box, padding: 16, marginTop: 14, background: k.cream2 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Bookmark size={14} /> Keep this link — close the tab if you want</div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Bookmark size={14} /> Save your token</div>
       <p style={{ fontSize: 12.5, color: k.ink2, lineHeight: 1.5, margin: "0 0 10px" }}>
-        WhatsApp is optional. This page is your token. Bookmark it, share it to yourself, or add TokenHire to your home screen. Open it again to see your place in line.
+        Open this link any time to see your place in line.
       </p>
-      <div style={{ fontFamily: typ, fontSize: 11.5, color: k.mid, wordBreak: "break-all", marginBottom: 10 }}>{href}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button type="button" onClick={copy} style={solidSm}>{copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy link</>}</button>
         <button type="button" onClick={share} style={ghostSm}><Share2 size={14} /> Send to myself</button>
       </div>
       <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, lineHeight: 1.5 }}>
-        {ios ? "Safari: Share → Add to Home Screen. The icon opens this token." : "Chrome: menu → Add to Home screen. The icon opens this token."}
+        {ios ? "Safari: Share → Add to Home Screen" : "Chrome: menu → Add to Home screen"}
       </div>
     </div>
   );

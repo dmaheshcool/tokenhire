@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Mail, Linkedin, Phone, ChevronDown, Menu, X, Pla
 import { bdy, dsp, typ, k, R, solid, solidSm, outline, outlineSm, iconBtn, navBtn, chromeStrip, chromeBox, box, input, ghostSm, textLink } from "../../theme.js";
 import { HallBrand, OrgLogo, TokenChip, TokenMark, TokenTile, Wordmark } from "../../components/brand.jsx";
 import { Link } from "react-router-dom";
-import { pc, PUBLIC_PLANS, listingHost, listingPlace, EXP_BANDS, DEFAULT_ROUNDS } from "../../lib/helpers.js";
+import { pc, PLANS, PLAN_ROWS, PRODUCT_FEATS, PUBLIC_PLANS, listingHost, listingPlace, EXP_BANDS, DEFAULT_ROUNDS } from "../../lib/helpers.js";
 import { pathFor } from "../../lib/routes.js";
 import { Pill, fmtDate, CitySelect, Blank, Field, StatusPill } from "../../components/ui.jsx";
 
@@ -240,63 +240,70 @@ export function WalkInDemo({ go, onLaunch }) {
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  const filmBtn = { width: 40, height: 40, borderRadius: "50%", border: `1px solid ${k.line}`, background: "#fff", color: k.ink, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
+  const filmBtn = {
+    width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,.16)",
+    background: "rgba(255,255,255,.06)", color: "#E8EBF5", display: "inline-flex",
+    alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+  };
 
   return (
     <div className="storypage" style={{
-      position: "fixed", inset: 0, zIndex: 80, background: k.cream,
-      display: "flex", flexDirection: "column", fontFamily: bdy, color: k.ink, overflow: "auto",
+      position: "fixed", inset: 0, zIndex: 80,
+      // A dark house makes the lit scene panels read as a stage rather than a slide.
+      background: "radial-gradient(120% 80% at 50% 8%, #1B2340 0%, #0C1020 55%, #070A14 100%)",
+      display: "flex", flexDirection: "column", fontFamily: bdy, color: "#E8EBF5", overflow: "hidden",
     }}>
-      <div style={{ maxWidth: 1240, margin: "0 auto", width: "100%", padding: "12px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Wordmark size={16} />
-          <span style={{ fontSize: 12.5, color: k.mid, fontWeight: 600 }}>A walk-in · playable demo</span>
+      <div className="storybar" style={{ width: "100%", padding: "14px 26px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <Wordmark size={16} light />
+          <span className="storykicker" style={{ fontSize: 12, color: "#8A93AE", fontWeight: 600, whiteSpace: "nowrap" }}>
+            Scene {String(i + 1).padStart(2, "0")} of {String(STORY_SCENES.length).padStart(2, "0")}
+          </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={toggleFull} style={filmBtn} aria-label={full ? "Exit fullscreen" : "Enter fullscreen"}>{full ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
-          <button onClick={() => go("home")} style={filmBtn} aria-label="Close demo"><X size={16} /></button>
+          <button onClick={toggleFull} style={filmBtn} aria-label={full ? "Exit fullscreen" : "Enter fullscreen"}>{full ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button>
+          <button onClick={() => go("home")} style={filmBtn} aria-label="Close demo"><X size={15} /></button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1240, margin: "10px auto 0", width: "100%", padding: "0 24px", display: "flex", gap: 5, flexShrink: 0 }}>
+      <div style={{ width: "100%", padding: "12px 26px 0", display: "flex", gap: 4, flexShrink: 0 }}>
         {STORY_SCENES.map((s, idx) => (
           <button key={s.id} onClick={() => jump(idx)} aria-label={`Scene ${idx + 1}: ${s.kicker || s.line}`} style={{
-            flex: 1, height: 12, padding: "4px 0", border: "none", borderRadius: 99, background: "transparent", cursor: "pointer", overflow: "hidden",
+            flex: 1, height: 14, padding: "5px 0", border: "none", background: "transparent", cursor: "pointer",
           }}>
-            <div style={{ height: 3, borderRadius: 99, background: k.line, overflow: "hidden" }}>
+            <div style={{ height: 3, borderRadius: 99, background: "rgba(255,255,255,.14)", overflow: "hidden" }}>
               <div style={{ height: "100%", width: idx < i ? "100%" : idx === i ? `${fill * 100}%` : "0%", background: k.coral, borderRadius: 99 }} />
             </div>
           </button>
         ))}
       </div>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0, padding: "8px 24px 0" }}>
-        <div key={scene.id} style={{ animation: "storyIn .45s ease", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div className="storystage" style={{
-            flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: 0,
-            animation: "storyKen 10s ease-out forwards",
-          }}>
-            <StoryFrame id={scene.id} fill={fill} onLaunch={onLaunch} replay={replay} />
-          </div>
-          {scene.id !== "title" && (scene.kicker || scene.line) ? (
-            <div style={{ textAlign: "center", padding: "8px 12px 4px", flexShrink: 0 }}>
-              {scene.kicker ? <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, textTransform: "uppercase", color: k.coral, marginBottom: 3 }}>{scene.kicker}</div> : null}
-              {scene.line ? <div style={{ fontFamily: dsp, fontSize: "clamp(17px, 2.2vw, 24px)", fontWeight: 700, letterSpacing: -0.5, lineHeight: 1.2 }}>{scene.line}</div> : null}
-            </div>
-          ) : null}
+      {/* The stage owns all remaining height and scales its contents down on short
+          screens, so a scene can never push the caption or controls off-screen. */}
+      <div className="storyviewport" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "14px 20px 0", overflow: "hidden" }}>
+        <div key={scene.id} className="storyscale" style={{ animation: "storyIn .5s ease, storyKen 11s ease-out forwards" }}>
+          <StoryFrame id={scene.id} fill={fill} onLaunch={onLaunch} replay={replay} />
         </div>
       </div>
 
-      <div style={{ maxWidth: 1240, margin: "0 auto 14px", width: "100%", padding: "6px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => jump(i - 1)} style={{ ...filmBtn, opacity: i === 0 ? .35 : 1 }} aria-label="Previous scene" disabled={i === 0}><ArrowLeft size={16} /></button>
-          <button onClick={toggle} style={{ ...filmBtn, width: 52, height: 52, background: k.coral, color: "#fff", border: "none" }} aria-label={playing ? "Pause" : "Play"}>
-            {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />}
-          </button>
-          <button onClick={() => jump(i + 1)} style={{ ...filmBtn, opacity: last ? .35 : 1 }} aria-label="Next scene" disabled={last}><ArrowRight size={16} /></button>
-          <span style={{ fontFamily: typ, fontSize: 12, fontWeight: 600, color: k.mid, marginLeft: 6 }}>{String(i + 1).padStart(2, "0")} / {String(STORY_SCENES.length).padStart(2, "0")}</span>
-        </div>
-        <button onClick={replay} style={{ ...ghostSm, gap: 6 }}><RotateCcw size={13} /> Replay</button>
+      <div style={{ flexShrink: 0, textAlign: "center", padding: "16px 24px 0", minHeight: 62 }}>
+        {scene.id !== "title" && scene.kicker ? (
+          <div style={{ fontFamily: typ, fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: k.coral, marginBottom: 6 }}>{scene.kicker}</div>
+        ) : null}
+        {scene.id !== "title" && scene.line ? (
+          <div style={{ fontFamily: dsp, fontSize: "clamp(18px, 2.4vw, 30px)", fontWeight: 700, letterSpacing: -0.6, lineHeight: 1.15, color: "#fff" }}>{scene.line}</div>
+        ) : null}
+      </div>
+
+      <div style={{ width: "100%", padding: "16px 26px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexShrink: 0, position: "relative" }}>
+        <button onClick={() => jump(i - 1)} style={{ ...filmBtn, opacity: i === 0 ? .3 : 1 }} aria-label="Previous scene" disabled={i === 0}><ArrowLeft size={15} /></button>
+        <button onClick={toggle} style={{ ...filmBtn, width: 54, height: 54, background: k.coral, color: "#fff", border: "none", boxShadow: "0 8px 26px -10px rgba(255,107,74,.9)" }} aria-label={playing ? "Pause" : "Play"}>
+          {playing ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" style={{ marginLeft: 2 }} />}
+        </button>
+        <button onClick={() => jump(i + 1)} style={{ ...filmBtn, opacity: last ? .3 : 1 }} aria-label="Next scene" disabled={last}><ArrowRight size={15} /></button>
+        <button onClick={replay} className="storyreplay" style={{ ...filmBtn, width: "auto", padding: "0 15px", gap: 7, borderRadius: 99, fontSize: 12.5, fontWeight: 600, fontFamily: bdy, position: "absolute", right: 26 }}>
+          <RotateCcw size={13} /> Replay
+        </button>
       </div>
     </div>
   );
@@ -317,9 +324,11 @@ function StorySet({ children, tone = "set" }) {
   const bg = tone === "chaos" ? "#F6EEDC" : tone === "night" ? "#EEF2FA" : k.cream2;
   return (
     <div className="storystage" style={{
-      width: "min(1120px, 100%)", minHeight: 500, background: bg, borderRadius: 28,
+      width: "min(1120px, 100%)", minHeight: 460, background: bg, borderRadius: 26,
       display: "flex", alignItems: "center", justifyContent: "center", gap: 40, padding: "40px 36px",
       boxSizing: "border-box",
+      // Lifts the lit panel off the dark backdrop.
+      boxShadow: "0 40px 90px -40px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.05)",
     }}>{children}</div>
   );
 }
@@ -676,25 +685,74 @@ function SplitHero() {
 }
 
 function PlanCards({ onChoose, go }) {
+  const byId = Object.fromEntries(PLANS.map((p) => [p.id, p]));
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 }} className="g3">
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(224px, 1fr))", gap: 16, alignItems: "start" }}>
       {PUBLIC_PLANS.map((p) => (
-        <div key={p.id} style={{ border: `1px solid ${p.best ? k.teal : k.line}`, borderRadius: 8, padding: 24, background: "#fff", position: "relative", boxShadow: p.best ? "0 14px 32px -22px rgba(31,111,92,.4)" : "none" }}>
-          {p.ribbon && <div style={{ position: "absolute", top: -9, left: 22, background: p.best ? k.teal : k.ink, color: "#fff", fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 3, fontFamily: typ, letterSpacing: .5 }}>{p.ribbon}</div>}
-          <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700 }}>{p.name}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 7, margin: "12px 0 5px" }}>
-            <span style={{ fontFamily: typ, fontSize: 28, fontWeight: 700, letterSpacing: -0.5 }}>{p.price}</span>
+        <div key={p.id} style={{ border: `1px solid ${p.best ? k.teal : k.line}`, borderRadius: 10, padding: "24px 20px", background: "#fff", position: "relative", display: "flex", flexDirection: "column", height: "100%", boxShadow: p.best ? "0 14px 32px -22px rgba(31,111,92,.4)" : "none" }}>
+          {p.ribbon && <div style={{ position: "absolute", top: -9, left: 20, background: p.best ? k.teal : k.ink, color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 3, fontFamily: typ, letterSpacing: .6 }}>{p.ribbon}</div>}
+          <div style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700 }}>{p.name}</div>
+          <div style={{ fontSize: 13, color: k.mid, lineHeight: 1.5, margin: "6px 0 16px", minHeight: 39 }}>{p.blurb}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontFamily: typ, fontSize: 30, fontWeight: 700, letterSpacing: -0.8 }}>{p.price}</span>
             <span style={{ fontSize: 12.5, color: k.faint }}>{p.unit}</span>
           </div>
-          {p.annual && <div style={{ fontSize: 12, color: k.mid, marginBottom: 8 }}>{p.annual}</div>}
-          <div style={{ fontSize: 13, color: k.ink2, lineHeight: 1.55, minHeight: 44, marginBottom: 14 }}>{p.blurb}</div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: k.coralDim, color: k.coral, fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: R.pill, marginBottom: 18 }}>
-            {p.validity}
+          <div style={{ fontSize: 12.5, color: k.ink2, margin: "8px 0 18px" }}>{p.validity}</div>
+          <button onClick={() => (p.talk && go ? go("contact") : onChoose(p))} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11, marginBottom: 18 }}>{p.cta}</button>
+          {p.builds && (
+            <div style={{ fontSize: 12, fontWeight: 700, color: k.ink, marginBottom: 10 }}>
+              Everything in {byId[p.builds]?.name}, plus
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(p.highlights || []).map((f) => (
+              <div key={f} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, alignItems: "flex-start", color: k.ink2 }}>
+                <Check size={14} color={k.teal} style={{ flexShrink: 0, marginTop: 3 }} />{f}
+              </div>
+            ))}
+            {(p.missing || []).map((f) => (
+              <div key={f} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, alignItems: "flex-start", color: k.faint }}>
+                <X size={14} color={k.faint} style={{ flexShrink: 0, marginTop: 3 }} />{f}
+              </div>
+            ))}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 20 }}>{p.feats.map((f) => <div key={f} style={{ display: "flex", gap: 8, fontSize: 13, alignItems: "flex-start" }}><Check size={14} color={k.teal} style={{ flexShrink: 0, marginTop: 2 }} />{f}</div>)}</div>
-          <button onClick={() => (p.talk && go ? go("contact") : onChoose(p))} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11 }}>{p.cta}</button>
         </div>
       ))}
+    </div>
+  );
+}
+
+function PlanTable() {
+  const cell = { padding: "12px 14px", borderBottom: `1px solid ${k.line}`, fontSize: 13, textAlign: "center", fontFamily: typ };
+  return (
+    <div style={{ overflowX: "auto", border: `1px solid ${k.line}`, borderRadius: 10, background: "#fff" }}>
+      <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 620 }}>
+        <thead>
+          <tr>
+            <th style={{ ...cell, textAlign: "left", fontFamily: dsp, fontSize: 13, color: k.mid, fontWeight: 600 }}>Compare plans</th>
+            {PUBLIC_PLANS.map((p) => (
+              <th key={p.id} style={{ ...cell, fontFamily: dsp, fontSize: 13.5, fontWeight: 700, color: p.best ? k.teal : k.ink }}>{p.name}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {PLAN_ROWS.map((row) => (
+            <tr key={row.label}>
+              <td style={{ ...cell, textAlign: "left", fontFamily: bdy, color: k.ink2 }}>{row.label}</td>
+              {PUBLIC_PLANS.map((p) => {
+                const v = row.get(p.limits, p);
+                return (
+                  <td key={p.id} style={cell}>
+                    {v === true ? <Check size={15} color={k.teal} />
+                      : v === false ? <span style={{ color: k.line }}>—</span>
+                      : v}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -877,7 +935,7 @@ export function AboutPage({ go, onLaunch }) {
 /* --- Services --- */
 export function Services({ go, onLaunch }) {
   const blocks = [
-    { h: "A QR that can be printed", d: "Security holds a GATE QR that never changes — paper, a laminate, or a phone screenshot. That only identifies the walk-in. Check-in needs the rotating DESK code on the waiting-room TV, so a forwarded photo of the poster can't join the queue.", art: <ArtCode /> },
+    { h: "One scan and they're in the queue", d: "The waiting-room screen shows a QR that refreshes every 45 seconds. Scanning it checks a candidate in and issues their token in one step. Because the code is live, a screenshot sent to someone outside the building stops working within the minute.", art: <ArtCode /> },
     { h: "One queue, many recruiters", d: "Every recruiter screening today works off the identical list. Nobody ever calls the same token twice, because there's only one source of truth.", art: <ArtQueue /> },
     { h: "A nudge 15 minutes before", d: "Candidates don't have to stand around watching a screen. WhatsApp tells them exactly when to come back, timed off your actual pace.", art: <ArtNudge /> },
     { h: "Names stay private in public", d: "The screen on the wall shows a token and a masked name — R···l, not Rahul. Only recruiters signed in to that drive see anything more.", art: <ArtMasked /> },
@@ -922,18 +980,12 @@ function ArtFrame({ children }) {
 function ArtCode() {
   return (
     <ArtFrame>
-      <div style={{ display: "flex", gap: 14, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ width: 72, height: 72, borderRadius: 10, background: k.cream2, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px" }}>
-            <QrCode size={36} color={k.ink} />
-          </div>
-          <div style={{ fontFamily: typ, fontSize: 10, color: k.coral, fontWeight: 700 }}>GATE · PRINT</div>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 92, height: 92, borderRadius: 12, background: k.cream2, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+          <QrCode size={48} color={k.ink} />
         </div>
-        <div style={{ fontSize: 18, color: k.faint }}>+</div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: typ, fontSize: 16, fontWeight: 700, letterSpacing: 1.5, color: k.ink, marginBottom: 8 }}>K7P2N9</div>
-          <div style={{ fontFamily: typ, fontSize: 10, color: k.mid }}>DESK · TV ONLY</div>
-        </div>
+        <div style={{ fontFamily: typ, fontSize: 10.5, color: k.coral, fontWeight: 700, letterSpacing: 1 }}>ON THE WAITING-ROOM SCREEN</div>
+        <div style={{ fontFamily: typ, fontSize: 10.5, color: k.mid, marginTop: 6 }}>REFRESHES IN 45s</div>
       </div>
     </ArtFrame>
   );
@@ -1272,17 +1324,48 @@ export function PricingPage({ onLaunch, go }) {
         <div style={{ maxWidth: 780, margin: "0 auto", padding: "70px 26px 74px", textAlign: "center" }}>
           <div style={{ fontSize: 15, color: k.coral, fontWeight: 500, marginBottom: 18 }}>Pricing</div>
           <h1 style={{ fontFamily: dsp, fontSize: "clamp(32px,4.4vw,50px)", fontWeight: 400, letterSpacing: -1.6, margin: "0 0 18px", lineHeight: 1.1 }}>
-            Instead of 300 people waiting, this <b style={{ fontWeight: 800 }}>runs the walk-in</b>.
+            Priced by <b style={{ fontWeight: 800 }}>how often you hire</b>.
           </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 520 }}>Register, QR check-in, token, live status, rooms, reports — one system. GST extra.</p>
+          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 520 }}>
+            Every plan runs a complete walk-in. Larger plans add volume, seats and venues. Prices exclude GST.
+          </p>
         </div>
       </div>
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "54px 26px 80px" }}>
+
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "54px 26px 0" }}>
         <PlanCards onChoose={() => onLaunch("employer")} go={go} />
-        <p style={{ fontSize: 14, color: k.mid, marginTop: 28, textAlign: "center", lineHeight: 1.6 }}>
-          Need more?{" "}
-          <button type="button" onClick={() => go("contact")} style={{ background: "none", border: "none", padding: 0, color: k.coral, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: "inherit" }}>Contact us</button>.
-        </p>
+      </div>
+
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 26px 0" }}>
+        <div style={{ border: `1px solid ${k.line}`, borderRadius: 10, background: k.bandSoft, padding: "24px 26px" }}>
+          <div style={{ fontFamily: dsp, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Included in every plan, free one too</div>
+          <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 16px", lineHeight: 1.6 }}>
+            The difference between plans is volume, not capability.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "10px 22px" }}>
+            {PRODUCT_FEATS.map((f) => (
+              <div key={f} style={{ display: "flex", gap: 8, fontSize: 13.5, alignItems: "center", color: k.ink2 }}>
+                <Check size={14} color={k.teal} style={{ flexShrink: 0 }} />{f}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 26px 0" }}>
+        <PlanTable />
+      </div>
+
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 26px 80px" }}>
+        <div style={{ border: `1px solid ${k.line}`, borderRadius: 10, background: "#fff", padding: "24px 26px", display: "flex", gap: 20, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+          <div style={{ maxWidth: 560 }}>
+            <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700, marginBottom: 5 }}>Staffing agency or 25+ drives a month?</div>
+            <p style={{ fontSize: 13.5, color: k.mid, margin: 0, lineHeight: 1.6 }}>
+              Volume and Enterprise add client branding, separate records per client, SSO and a signed SLA.
+            </p>
+          </div>
+          <button type="button" onClick={() => go("contact")} style={{ ...outline, whiteSpace: "nowrap" }}>Talk to us</button>
+        </div>
       </div>
     </>
   );

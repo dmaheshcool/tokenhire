@@ -4,8 +4,16 @@
 body{margin:0}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-@keyframes storyIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
-@keyframes storyKen{from{transform:scale(1)}to{transform:scale(1.035)}}
+@keyframes storyIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* The stage is sized for a roomy desktop. Rather than reflow every scene for short
+   viewports, scale the whole set down so nothing is ever clipped off the bottom. */
+.storyscale{--s:1;width:min(1120px,100%);transform:scale(var(--s));transform-origin:center center}
+@keyframes storyKen{from{transform:scale(var(--s,1))}to{transform:scale(calc(var(--s,1) * 1.03))}}
+@media (max-height:860px){.storyscale{--s:.88}}
+@media (max-height:780px){.storyscale{--s:.78}}
+@media (max-height:700px){.storyscale{--s:.68}}
+@media (max-height:620px){.storyscale{--s:.58}}
+@media (max-height:540px){.storyscale{--s:.48}}
 @keyframes scanSweep{0%{top:18%}100%{top:72%}}
 @keyframes paperSettle{from{transform:rotate(var(--r,-2deg)) translateY(10px)}to{transform:rotate(var(--r,-2deg)) translateY(0)}}
 .navitem:hover{color:#0B1020}
@@ -18,9 +26,9 @@ body{margin:0}
   .g3,.g2,.hg{grid-template-columns:1fr!important}
   .driverow{grid-template-columns:1fr!important}
   .driverow2{flex-direction:column!important;align-items:flex-start!important}
-  .storystage{flex-direction:column!important;align-items:center!important;transform:none!important;gap:18px!important}
-  .storypage{padding:12px 12px 22px!important}
-  .storyphone{width:230px!important}
+  .storystage{flex-direction:column!important;align-items:center!important;transform:none!important;gap:18px!important;min-height:0!important;padding:24px 16px!important;border-radius:20px!important}
+  .storyphone{width:220px!important}
+  .storyreplay{display:none!important}
   .storytv,.storydesk{width:min(100%,360px)!important}
   .nav-links,.nav-ctas{display:none!important}
   .nav-burger{display:flex!important}

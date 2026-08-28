@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Mail, Linkedin, Check, ShieldCheck, FileText, User, Download, BadgeCheck, Phone, MessageCircle, Search, QrCode } from "lucide-react";
 import { bdy, dsp, typ, k, R, box, input, solid, solidTeal, solidSm, outline, outlineSm, ghostSm, iconBtn } from "../../theme.js";
 import { HallBrand, TokenChip, TokenTile } from "../../components/brand.jsx";
@@ -18,6 +18,10 @@ export function Candidate({ store, back }) {
   const [proven, setProven] = useState(false);
   const [result, setResult] = useState(null);
   const [joinErr, setJoinErr] = useState("");
+  const [params, setParams] = useSearchParams();
+  const scannedGate = params.get("g");
+  const scannedDesk = params.get("d");
+  const autoRef = useRef(false);
 
   function bindDevice(driveId) {
     setProfile((p) => ({ ...p, bound: { ...(p.bound || {}), [driveId]: todayStr() } }));
@@ -61,6 +65,23 @@ export function Candidate({ store, back }) {
     setMatched(live);
     setProven(false);
   }
+
+  // A scan lands here as ?g=<gate>&d=<desk>. When the screen supplied a live desk code
+  // the candidate is already proven to be in the room, so the whole flow collapses to
+  // one confirm tap. Waits for a profile and for drives to hydrate before deciding.
+  useEffect(() => {
+    if (autoRef.current || !profile || !scannedGate) return;
+    const live = drives.filter((d) => d.status === "live");
+    const byDesk = scannedDesk ? live.find((d) => liveDesk(d) === bare6(scannedDesk)) : null;
+    const byGate = live.find((d) => bare6(d.gate) === bare6(scannedGate));
+    const hit = byDesk || byGate;
+    if (!hit) return;
+    autoRef.current = true;
+    setTab("join");
+    handleMatch(hit, byDesk ? "desk" : "gate");
+    // Clear the codes so a reload or back-navigation can't silently re-run check-in.
+    setParams({}, { replace: true });
+  }, [drives, profile, scannedGate, scannedDesk]);
 
   function tryProve(codeStr) {
     if (!matched) return "No walk-in selected.";
@@ -486,9 +507,15 @@ export function JoinDrive({ drives, left, onMatch }) {
       (raw) => {
         const found = gateCodeFrom(raw);
         setScan("idle");
-        if (!found) { setErr("That QR isn't a TokenHire gate poster. Type the GATE code printed under it instead."); return; }
-        setEntered(`GATE-${found}`);
-        resolve(`GATE-${found}`);
+        if (!found) { setErr("That QR isn't a TokenHire code. Type the code printed under it instead."); return; }
+        // A screen QR carries the live desk code as well, so presence is already proven
+        // and there is nothing left to ask for.
+        if (found.desk) {
+          const byDesk = drives.find((d) => d.status === "live" && liveDesk(d) === found.desk);
+          if (byDesk) { onMatch(byDesk, "desk"); return; }
+        }
+        setEntered(`GATE-${found.gate}`);
+        resolve(`GATE-${found.gate}`);
       },
       (reason) => {
         setScan(reason === "denied" ? "denied" : "unsupported");
@@ -512,7 +539,7 @@ export function JoinDrive({ drives, left, onMatch }) {
   return (
     <div style={{ maxWidth: 520 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Join a walk-in</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the GATE poster to find the drive. Then enter the DESK code from the waiting-room TV so a forwarded poster can’t check someone else in.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the code on the waiting-room screen. That is the whole check-in — you get your token straight away.</p>
       {!!tickets.length && (
         <div style={{ ...box, padding: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Your tokens</div>
@@ -525,13 +552,13 @@ export function JoinDrive({ drives, left, onMatch }) {
       )}
 
       <div style={{ ...box, padding: 20, marginBottom: 14 }}>
-        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Scan the printed GATE poster</div>
+        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Scan the waiting-room screen</div>
         {/* iOS will not start playback on a hidden element, so keep it mounted while starting. */}
         <div style={{ position: "relative", borderRadius: 6, overflow: "hidden", background: "#000", display: scan === "scanning" || scan === "starting" ? "block" : "none" }}>
           <video ref={videoRef} muted playsInline style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "cover" }} />
           <div style={{ position: "absolute", inset: 28, border: `2px solid ${k.teal}`, borderRadius: 8, pointerEvents: "none" }} />
           <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "7px 10px", background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 11.5, textAlign: "center" }}>
-            Point at the GATE poster — it scans by itself
+            Point at the screen — it scans by itself
           </div>
         </div>
         {scan === "scanning" || scan === "starting" ? (
@@ -548,12 +575,12 @@ export function JoinDrive({ drives, left, onMatch }) {
       </div>
 
       <div style={{ ...box, padding: 20 }}>
-        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Or type GATE-XXXXXX, DESK-XXXXXX, or a desk PASS</div>
+        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>No camera? Type the code from the screen</div>
         <div style={{ display: "flex", gap: 9 }}>
-          <input value={entered} onChange={(e) => { setEntered(e.target.value.toUpperCase()); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && resolve(entered)} placeholder="GATE-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={11} />
+          <input value={entered} onChange={(e) => { setEntered(e.target.value.toUpperCase()); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && resolve(entered)} placeholder="DESK-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={11} />
           <button onClick={() => resolve(entered)} style={solidTeal}>Find</button>
         </div>
-        {err ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 10, lineHeight: 1.5 }}>{err}</div> : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9, lineHeight: 1.5 }}>A GATE code only identifies the drive. Typing DESK from the TV (rotates in {left}s) is what checks you in.</div>}
+        {err ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 10, lineHeight: 1.5 }}>{err}</div> : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9, lineHeight: 1.5 }}>The code on the screen changes every 45 seconds, so type it in the next {left}s.</div>}
       </div>
     </div>
   );
@@ -638,7 +665,7 @@ export function Slip({ r, onAgain, drives, keep }) {
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 18, paddingTop: 14, borderTop: `1px solid ${k.line}`, lineHeight: 1.5 }}>
             {isDup
               ? `Drive average right now: ~${live ? tat(live) : r.avgTat} min per candidate · ${waiting.length} still waiting.`
-              : "You can close this tab. Copy or bookmark the link below — that’s how you see your turn."}
+              : "Safe to close this tab — your place is held."}
           </div>
         </div>
       </div>
