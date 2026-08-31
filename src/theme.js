@@ -1,16 +1,16 @@
 export const k = {
-  cream: "#FFFFFF", cream2: "#F5F8FF", ink: "#0B1020", ink2: "#4A5268", mid: "#737C93", faint: "#A3ABBE",
-  line: "#E4E9F5", coral: "#2C6BF5", coralDim: "#E8EFFE", teal: "#3D4658", tealDim: "#EEF2FA",
-  gold: "#9A6B00", goldDim: "#FBF3E2", red: "#B3261E", redDim: "#FBEAE8",
-  band: "#D9E5FF", bandSoft: "#EDF3FF",
+  cream: "#FFFFFF", cream2: "#F6F5F2", ink: "#111318", ink2: "#3D4252", mid: "#6B7080", faint: "#9AA0AE",
+  line: "#E6E4DF", coral: "#2C6BF5", coralDim: "#EEF3FF", teal: "#2A2F3A", tealDim: "#F3F4F6",
+  gold: "#8A6200", goldDim: "#F8F1DE", red: "#B3261E", redDim: "#FBEAE8",
+  band: "#111318", bandSoft: "#F6F5F2",
 };
-export const R = { pill: 999, card: 20, inner: 14 };
+export const R = { pill: 999, card: 14, inner: 12 };
 const STACK = "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
 export const dsp = STACK;
 export const bdy = STACK;
 export const typ = "'Roboto Mono', monospace";
 
-export const box = { background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.inner };
+export const box = { background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.inner, boxShadow: "0 1px 0 rgba(17,19,24,.03)" };
 export const input = { padding: "11px 14px", borderRadius: 10, border: `1px solid ${k.line}`, background: "#fff", color: k.ink, fontSize: 13.5, outline: "none", fontFamily: bdy, width: "100%" };
 export const cell = { padding: "12px 16px", verticalAlign: "top" };
 export const link = { display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: k.teal, fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: bdy };
@@ -24,4 +24,4 @@ export const ghostSm = { display: "inline-flex", alignItems: "center", gap: 5, p
 export const iconBtn = { background: "none", border: "none", cursor: "pointer", color: k.mid, padding: 0, fontFamily: bdy };
 export const navBtn = { background: "none", border: "none", cursor: "pointer", fontFamily: bdy, fontSize: 15, fontWeight: 500, padding: 0, transition: "color .15s" };
 export const chromeStrip = { background: k.cream, borderBottom: `1px solid ${k.line}` };
-export const chromeBox = { background: "#fff", border: `1px solid ${k.line}`, borderRadius: 16, boxShadow: "0 10px 28px -18px rgba(11,16,32,.28)" };
+export const chromeBox = { background: "transparent", border: "none", boxShadow: "none" };

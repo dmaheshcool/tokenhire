@@ -129,7 +129,7 @@ export function Candidate({ store, back }) {
       <div className="pagepad" style={{ maxWidth: 720, margin: "0 auto", padding: 26 }}>
         {!profile ? <BuildProfile onDone={setProfile} />
           : result ? <Slip r={result} drives={drives} onAgain={resetJoin} />
-            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={() => join(matched)} joinErr={joinErr} nudges={planLimits(orgs.find((o) => o.id === matched.orgId)).notify !== false} />
+            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={() => join(matched)} joinErr={joinErr} />
               : tab === "profile" ? <MyProfile p={profile} setP={setProfile} />
                 : tab === "join" ? <JoinDrive drives={drives} left={left} onMatch={handleMatch} />
                   : <History p={profile} drives={drives} />}
@@ -138,7 +138,7 @@ export function Candidate({ store, back }) {
   );
 }
 
-export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, nudges }) {
+export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr }) {
   const [deskIn, setDeskIn] = useState("");
   const [proveErr, setProveErr] = useState("");
   function uploadResume(e) {
@@ -163,18 +163,14 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
 
       {joinErr && <div style={{ fontSize: 13.5, color: k.red, margin: "0 0 16px", lineHeight: 1.5 }}>{joinErr}</div>}
       {!proven && !joinErr && (
-        <div style={{ ...box, padding: 18, marginBottom: 18, borderLeft: `3px solid ${k.coral}` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: .8, textTransform: "uppercase", color: k.coral, marginBottom: 8 }}>You're at the right walk-in</div>
-          <p style={{ fontSize: 13.5, color: k.ink, lineHeight: 1.55, margin: "0 0 12px" }}>
-            Scanning the screen does this automatically.
-          </p>
-          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Enter the code from the waiting-room screen</div>
+        <div style={{ ...box, padding: 18, marginBottom: 18 }}>
+          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Code on the screen</div>
           <div style={{ display: "flex", gap: 9 }}>
             <input value={deskIn} onChange={(e) => { setDeskIn(e.target.value.toUpperCase()); setProveErr(""); }} onKeyDown={(e) => e.key === "Enter" && submitProof()} placeholder="DESK-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={11} />
             <button onClick={submitProof} style={solidTeal}>Check in</button>
           </div>
           {proveErr ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 10, lineHeight: 1.5 }}>{proveErr}</div>
-            : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9, lineHeight: 1.5 }}>That code rotates in {left}s. Front desk can also admit you with a one-time PASS.</div>}
+            : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9 }}>Rotates in {left}s. Desk can issue a pass.</div>}
         </div>
       )}
 
@@ -182,7 +178,7 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
         <>
           <div style={{ ...box, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, background: k.tealDim }}>
             <ShieldCheck size={16} color={k.teal} />
-            <div style={{ fontSize: 12.5, color: k.teal, fontWeight: 600 }}>Venue confirmed — you're in the building.</div>
+            <div style={{ fontSize: 12.5, color: k.teal, fontWeight: 600 }}>You're in.</div>
           </div>
           <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
             <div style={{ padding: "10px 16px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 10.5, letterSpacing: 1.2, color: k.ink2 }}>THIS IS WHAT WE'LL SEND</div>
@@ -207,9 +203,7 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
           </div>
           {joinErr && <div style={{ fontSize: 13, color: k.red, margin: "0 0 10px", textAlign: "center" }}>{joinErr}</div>}
           <button onClick={onConfirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Confirm & join queue <ArrowRight size={15} /></>}</button>
-          {nudges !== false
-            ? <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>You’ll get a page with your token link. Save it — that’s how you see your turn if you close this tab. WhatsApp is extra on paid plans.</div>
-            : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>You’ll get a page with your token link. Save it so you can reopen your place in line.</div>}
+          <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Save the token page. That’s your place in line.</div>
         </>
       )}
     </div>
@@ -342,7 +336,7 @@ export function BuildProfile({ onDone }) {
               inputMode="numeric"
             />
             <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6, lineHeight: 1.5 }}>
-              Only used to stop the same person re-registering to a drive under a different phone. We never store the number — only an irreversible one-way hash of it, plus the last 4 digits for your own reference.
+              Optional. Stops a second check-in under another phone.
             </div>
           </Field>
           <Field label="Experience">
@@ -663,9 +657,7 @@ export function Slip({ r, onAgain, drives, keep }) {
           <RoundTracker rounds={rounds} cand={cand} />
 
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 18, paddingTop: 14, borderTop: `1px solid ${k.line}`, lineHeight: 1.5 }}>
-            {isDup
-              ? `Drive average right now: ~${live ? tat(live) : r.avgTat} min per candidate · ${waiting.length} still waiting.`
-              : "Safe to close this tab — your place is held."}
+            {isDup ? `${waiting.length} still waiting` : "Your place is held."}
           </div>
         </div>
       </div>
@@ -714,7 +706,7 @@ export function History({ p, drives }) {
   return (
     <div style={{ maxWidth: 560 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 8px" }}>My applications</h1>
-      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 18px" }}>Open a token to see live wait — even if you closed the check-in page.</p>
+      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 18px" }}>Open a token to see your wait.</p>
       {!mine.length ? <Blank text="You haven't joined a drive yet." /> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {mine.map((c) => (

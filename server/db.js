@@ -109,7 +109,16 @@ export function deskWindow(at = Date.now()) {
   return { index: Math.floor(at / period), left: Math.ceil((period - (at % period)) / 1000) };
 }
 
+function healUnboundDemoRooms() {
+  state.drives = (state.drives || []).map((d) => {
+    if (d.id !== "d_vistaar_50" || (d.rooms || []).some((r) => r.roundId)) return d;
+    const byId = { rm1: "r1", rm2: "r1", rm3: "r1", rm4: "r2", rm5: "r3" };
+    return { ...d, rooms: (d.rooms || []).map((r) => ({ ...r, roundId: r.roundId || byId[r.id] || "" })) };
+  });
+}
+
 export function publicSnapshot() {
+  healUnboundDemoRooms();
   const { index, left } = deskWindow();
   return {
     ok: true,

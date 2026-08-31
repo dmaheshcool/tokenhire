@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Wordmark } from "../components/brand.jsx";
+import { HIDE_PRICING } from "../lib/flags.js";
 import { bdy, box, iconBtn, k } from "../theme.js";
 
 export function AuthShell({ title, sub, children, backTo = "/" }) {
@@ -11,7 +12,7 @@ export function AuthShell({ title, sub, children, backTo = "/" }) {
           <ArrowLeft size={14} /> Back
         </Link>
         <div style={{ marginBottom: 8 }}><Wordmark size={20} /></div>
-        {title && <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.4, margin: "0 0 6px" }}>{title}</h1>}
+        {title && <h1 style={{ fontFamily: "'Inter', sans-serif", fontSize: 26, fontWeight: 600, letterSpacing: -0.7, margin: "0 0 6px" }}>{title}</h1>}
         {sub && <p style={{ color: k.mid, fontSize: 14, margin: "0 0 22px", lineHeight: 1.5 }}>{sub}</p>}
         <div style={{ ...box, padding: 24 }}>{children}</div>
       </div>
@@ -20,9 +21,11 @@ export function AuthShell({ title, sub, children, backTo = "/" }) {
 }
 
 export const demoHint = (
-  <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.7, marginTop: 12 }}>
-    Password for every demo: <b style={{ fontFamily: "'Roboto Mono', monospace" }}>demo1234</b><br />
-    Plans — trial@tokenhire.demo · single@tokenhire.demo · monthly@tokenhire.demo · pack10@tokenhire.demo · pack25@tokenhire.demo · enterprise@tokenhire.demo<br />
-    Agency: demo@vistaar.com / hr@quesscorp.com. Campus: hr@wipro.com. Front desk: desk@vistaar.com.
+  <div style={{ fontSize: 12, color: k.faint, lineHeight: 1.55, marginTop: 12 }}>
+    Demo password <b style={{ fontFamily: "'Roboto Mono', monospace" }}>demo1234</b>
+    <br />
+    {HIDE_PRICING
+      ? <>demo@vistaar.com · desk@vistaar.com</>
+      : <>monthly@tokenhire.demo · demo@vistaar.com · desk@vistaar.com</>}
   </div>
 );

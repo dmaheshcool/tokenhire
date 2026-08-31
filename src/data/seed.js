@@ -131,7 +131,7 @@ export function seedOrgs() {
         { email: "desk@single.demo", role: "frontdesk", name: "Door" },
       ] },
     { id: "org_plan_monthly", name: "Monthly Halls", short: "Monthly", kind: "captive", logo: "bars", color: "#163A7A", wash: "#E8EEF7",
-      email: "monthly@tokenhire.demo", password: "demo1234", plan: "pack5",
+      email: "monthly@tokenhire.demo", password: "demo1234", plan: "pack5", billingCycle: "month",
       clients: [],
       branches: [
         { id: "br_mo_hyd", name: "Gachibowli", city: "Hyderabad" },
@@ -180,11 +180,11 @@ export function seedMegaDrive() {
     "Vivek Nair", "Wafa Begum", "Yamini Rao", "Zaheer Ahmed", "Aarav Kulkarni",
   ];
   const rooms = [
-    { id: "rm1", name: "Room 1", interviewer: "Priya", recruiterEmail: "priya@vistaar.com" },
-    { id: "rm2", name: "Room 2", interviewer: "Arun", recruiterEmail: "arun@vistaar.com" },
-    { id: "rm3", name: "Room 3", interviewer: "Neha", recruiterEmail: "neha@vistaar.com" },
-    { id: "rm4", name: "Room 4", interviewer: "Kavya", recruiterEmail: "kavya@vistaar.com" },
-    { id: "rm5", name: "Room 5", interviewer: "Rohit", recruiterEmail: "rohit@vistaar.com" },
+    { id: "rm1", name: "Room 1", interviewer: "Priya", recruiterEmail: "priya@vistaar.com", roundId: "r1" },
+    { id: "rm2", name: "Room 2", interviewer: "Arun", recruiterEmail: "arun@vistaar.com", roundId: "r1" },
+    { id: "rm3", name: "Room 3", interviewer: "Neha", recruiterEmail: "neha@vistaar.com", roundId: "r1" },
+    { id: "rm4", name: "Room 4", interviewer: "Kavya", recruiterEmail: "kavya@vistaar.com", roundId: "r2" },
+    { id: "rm5", name: "Room 5", interviewer: "Rohit", recruiterEmail: "rohit@vistaar.com", roundId: "r3" },
   ];
   const rounds = DEFAULT_ROUNDS.map((r) => ({ ...r }));
   const bands = EXP_BANDS;
@@ -195,7 +195,13 @@ export function seedMegaDrive() {
     ...Array.from({ length: 7 }, () => ({ state: "rejected", roundIdx: 1 })),
     ...Array.from({ length: 4 }, () => ({ state: "onhold", roundIdx: 2 })),
     ...Array.from({ length: 3 }, () => ({ state: "absent", roundIdx: 0 })),
-    ...Array.from({ length: 5 }, (_, i) => ({ state: "interviewing", roundIdx: i % 3, room: rooms[i] })),
+    ...[
+      { state: "interviewing", roundIdx: 0, room: rooms[0] },
+      { state: "interviewing", roundIdx: 0, room: rooms[1] },
+      { state: "interviewing", roundIdx: 1, room: rooms[3] },
+      { state: "interviewing", roundIdx: 2, room: rooms[4] },
+      { state: "interviewing", roundIdx: 0, room: rooms[2] },
+    ],
     ...Array.from({ length: 2 }, () => ({ state: "calling", roundIdx: 0 })),
     ...Array.from({ length: 12 }, () => ({ state: "wait", roundIdx: 0 })),
     ...Array.from({ length: 5 }, () => ({ state: "wait", roundIdx: 1 })),

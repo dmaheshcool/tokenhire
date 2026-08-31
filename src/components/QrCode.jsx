@@ -32,7 +32,8 @@ export default function QrCode({ value, size = 180, dark = k.ink, light = "#FFFF
       height={size}
       role="img"
       aria-label={alt}
-      style={{ width: size, height: size, display: "block", borderRadius: 4 }}
+      className="qr"
+      style={{ width: size, height: size, maxWidth: "100%", display: "block", borderRadius: 4 }}
     />
   );
 }

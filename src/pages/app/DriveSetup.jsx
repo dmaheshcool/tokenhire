@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2 } from "lucide-react";
 import { bdy, box, dsp, input, k, outline, solid, typ } from "../../theme.js";
-import { Field } from "../../components/ui.jsx";
+import { Field, Select } from "../../components/ui.jsx";
 
 const STEPS = [
   ["rounds", "Rounds"],
@@ -16,7 +16,7 @@ const mid = () => `rm_${Math.random().toString(36).slice(2, 8)}`;
 /**
  * Runs once before a drive opens. Everything here used to be assumed: three rounds,
  * three rooms and three hard-coded interviewer names. Asking up front is what makes
- * "send to the next round" resolve to a real person in a real room.
+ * Call resolve to a real person in a real room for that round.
  */
 export default function DriveSetup({ drive, onDone, onCancel, maxRooms = 8 }) {
   const [step, setStep] = useState(0);
@@ -134,7 +134,7 @@ export default function DriveSetup({ drive, onDone, onCancel, maxRooms = 8 }) {
       {key === "rooms" && (
         <Panel
           title="Where is each person sitting, and which round do they run?"
-          hint="When a candidate passes a round, they are sent to a room running the next one."
+          hint="More than one person can run HR screening. Call picks the recruiter. Pass moves them to the next round."
         >
           {rooms.map((r) => (
             <div key={r.id} style={{ ...box, padding: 14, marginBottom: 10 }}>
@@ -149,14 +149,12 @@ export default function DriveSetup({ drive, onDone, onCancel, maxRooms = 8 }) {
                   />
                 </Field>
                 <Field label="Runs which round">
-                  <select
+                  <Select
                     value={r.roundId}
-                    onChange={(e) => setRooms(rooms.map((x) => (x.id === r.id ? { ...x, roundId: e.target.value } : x)))}
-                    style={input}
-                  >
-                    <option value="">Choose a round</option>
-                    {rounds.map((rd) => <option key={rd.id} value={rd.id}>{rd.name}</option>)}
-                  </select>
+                    onChange={(roundId) => setRooms(rooms.map((x) => (x.id === r.id ? { ...x, roundId } : x)))}
+                    placeholder="Choose a round"
+                    options={[{ value: "", label: "Choose a round" }, ...rounds.map((rd) => ({ value: rd.id, label: rd.name }))]}
+                  />
                 </Field>
               </div>
             </div>

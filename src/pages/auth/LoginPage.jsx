@@ -28,7 +28,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthShell title="Sign in" sub="For recruiters and front-desk staff running a walk-in.">
+    <AuthShell title="Sign in" sub="Recruiters and front desk.">
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <Field label="Work email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} placeholder="hr@yourcompany.com" autoComplete="username" /></Field>
         <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} autoComplete="current-password" /></Field>

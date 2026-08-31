@@ -1,75 +1,89 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ArrowRight, Mail, Linkedin, Phone, ChevronDown, Menu, X, Play, Pause, RotateCcw, Maximize2, Minimize2, Search, MapPin, Users2, QrCode, Check, ListChecks, ShieldCheck, FileText, HeartHandshake, Send, BadgeCheck } from "lucide-react";
-import { bdy, dsp, typ, k, R, solid, solidSm, outline, outlineSm, iconBtn, navBtn, chromeStrip, chromeBox, box, input, ghostSm, textLink } from "../../theme.js";
-import { HallBrand, OrgLogo, TokenChip, TokenMark, TokenTile, Wordmark } from "../../components/brand.jsx";
+import { ArrowLeft, ArrowRight, Mail, Linkedin, Phone, ChevronDown, Menu, X, Play, Pause, Search, MapPin, Users2, QrCode, Check, ListChecks, ShieldCheck, FileText, HeartHandshake, Send, BadgeCheck } from "lucide-react";
+import { bdy, dsp, typ, k, R, solid, solidSm, outline, outlineSm, iconBtn, navBtn, box, input, ghostSm, textLink } from "../../theme.js";
+import { HallBrand, OrgLogo, TokenChip, Wordmark } from "../../components/brand.jsx";
 import { Link } from "react-router-dom";
-import { pc, PLANS, PLAN_ROWS, PRODUCT_FEATS, PUBLIC_PLANS, listingHost, listingPlace, EXP_BANDS, DEFAULT_ROUNDS } from "../../lib/helpers.js";
+import { pc, PLANS, PLAN_ROWS, PUBLIC_PLANS, planPrice, listingHost, listingPlace, EXP_BANDS, DEFAULT_ROUNDS } from "../../lib/helpers.js";
+import { HIDE_PRICING } from "../../lib/flags.js";
 import { readSession } from "../../lib/api.js";
 import { pathFor } from "../../lib/routes.js";
-import { Pill, fmtDate, CitySelect, Blank, Field, StatusPill } from "../../components/ui.jsx";
+import { Pill, fmtDate, CitySelect, Blank, DropPanel, Field, Select, StatusPill } from "../../components/ui.jsx";
 
 export const PAGES = [["home", "Home"], ["services", "Products"], ["drives", "Upcoming walk-ins"], ["about", "About us"], ["contact", "Contact us"]];
 
 export const NAV = [
   {
     label: "Solutions", menu: [
-      ["sol:bpo", "BPO & customer support", "500-a-day drives without the shouting"],
-      ["sol:retail", "Retail & delivery", "Store-by-store hiring, one dashboard"],
-      ["sol:campus", "Campus hiring", "A whole batch through in one morning"],
-      ["sol:agency", "Staffing agencies", "Your hall. Their clients."],
+      ["sol:bpo", "BPO & customer support", "High-volume voice and non-voice drives, one shared queue"],
+      ["sol:retail", "Retail & delivery", "The same walk-in in every store, with today’s numbers at head office"],
+      ["sol:campus", "Campus hiring", "A full campus batch through in one morning, with a report for the college"],
+      ["sol:agency", "Staffing agencies", "Your hall and your clients — they never see each other’s files"],
     ],
   },
-  { id: "pricing", label: "Pricing" },
+  ...(!HIDE_PRICING ? [{ id: "pricing", label: "Pricing" }] : []),
   { id: "drives", label: "Upcoming walk-ins" },
   { id: "about", label: "About us" },
 ];
 
+const heroH1 = {
+  fontFamily: dsp, fontSize: "clamp(34px,4.8vw,52px)", fontWeight: 600, letterSpacing: -1.6,
+  margin: "0 0 12px", lineHeight: 1.08, color: k.ink,
+};
+const heroP = { fontSize: 16, color: k.mid, lineHeight: 1.55, margin: "0 auto", maxWidth: 520 };
+
+function PageHero({ children, maxWidth = 720, bottom = 52 }) {
+  return (
+    <div style={{ background: k.cream2, borderBottom: `1px solid ${k.line}` }}>
+      <div style={{ maxWidth, margin: "0 auto", padding: `56px 26px ${bottom}px`, textAlign: "center" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function SiteNav({ page, go, onLaunch }) {
   const [open, setOpen] = useState(null);
   const [menu, setMenu] = useState(false);
+  const solRef = useRef(null);
   const signedIn = !!readSession()?.orgId;
-  const navigate = (t) => { setOpen(null); setMenu(false); go(t); };
-  useEffect(() => {
-    const close = () => setOpen(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, []);
   return (
-    <div className="chrome-wrap" style={{ position: "sticky", top: 0, zIndex: 50, ...chromeStrip, padding: "10px 16px 12px" }}>
-      <div className="chrome-inner" style={{ maxWidth: 1140, margin: "0 auto", ...chromeBox, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+    <div className="chrome-wrap" style={{ position: "sticky", top: 0, zIndex: 50, background: "#fff", borderBottom: `1px solid ${k.line}`, padding: "0 26px" }}>
+      <div className="chrome-inner" style={{ maxWidth: 1140, margin: "0 auto", padding: "14px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <Link to="/" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginRight: 4, textDecoration: "none" }}><Wordmark size={20} /></Link>
         <button className="nav-burger" type="button" aria-label="Menu" onClick={() => setMenu((m) => !m)} style={{ ...iconBtn, padding: 8, display: "none", alignItems: "center" }}>
           {menu ? <X size={22} /> : <Menu size={22} />}
         </button>
         <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: 26, flexWrap: "wrap" }}>
           {NAV.map((n, i) => n.menu ? (
-            <div key={i} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+            <div key={i} style={{ position: "relative" }}>
               <button
+                ref={solRef}
                 type="button"
                 onClick={() => setOpen(open === i ? null : i)}
                 onMouseEnter={() => setOpen(i)}
                 style={{ ...navBtn, color: open === i ? k.ink : k.ink2, display: "flex", alignItems: "center", gap: 5 }}>
                 {n.label} <ChevronDown size={15} style={{ transform: open === i ? "rotate(180deg)" : "none", transition: "transform .18s" }} />
               </button>
-              {open === i && (
-                <div
-                  onMouseLeave={() => setOpen(null)}
-                  style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", paddingTop: 12, zIndex: 60 }}>
-                  <div style={{ background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, boxShadow: "0 22px 50px -20px rgba(11,16,32,.22)", padding: 10, width: 310 }}>
-                    {n.menu.map(([target, label, desc]) => (
-                      <Link key={label} to={pathFor(target)} onClick={() => { setOpen(null); setMenu(false); }} style={{
-                        display: "block", width: "100%", textAlign: "left", textDecoration: "none",
-                        padding: "11px 13px", borderRadius: 12, fontFamily: bdy,
-                      }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = k.cream2)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "none")}>
-                        <div style={{ fontSize: 14.5, fontWeight: 600, color: k.ink }}>{label}</div>
-                        <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>{desc}</div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <DropPanel
+                anchorRef={solRef}
+                open={open === i}
+                onClose={() => setOpen(null)}
+                minWidth={310}
+                align="center"
+                style={{ padding: 10, boxShadow: "0 22px 50px -20px rgba(11,16,32,.22)", borderRadius: R.card }}
+              >
+                {n.menu.map(([target, label, desc]) => (
+                  <Link key={label} to={pathFor(target)} onClick={() => { setOpen(null); setMenu(false); }} style={{
+                    display: "block", width: "100%", textAlign: "left", textDecoration: "none",
+                    padding: "11px 13px", borderRadius: 12, fontFamily: bdy,
+                  }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = k.cream2)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: k.ink }}>{label}</div>
+                    <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>{desc}</div>
+                  </Link>
+                ))}
+              </DropPanel>
             </div>
           ) : (
             <Link key={n.id} to={pathFor(n.id)} className="navitem" style={{ ...navBtn, textDecoration: "none", color: page === n.id ? k.ink : k.ink2, fontWeight: page === n.id ? 600 : 500 }}>{n.label}</Link>
@@ -113,12 +127,12 @@ export function SiteNav({ page, go, onLaunch }) {
 
 export function SiteFooter() {
   const cols = [
-    ["Company", [["services", "Products"], ["contact", "Contact us"]]],
+    ["Company", [["services", "Products"], ...(!HIDE_PRICING ? [["pricing", "Pricing"]] : []), ["contact", "Contact us"]]],
     ["Legal", [["privacy", "Privacy"], ["terms", "Terms of use"]]],
     ["See it", [["demo", "Watch a walk-in"]]],
   ];
   return (
-    <footer style={{ background: "#fff", borderTop: `1px solid ${k.line}`, marginTop: 60 }}>
+    <footer style={{ background: "#fff", borderTop: `1px solid ${k.line}`, marginTop: 0 }}>
       <div style={{ maxWidth: 1140, margin: "0 auto", padding: "56px 26px 0" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr) 1.1fr", gap: 30 }} className="g3">
           {cols.map(([title, links]) => (
@@ -136,8 +150,8 @@ export function SiteFooter() {
           <div>
             <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
               {[Linkedin, Mail, Phone].map((I, i) => (
-                <div key={i} style={{ width: 38, height: 38, borderRadius: "50%", background: k.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <I size={17} color="#fff" />
+                <div key={i} style={{ width: 38, height: 38, borderRadius: "50%", background: k.cream2, border: `1px solid ${k.line}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <I size={17} color={k.ink} />
                 </div>
               ))}
             </div>
@@ -156,610 +170,151 @@ export function SiteFooter() {
   );
 }
 
-/* --- Cinematic walk-in story demo (in-product, not an MP4) --- */
-const STORY_SCENES = [
-  { id: "title", ms: 2400, kicker: "TokenHire", line: "A walk-in." },
-  { id: "chaos", ms: 3000, kicker: "8:47am", line: "The usual." },
-  { id: "gate", ms: 3600, kicker: "Waiting room", line: "One scan. That's check-in." },
-  { id: "prove", ms: 3800, kicker: "Why it can't be faked", line: "The code dies in forty-five seconds." },
-  { id: "checkin", ms: 3400, kicker: "Checked in", line: "014 · Priya Nair" },
-  { id: "nudge", ms: 3400, kicker: "WhatsApp", line: "Once. Fifteen minutes out." },
-  { id: "floor", ms: 4000, kicker: "On the floor", line: "Call her to Room 2." },
-  { id: "end", ms: 5200, kicker: "Same day", line: "Selected." },
-];
+export { WalkInDemo } from "./WalkInDemo.jsx";
 
-export function WalkInDemo({ go, onLaunch }) {
-  const [i, setI] = useState(0);
-  const [playing, setPlaying] = useState(true);
-  const [fill, setFill] = useState(0);
-  const [full, setFull] = useState(false);
-  const elapsedRef = useRef(0);
-  const iRef = useRef(0);
-  const playingRef = useRef(true);
-  iRef.current = i;
-  playingRef.current = playing;
-  const scene = STORY_SCENES[i];
-  const last = i === STORY_SCENES.length - 1;
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
-
-  useEffect(() => {
-    if (!playing) return;
-    let raf;
-    const t0 = performance.now() - elapsedRef.current;
-    const tick = (now) => {
-      if (!playingRef.current) return;
-      const t = now - t0;
-      elapsedRef.current = t;
-      const dur = STORY_SCENES[iRef.current].ms;
-      setFill(Math.min(1, t / dur));
-      if (t >= dur) {
-        if (iRef.current < STORY_SCENES.length - 1) {
-          elapsedRef.current = 0;
-          setFill(0);
-          setI(iRef.current + 1);
-        } else {
-          setPlaying(false);
-          setFill(1);
-        }
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [playing, i]);
-
-  const jump = (n) => {
-    const next = Math.max(0, Math.min(STORY_SCENES.length - 1, n));
-    elapsedRef.current = 0;
-    setFill(0);
-    setI(next);
-  };
-  const replay = () => { jump(0); setPlaying(true); };
-  const toggle = () => {
-    if (!playingRef.current && iRef.current === STORY_SCENES.length - 1 && elapsedRef.current >= STORY_SCENES[STORY_SCENES.length - 1].ms) {
-      replay();
-      return;
-    }
-    setPlaying((p) => !p);
-  };
-  const toggleRef = useRef(toggle);
-  const jumpRef = useRef(jump);
-  toggleRef.current = toggle;
-  jumpRef.current = jump;
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === " " || e.code === "Space") { e.preventDefault(); toggleRef.current(); }
-      if (e.key === "ArrowRight") jumpRef.current(iRef.current + 1);
-      if (e.key === "ArrowLeft") jumpRef.current(iRef.current - 1);
-      if (e.key === "Escape") go("home");
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [go]);
-
-  const toggleFull = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().then(() => setFull(true)).catch(() => {});
-    } else {
-      document.exitFullscreen?.().then(() => setFull(false)).catch(() => {});
-    }
-  };
-  useEffect(() => {
-    const onFs = () => setFull(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
-  }, []);
-
-  const filmBtn = {
-    width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,.16)",
-    background: "rgba(255,255,255,.06)", color: "#E8EBF5", display: "inline-flex",
-    alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
-  };
-
-  return (
-    <div className="storypage" style={{
-      position: "fixed", inset: 0, zIndex: 80,
-      // A dark house makes the lit scene panels read as a stage rather than a slide.
-      background: "radial-gradient(120% 80% at 50% 8%, #1B2340 0%, #0C1020 55%, #070A14 100%)",
-      display: "flex", flexDirection: "column", fontFamily: bdy, color: "#E8EBF5", overflow: "hidden",
-    }}>
-      <div className="storybar" style={{ width: "100%", padding: "14px 26px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-          <Wordmark size={16} light />
-          <span className="storykicker" style={{ fontSize: 12, color: "#8A93AE", fontWeight: 600, whiteSpace: "nowrap" }}>
-            Scene {String(i + 1).padStart(2, "0")} of {String(STORY_SCENES.length).padStart(2, "0")}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={toggleFull} style={filmBtn} aria-label={full ? "Exit fullscreen" : "Enter fullscreen"}>{full ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button>
-          <button onClick={() => go("home")} style={filmBtn} aria-label="Close demo"><X size={15} /></button>
-        </div>
-      </div>
-
-      <div style={{ width: "100%", padding: "12px 26px 0", display: "flex", gap: 4, flexShrink: 0 }}>
-        {STORY_SCENES.map((s, idx) => (
-          <button key={s.id} onClick={() => jump(idx)} aria-label={`Scene ${idx + 1}: ${s.kicker || s.line}`} style={{
-            flex: 1, height: 14, padding: "5px 0", border: "none", background: "transparent", cursor: "pointer",
-          }}>
-            <div style={{ height: 3, borderRadius: 99, background: "rgba(255,255,255,.14)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: idx < i ? "100%" : idx === i ? `${fill * 100}%` : "0%", background: k.coral, borderRadius: 99 }} />
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* The stage owns all remaining height and scales its contents down on short
-          screens, so a scene can never push the caption or controls off-screen. */}
-      <div className="storyviewport" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "14px 20px 0", overflow: "hidden" }}>
-        <div key={scene.id} className="storyscale" style={{ animation: "storyIn .5s ease, storyKen 11s ease-out forwards" }}>
-          <StoryFrame id={scene.id} fill={fill} onLaunch={onLaunch} replay={replay} />
-        </div>
-      </div>
-
-      <div style={{ flexShrink: 0, textAlign: "center", padding: "16px 24px 0", minHeight: 62 }}>
-        {scene.id !== "title" && scene.kicker ? (
-          <div style={{ fontFamily: typ, fontSize: 10.5, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: k.coral, marginBottom: 6 }}>{scene.kicker}</div>
-        ) : null}
-        {scene.id !== "title" && scene.line ? (
-          <div style={{ fontFamily: dsp, fontSize: "clamp(18px, 2.4vw, 30px)", fontWeight: 700, letterSpacing: -0.6, lineHeight: 1.15, color: "#fff" }}>{scene.line}</div>
-        ) : null}
-      </div>
-
-      <div style={{ width: "100%", padding: "16px 26px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexShrink: 0, position: "relative" }}>
-        <button onClick={() => jump(i - 1)} style={{ ...filmBtn, opacity: i === 0 ? .3 : 1 }} aria-label="Previous scene" disabled={i === 0}><ArrowLeft size={15} /></button>
-        <button onClick={toggle} style={{ ...filmBtn, width: 54, height: 54, background: k.coral, color: "#fff", border: "none", boxShadow: "0 8px 26px -10px rgba(255,107,74,.9)" }} aria-label={playing ? "Pause" : "Play"}>
-          {playing ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" style={{ marginLeft: 2 }} />}
-        </button>
-        <button onClick={() => jump(i + 1)} style={{ ...filmBtn, opacity: last ? .3 : 1 }} aria-label="Next scene" disabled={last}><ArrowRight size={15} /></button>
-        <button onClick={replay} className="storyreplay" style={{ ...filmBtn, width: "auto", padding: "0 15px", gap: 7, borderRadius: 99, fontSize: 12.5, fontWeight: 600, fontFamily: bdy, position: "absolute", right: 26 }}>
-          <RotateCcw size={13} /> Replay
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function StoryFrame({ id, fill, onLaunch, replay }) {
-  if (id === "title") return <StoryTitle />;
-  if (id === "chaos") return <StoryChaos />;
-  if (id === "gate") return <StoryGate />;
-  if (id === "prove") return <StoryProve fill={fill} />;
-  if (id === "checkin") return <StoryCheckin />;
-  if (id === "nudge") return <StoryNudge />;
-  if (id === "floor") return <StoryFloor />;
-  return <StoryOutcomes onLaunch={onLaunch} replay={replay} />;
-}
-
-function StorySet({ children, tone = "set" }) {
-  const bg = tone === "chaos" ? "#F6EEDC" : tone === "night" ? "#EEF2FA" : k.cream2;
-  return (
-    <div className="storystage" style={{
-      width: "min(1120px, 100%)", minHeight: 460, background: bg, borderRadius: 26,
-      display: "flex", alignItems: "center", justifyContent: "center", gap: 40, padding: "40px 36px",
-      boxSizing: "border-box",
-      // Lifts the lit panel off the dark backdrop.
-      boxShadow: "0 40px 90px -40px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.05)",
-    }}>{children}</div>
-  );
-}
-function DemoQr({ seed = "GATE", size = 176 }) {
-  const n = 21, cell = size / n;
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
-  const on = (x, y) => {
-    const finder = (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
-    if (finder) {
-      const dx = x >= n - 7 ? x - (n - 7) : x;
-      const dy = y >= n - 7 ? y - (n - 7) : y;
-      return dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4);
-    }
-    return ((Math.imul(h + x * 17 + y * 31, 1103515245) + 12345) >>> 24 & 1) === 1;
-  };
-  const cells = [];
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (on(x, y)) cells.push(`${x},${y}`);
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" style={{ display: "block", background: "#fff" }}>
-      <rect width={size} height={size} fill="#fff" />
-      {cells.map((p) => {
-        const [x, y] = p.split(",").map(Number);
-        return <rect key={p} x={x * cell} y={y * cell} width={cell} height={cell} fill={k.ink} />;
-      })}
-    </svg>
-  );
-}
-function StoryPhone({ children, glow }) {
-  return (
-    <div className="storyphone" style={{
-      width: 320, background: k.ink, borderRadius: 44, padding: "14px 11px 18px", flexShrink: 0,
-      boxShadow: glow ? "0 36px 70px -18px rgba(44,107,245,.42)" : "0 36px 64px -20px rgba(11,16,32,.45)",
-    }}>
-      <div style={{ width: 96, height: 24, borderRadius: 16, background: "#000", margin: "0 auto 12px" }} />
-      <div style={{ background: "#fff", borderRadius: 34, overflow: "hidden", minHeight: 460 }}>{children}</div>
-    </div>
-  );
-}
-function StoryDesk({ children, label, width = 520 }) {
-  return (
-    <div className="storydesk" style={{ width, flexShrink: 0 }}>
-      <div style={{ background: k.ink, borderRadius: "18px 18px 10px 10px", padding: "14px 14px 0", boxShadow: "0 36px 64px -24px rgba(11,16,32,.42)" }}>
-        <div style={{ background: "#fff", borderRadius: "12px 12px 0 0", overflow: "hidden", minHeight: 320 }}>
-          <div style={{ padding: "12px 18px", background: k.cream2, borderBottom: `1px solid ${k.line}`, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ display: "flex", gap: 5 }}>
-              {["#E8A0A0", "#E2D48A", "#A8D4B8"].map((c) => <span key={c} style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />)}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: k.mid }}>{label}</span>
-          </div>
-          {children}
-        </div>
-      </div>
-      <div style={{ height: 12, background: "#1a2033", borderRadius: "0 0 12px 12px" }} />
-      <div style={{ height: 8, width: "42%", margin: "0 auto", background: "#2a3148", borderRadius: "0 0 8px 8px" }} />
-    </div>
-  );
-}
-function StoryTv({ children, width = 460 }) {
-  return (
-    <div className="storytv" style={{ width, flexShrink: 0 }}>
-      <div style={{ background: k.ink, borderRadius: 18, padding: 12, boxShadow: "0 36px 64px -18px rgba(11,16,32,.45)" }}>
-        <div style={{ background: "#fff", borderRadius: 10, overflow: "hidden", minHeight: 300 }}>{children}</div>
-      </div>
-      <div style={{ height: 10, width: 64, background: "#2a3148", borderRadius: 2, margin: "12px auto 0" }} />
-      <div style={{ height: 8, width: 140, background: "#1a2033", borderRadius: 4, margin: "0 auto" }} />
-    </div>
-  );
-}
-function StoryPaper({ children, rot, width = 268, z = 1 }) {
-  return (
-    <div style={{
-      width, background: k.goldDim, borderRadius: 3, padding: "20px 18px 22px", flexShrink: 0, zIndex: z,
-      boxShadow: "0 22px 44px -20px rgba(11,16,32,.38)",
-      border: "1px solid rgba(154,107,0,.2)",
-      "--r": `${rot}deg`,
-      animation: "paperSettle .7s ease both",
-    }}>{children}</div>
-  );
-}
-
-function StoryTitle() {
-  return (
-    <StorySet>
-      <div style={{ textAlign: "center", padding: "8px 20px" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 22 }}><TokenMark size={96} /></div>
-        <Wordmark size={24} />
-        <div style={{ fontFamily: dsp, fontSize: 28, fontWeight: 700, letterSpacing: -0.8, marginTop: 18 }}>A walk-in.</div>
-        <div style={{ fontSize: 14, color: k.mid, fontWeight: 600, marginTop: 14 }}>Vistaar Services · HITEC City, Tower B</div>
-        <div style={{ fontFamily: typ, fontSize: 13, color: k.coral, fontWeight: 700, marginTop: 8, letterSpacing: 1.4 }}>LIVE · 8:47am</div>
-      </div>
-    </StorySet>
-  );
-}
-
-function StoryChaos() {
-  return (
-    <StorySet tone="chaos">
-      <StoryPaper rot={-7.5} width={270} z={1}>
-        <div style={{ fontFamily: typ, fontSize: 10, letterSpacing: 1.2, color: k.gold, fontWeight: 700, marginBottom: 8 }}>CLIPBOARD · GATE 1</div>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Vistaar — 26 Aug</div>
-        {[
-          ["Rahul Menon", "Room 1??"],
-          ["Sneha Iyer", "waiting"],
-          ["Priya Nair", "which list"],
-          ["Arjun Reddy", "SKIPPED"],
-          ["Fatima S.", "called twice"],
-        ].map(([n, st], i) => (
-          <div key={n} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 0", borderTop: i ? "1px dashed rgba(154,107,0,.28)" : "none", fontSize: 14 }}>
-            <span style={{ textDecoration: st === "SKIPPED" ? "line-through" : "none", color: st === "SKIPPED" ? k.red : k.ink }}>{i + 1}. {n}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: st === "SKIPPED" ? k.red : k.gold }}>{st}</span>
-          </div>
-        ))}
-      </StoryPaper>
-      <div style={{ marginLeft: -56, zIndex: 2 }}>
-        <StoryPaper rot={4.2} width={250} z={2}>
-          <div style={{ fontFamily: typ, fontSize: 10, letterSpacing: 1.2, color: k.gold, fontWeight: 700, marginBottom: 8 }}>FRONT DESK</div>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 10, letterSpacing: -0.4 }}>“Priya? Which list?”</div>
-          <div style={{ fontSize: 14, color: k.ink2, lineHeight: 1.45, marginBottom: 16 }}>Notebook. Three photocopies. A WhatsApp group named Walk-in TODAY.</div>
-          <div style={{ background: k.redDim, color: k.red, borderRadius: 8, padding: "12px 14px", fontSize: 13.5, fontWeight: 700 }}>40 at the gate · nobody next</div>
-        </StoryPaper>
-      </div>
-    </StorySet>
-  );
-}
-
-function StoryGate() {
-  return (
-    <StorySet>
-      <StoryTv>
-        <div style={{ padding: "14px 20px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 12, letterSpacing: 1.5, color: k.ink2, display: "flex", justifyContent: "space-between" }}>
-          <span>WAITING ROOM</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
-        </div>
-        <div style={{ padding: "26px 22px 24px", textAlign: "center", background: k.cream2 }}>
-          <div style={{ fontFamily: typ, fontSize: 11.5, letterSpacing: 1.8, color: k.coral, fontWeight: 700, marginBottom: 14 }}>SCAN TO GET YOUR TOKEN</div>
-          <div style={{ display: "flex", justifyContent: "center" }}><DemoQr seed="GATE-VISTA1-K7P2N9" size={168} /></div>
-          <div style={{ fontSize: 13, color: k.mid, marginTop: 14 }}>One scan. No codes to type.</div>
-        </div>
-      </StoryTv>
-      <StoryPhone glow>
-        <div style={{ background: "#0B1020", height: 460, position: "relative", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "20px 16px 8px", color: "rgba(255,255,255,.72)", fontSize: 13, fontWeight: 600, textAlign: "center" }}>Point at the screen</div>
-          <div style={{ flex: 1, margin: "10px 22px 36px", borderRadius: 18, overflow: "hidden", position: "relative", background: "#1a2238", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <DemoQr seed="GATE-VISTA1-K7P2N9" size={140} />
-            <div style={{ position: "absolute", inset: 18, border: `2px solid ${k.coral}`, borderRadius: 14, pointerEvents: "none" }} />
-            <div style={{ position: "absolute", left: 24, right: 24, height: 2, background: k.coral, animation: "scanSweep 1.8s ease-in-out infinite alternate", pointerEvents: "none" }} />
-          </div>
-          <div style={{ padding: "0 16px 24px", textAlign: "center", color: "#fff", fontSize: 13.5 }}>It scans by itself</div>
-        </div>
-      </StoryPhone>
-    </StorySet>
-  );
-}
-
-function StoryProve({ fill = 0 }) {
-  const left = Math.max(1, Math.round(45 * (1 - fill)));
-  return (
-    <StorySet tone="night">
-      <StoryTv>
-        <div style={{ padding: "14px 20px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 12, letterSpacing: 1.5, color: k.ink2, display: "flex", justifyContent: "space-between" }}>
-          <span>WAITING ROOM</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
-        </div>
-        <div style={{ padding: "30px 22px 26px", textAlign: "center", background: k.cream2 }}>
-          <div style={{ display: "flex", justifyContent: "center", opacity: .9 }}><DemoQr seed={`ROT-${Math.ceil(left / 5)}`} size={150} /></div>
-          <div style={{ fontSize: 14, color: k.coral, fontFamily: typ, marginTop: 14, fontWeight: 700 }}>REFRESHES IN {String(left).padStart(2, "0")}s</div>
-        </div>
-        <div style={{ padding: "16px 20px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: k.mid }}>
-          <span>Now calling</span>
-          <TokenChip token="W-013" name="M···a" size={32} muted />
-        </div>
-      </StoryTv>
-      <StoryPhone glow>
-        <div style={{ padding: "30px 22px 24px" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: .9, textTransform: "uppercase", color: k.mid, marginBottom: 14 }}>Screenshot sent to a friend</div>
-          <div style={{ border: `1px solid ${k.line}`, borderRadius: 14, padding: 16, marginBottom: 18, textAlign: "center", background: k.cream2 }}>
-            <div style={{ opacity: .3, display: "flex", justifyContent: "center" }}><DemoQr seed="ROT-old" size={104} /></div>
-          </div>
-          <div style={{ background: k.redDim, border: `1px solid ${k.red}33`, borderRadius: 12, padding: "14px 15px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: k.red, marginBottom: 4 }}>This code has expired</div>
-            <div style={{ fontSize: 13, color: k.ink2, lineHeight: 1.45 }}>Scan the screen in the waiting room.</div>
-          </div>
-        </div>
-      </StoryPhone>
-    </StorySet>
-  );
-}
-
-function StoryCheckin() {
-  return (
-    <StorySet>
-      <StoryPhone glow>
-        <div style={{ background: k.ink, color: "#fff", padding: "14px 20px", fontFamily: typ, fontSize: 12, letterSpacing: 1.8, display: "flex", justifyContent: "space-between" }}>
-          <span>ADMISSION SLIP</span><span style={{ opacity: .7 }}>Vistaar</span>
-        </div>
-        <div style={{ padding: "32px 24px 26px" }}>
-          <div style={{ fontSize: 13.5, color: k.mid, marginBottom: 20 }}>Vistaar Services · Voice Process</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 26 }}>
-            <TokenTile token="W-014" size={84} pulse />
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 24, lineHeight: 1.15, letterSpacing: -0.5 }}>Priya Nair</div>
-              <div style={{ fontSize: 14, color: k.mid, marginTop: 5 }}>Walk-in 014</div>
-            </div>
-          </div>
-          <div style={{ textAlign: "center", background: k.band, borderRadius: 20, padding: "30px 16px" }}>
-            <div style={{ fontFamily: dsp, fontSize: 64, fontWeight: 800, color: k.coral, letterSpacing: -2.5, lineHeight: 1 }}>4</div>
-            <div style={{ fontSize: 15, color: k.ink, fontWeight: 600, marginTop: 6 }}>ahead of you</div>
-            <div style={{ fontSize: 13.5, color: k.ink2, marginTop: 8 }}>~28 min</div>
-          </div>
-        </div>
-      </StoryPhone>
-    </StorySet>
-  );
-}
-
-function StoryNudge() {
-  return (
-    <StorySet>
-      <StoryPhone glow>
-        <div style={{ background: k.coral, color: "#fff", padding: "16px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <TokenMark size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>TokenHire</div>
-            <div style={{ fontSize: 12, opacity: .88 }}>WhatsApp · now</div>
-          </div>
-        </div>
-        <div style={{ background: k.cream2, minHeight: 380, padding: "28px 18px" }}>
-          <div style={{ background: "#fff", borderRadius: "4px 18px 18px 18px", padding: "16px 18px", fontSize: 15.5, color: k.ink, lineHeight: 1.5, boxShadow: "0 1px 3px rgba(11,16,32,.06)" }}>
-            Priya, you're up in about 15 minutes — 014. Please be near the waiting area.
-          </div>
-          <div style={{ fontSize: 12.5, color: k.mid, marginTop: 12 }}>11:02am · one message</div>
-        </div>
-      </StoryPhone>
-    </StorySet>
-  );
-}
-
-function StoryFloor() {
-  return (
-    <StorySet tone="night">
-      <StoryDesk label="Recruiter · Arun · Room 2">
-        <div style={{ padding: "18px 18px 20px" }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .7, textTransform: "uppercase", marginBottom: 12 }}>Live queue</div>
-          {[
-            ["W-013", "Meera Joshi", "In interview", false],
-            ["W-014", "Priya Nair", "Call · Room 2", true],
-            ["W-015", "Sandeep Kumar", "Waiting", false],
-          ].map(([tok, name, st, on]) => (
-            <div key={tok} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "14px 12px", borderRadius: 12, background: on ? k.coralDim : "transparent", marginBottom: 4 }}>
-              <TokenChip token={tok} name={name} size={44} pulse={on} />
-              {on ? <span style={{ ...solid, padding: "8px 14px", fontSize: 13 }}>{st}</span> : <span style={{ fontSize: 13.5, color: k.mid, fontWeight: 600 }}>{st}</span>}
-            </div>
-          ))}
-        </div>
-      </StoryDesk>
-      <StoryTv width={380}>
-        <div style={{ padding: "14px 18px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 12, letterSpacing: 1.5, color: k.ink2, display: "flex", justifyContent: "space-between" }}>
-          <span>NOW CALLING</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
-        </div>
-        <div style={{ padding: "32px 20px", background: k.band, display: "flex", justifyContent: "center" }}>
-          <TokenChip token="W-014" name="P···a" size={64} pulse />
-        </div>
-        <div style={{ padding: "10px 18px", background: k.cream2, fontFamily: typ, fontSize: 11, letterSpacing: 1.3, color: k.mid }}>UP NEXT</div>
-        {[["W-015", "S···r"], ["W-016", "A···a"]].map(([tok, nm]) => (
-          <div key={tok} style={{ padding: "14px 18px", borderTop: `1px solid ${k.line}` }}>
-            <TokenChip token={tok} name={nm} size={36} muted />
-          </div>
-        ))}
-      </StoryTv>
-    </StorySet>
-  );
-}
-
-function StoryOutcomes({ onLaunch, replay }) {
-  return (
-    <StorySet>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 22 }}>
-        <div style={{
-          width: 340, background: "#fff", border: `1px solid ${k.line}`, borderRadius: 24, padding: "32px 32px 26px",
-          boxShadow: "0 24px 50px -24px rgba(11,16,32,.28)",
-        }}>
-          <TokenChip token="W-014" name="Priya Nair" size={64} />
-          <div style={{ background: k.coralDim, color: k.coral, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: 8, display: "inline-block", marginTop: 18 }}>Selected</div>
-        </div>
-        <div style={{ fontFamily: typ, fontSize: 13.5, color: k.mid, fontWeight: 600 }}>50 walked in · 8 selected · 4 on hold · 7 rejected</div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-          <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
-          <button onClick={replay} style={outline}><RotateCcw size={14} /> Replay</button>
-        </div>
-      </div>
-    </StorySet>
-  );
-}
-
-function Highlight({ children }) {
-  return (
-    <span style={{ position: "relative", display: "inline-block" }}>
-      <span style={{ position: "relative", zIndex: 1 }}>{children}</span>
-      <span style={{ position: "absolute", left: -4, right: -4, bottom: 4, height: "0.32em", background: k.coralDim, borderRadius: 3, zIndex: 0 }} />
-    </span>
-  );
-}
-
-/* the signature hero: one queue, two honest views, shown side by side and physically linked */
 function SplitHero() {
-  const [tick, setTick] = useState(0);
-  useEffect(() => { const iv = setInterval(() => setTick((t) => t + 1), 2800); return () => clearInterval(iv); }, []);
-  const calling = tick % 3 === 1;
-  const rows = [
-    { tok: "W-013", name: "Meera Joshi", st: "In interview", tone: k.mid },
-    { tok: "W-014", name: "Priya Nair", st: calling ? "Being called" : "Waiting", tone: calling ? k.coral : k.mid },
-    { tok: "W-015", name: "Sandeep Kumar", st: "Waiting", tone: k.mid },
-  ];
+  const ref = useRef(null);
+  const [playing, setPlaying] = useState(true);
+  const toggle = () => {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) { v.play(); setPlaying(true); }
+    else { v.pause(); setPlaying(false); }
+  };
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 26px" }}>
-      <div style={{ ...box, overflow: "hidden", borderRadius: 24, boxShadow: "0 24px 50px -28px rgba(11,16,32,.28)" }}>
-        <div style={{ padding: "14px 22px", background: k.cream2, borderBottom: `1px solid ${k.line}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 14.5 }}>Vistaar Services · Voice Process Associate</div>
-            <div style={{ fontSize: 12, color: k.mid, marginTop: 2 }}>HITEC City · live walk-in</div>
-          </div>
-          <Pill tone="teal">LIVE NOW</Pill>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }} className="g2">
-          <div style={{ padding: "28px 28px 32px", borderRight: `1px solid ${k.line}`, background: "#fff" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: k.mid, letterSpacing: .7, textTransform: "uppercase", marginBottom: 16 }}>On their phone</div>
-            <div style={{ fontSize: 12.5, color: k.ink2, margin: "0 0 14px" }}>Your walk-in number</div>
-            <TokenChip token="W-014" name="Priya Nair" size={64} pulse={calling} />
-            <div style={{ height: 6, background: k.cream2, borderRadius: 3, margin: "16px 0 12px", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: calling ? "92%" : "58%", background: k.coral, borderRadius: 3, transition: "width 1s ease" }} />
-            </div>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: calling ? k.coral : k.ink2 }}>
-              {calling ? "You're being called — go to Room 2" : "3 people ahead · about 24 min"}
-            </div>
-          </div>
-          <div style={{ padding: "28px 28px 32px", background: k.bandSoft }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: k.mid, letterSpacing: .7, textTransform: "uppercase", marginBottom: 16 }}>On the recruiter desk</div>
-            <div style={{ background: "#fff", borderRadius: 14, border: `1px solid ${k.line}`, overflow: "hidden" }}>
-              {rows.map((r, i) => (
-                <div key={r.tok} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 14px", borderTop: i ? `1px solid ${k.line}` : "none", background: r.st === "Being called" ? k.coralDim : "#fff" }}>
-                  <TokenChip token={r.tok} name={r.name} size={36} pulse={r.st === "Being called"} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: r.tone, whiteSpace: "nowrap" }}>{r.st}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+    <div style={{ maxWidth: 1040, margin: "0 auto", padding: "0 26px" }}>
+      <div style={{
+        position: "relative", borderRadius: 24, overflow: "hidden",
+        background: "#111318", boxShadow: "0 32px 64px -28px rgba(17,19,24,.45)",
+      }}>
+        <video
+          ref={ref}
+          src="/demo/walk-in.mp4?v=3"
+          poster="/demo/stills/01-hall.png"
+          autoPlay
+          muted
+          loop
+          playsInline
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          style={{ width: "100%", display: "block", aspectRatio: "16 / 9", objectFit: "cover", background: "#111318" }}
+        />
+        <div style={{
+          position: "absolute", left: 0, right: 0, bottom: 0,
+          padding: "16px 18px",
+          background: "linear-gradient(180deg, transparent, rgba(17,19,24,.55))",
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <button onClick={toggle} aria-label={playing ? "Pause" : "Play"} style={{
+            width: 36, height: 36, borderRadius: "50%", border: "none",
+            background: "#fff", color: k.ink, display: "inline-flex",
+            alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+          }}>
+            {playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" style={{ marginLeft: 2 }} />}
+          </button>
+          <Link to="/watch" style={{
+            color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none",
+            display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto",
+          }}>
+            Product walk-through <ArrowRight size={14} />
+          </Link>
         </div>
       </div>
     </div>
   );
 }
 
-function PlanCards({ onChoose, go }) {
+function PlanCards({ onChoose, go, cycle = "month" }) {
   const byId = Object.fromEntries(PLANS.map((p) => [p.id, p]));
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(224px, 1fr))", gap: 16, alignItems: "start" }}>
-      {PUBLIC_PLANS.map((p) => (
-        <div key={p.id} style={{ border: `1px solid ${p.best ? k.teal : k.line}`, borderRadius: 10, padding: "24px 20px", background: "#fff", position: "relative", display: "flex", flexDirection: "column", height: "100%", boxShadow: p.best ? "0 14px 32px -22px rgba(31,111,92,.4)" : "none" }}>
-          {p.ribbon && <div style={{ position: "absolute", top: -9, left: 20, background: p.best ? k.teal : k.ink, color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 3, fontFamily: typ, letterSpacing: .6 }}>{p.ribbon}</div>}
-          <div style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700 }}>{p.name}</div>
-          <div style={{ fontSize: 13, color: k.mid, lineHeight: 1.5, margin: "6px 0 16px", minHeight: 39 }}>{p.blurb}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontFamily: typ, fontSize: 30, fontWeight: 700, letterSpacing: -0.8 }}>{p.price}</span>
-            <span style={{ fontSize: 12.5, color: k.faint }}>{p.unit}</span>
-          </div>
-          <div style={{ fontSize: 12.5, color: k.ink2, margin: "8px 0 18px" }}>{p.validity}</div>
-          <button onClick={() => (p.talk && go ? go("contact") : onChoose(p))} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11, marginBottom: 18 }}>{p.cta}</button>
-          {p.builds && (
-            <div style={{ fontSize: 12, fontWeight: 700, color: k.ink, marginBottom: 10 }}>
-              Everything in {byId[p.builds]?.name}, plus
-            </div>
+    <div className="plans" style={{ display: "grid", gap: 12, alignItems: "stretch" }}>
+      {PUBLIC_PLANS.map((p) => {
+        const cost = planPrice(p, cycle);
+        return (
+        <div key={p.id} style={{
+          border: `1px solid ${p.best ? k.coral : k.line}`,
+          borderRadius: 16,
+          padding: "28px 22px 24px",
+          background: p.best ? k.coralDim : "#fff",
+          color: k.ink,
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+        }}>
+          {p.best && (
+            <div style={{ position: "absolute", top: 16, right: 16, fontFamily: typ, fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: k.coral }}>MOST USED</div>
           )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: k.mid, marginBottom: 18 }}>{p.name}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+            <span style={{ fontFamily: dsp, fontSize: 32, fontWeight: 700, letterSpacing: -1.2, lineHeight: 1 }}>{cost.label}</span>
+            <span style={{ fontSize: 13, color: k.mid }}>{cost.unit}</span>
+          </div>
+          {cost.billed ? <div style={{ fontSize: 12, color: k.faint, marginBottom: 8 }}>{cost.billed}</div> : null}
+          <div style={{ fontSize: 13, color: k.ink2, marginBottom: 22, minHeight: 20 }}>{p.blurb}</div>
+          <button onClick={() => (p.talk && go ? go("contact") : onChoose(p))} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11, marginBottom: 22 }}>{p.cta}</button>
+          <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 7 }}>
+            {p.builds && (
+              <div style={{ fontSize: 12.5, color: k.mid, marginBottom: 2 }}>
+                {byId[p.builds]?.name}, plus
+              </div>
+            )}
             {(p.highlights || []).map((f) => (
-              <div key={f} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, alignItems: "flex-start", color: k.ink2 }}>
-                <Check size={14} color={k.teal} style={{ flexShrink: 0, marginTop: 3 }} />{f}
-              </div>
-            ))}
-            {(p.missing || []).map((f) => (
-              <div key={f} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.45, alignItems: "flex-start", color: k.faint }}>
-                <X size={14} color={k.faint} style={{ flexShrink: 0, marginTop: 3 }} />{f}
-              </div>
+              <div key={f} style={{ fontSize: 13.5, lineHeight: 1.4, color: k.ink }}>{f}</div>
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function PlanTable() {
-  const cell = { padding: "12px 14px", borderBottom: `1px solid ${k.line}`, fontSize: 13, textAlign: "center", fontFamily: typ };
+  // Rows that are false on every public plan are a wall of dashes — hide them.
+  const rows = PLAN_ROWS.filter((row) => PUBLIC_PLANS.some((p) => row.get(p.limits, p) !== false));
+  const pad = { padding: "14px 12px" };
   return (
-    <div style={{ overflowX: "auto", border: `1px solid ${k.line}`, borderRadius: 10, background: "#fff" }}>
-      <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 620 }}>
+    <div style={{ overflowX: "auto" }}>
+      <table className="plan-table" style={{ borderCollapse: "collapse", width: "100%", minWidth: 560 }}>
         <thead>
           <tr>
-            <th style={{ ...cell, textAlign: "left", fontFamily: dsp, fontSize: 13, color: k.mid, fontWeight: 600 }}>Compare plans</th>
+            <th style={{ ...pad, textAlign: "left", fontSize: 12, fontWeight: 500, color: k.faint, borderBottom: `1px solid ${k.line}` }} />
             {PUBLIC_PLANS.map((p) => (
-              <th key={p.id} style={{ ...cell, fontFamily: dsp, fontSize: 13.5, fontWeight: 700, color: p.best ? k.teal : k.ink }}>{p.name}</th>
+              <th key={p.id} style={{
+                ...pad,
+                fontFamily: dsp,
+                fontSize: 13,
+                fontWeight: 600,
+                color: p.best ? k.coral : k.ink,
+                textAlign: "center",
+                borderBottom: `1px solid ${p.best ? k.coral : k.line}`,
+                background: p.best ? k.coralDim : "transparent",
+                borderRadius: p.best ? "10px 10px 0 0" : 0,
+              }}>{p.name}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {PLAN_ROWS.map((row) => (
+          {rows.map((row, i) => (
             <tr key={row.label}>
-              <td style={{ ...cell, textAlign: "left", fontFamily: bdy, color: k.ink2 }}>{row.label}</td>
+              <td style={{ ...pad, textAlign: "left", fontSize: 13.5, color: k.mid, borderBottom: i === rows.length - 1 ? "none" : `1px solid ${k.line}` }}>{row.label}</td>
               {PUBLIC_PLANS.map((p) => {
                 const v = row.get(p.limits, p);
+                const last = i === rows.length - 1;
                 return (
-                  <td key={p.id} style={cell}>
-                    {v === true ? <Check size={15} color={k.teal} />
-                      : v === false ? <span style={{ color: k.line }}>—</span>
+                  <td key={p.id} style={{
+                    ...pad,
+                    textAlign: "center",
+                    fontFamily: typ,
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    color: k.ink,
+                    background: p.best ? k.coralDim : "transparent",
+                    borderBottom: last ? "none" : `1px solid ${p.best ? "rgba(44,107,245,.16)" : k.line}`,
+                    borderRadius: last && p.best ? "0 0 10px 10px" : 0,
+                  }}>
+                    {v === true ? <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: 99, background: k.coral }} />
+                      : v === false ? ""
                       : v}
                   </td>
                 );
@@ -772,53 +327,51 @@ function PlanTable() {
   );
 }
 
-export function Home({ go, onLaunch, drives }) {
+export function Home({ go, onLaunch }) {
   return (
     <>
-      <div style={{ background: k.cream, minHeight: "100vh", padding: "0 0 48px", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
-        <div style={{ maxWidth: 1140, margin: "0 auto", padding: "64px 26px 0", textAlign: "center" }}>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(36px, 5vw, 58px)", lineHeight: 1.12, letterSpacing: -1.4, margin: "0 auto 20px", color: k.ink, fontWeight: 700, maxWidth: 780 }}>
-            Walk-in hiring, <Highlight>without the queue.</Highlight>
+      <div style={{ background: k.cream2, padding: "56px 0 0", boxSizing: "border-box", borderBottom: `1px solid ${k.line}` }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 26px 40px", textAlign: "center" }}>
+          <h1 style={{ fontFamily: dsp, fontSize: "clamp(20px, 2.4vw, 24px)", lineHeight: 1.35, letterSpacing: -0.2, margin: "0 auto 10px", color: k.ink, fontWeight: 600, maxWidth: 480 }}>
+            Walk-in hiring with a full candidate file, not a paper list.
           </h1>
-          <p style={{ fontSize: 17.5, color: k.ink2, lineHeight: 1.6, margin: "0 auto 34px", maxWidth: 440 }}>
-            Candidates watch their turn from their phone. You run the floor from one screen.
+          <p style={{ fontSize: 15, color: k.mid, lineHeight: 1.55, margin: "0 auto 28px", maxWidth: 500 }}>
+            Candidates upload a resume and their details when they join. You run one queue on the day, and leave with digital copies ready to send to your ATS — not a register of who showed up.
           </p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 40 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
             <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
             <Link to="/watch" style={{ ...outline, textDecoration: "none" }}><Play size={14} fill="currentColor" /> Watch a walk-in</Link>
           </div>
         </div>
-        <div style={{ marginTop: "auto", background: k.bandSoft, padding: "28px 0 36px" }}>
+        <div style={{ padding: "0 0 48px" }}>
           <SplitHero />
         </div>
       </div>
 
-      <div style={{ background: k.bandSoft, padding: "72px 0 88px" }}>
+      <div style={{ background: k.cream2, padding: "72px 0 80px" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 26px" }}>
-          <h2 style={{ fontFamily: dsp, fontSize: "clamp(30px,4vw,44px)", fontWeight: 400, letterSpacing: -1, margin: "0 0 40px", textAlign: "center" }}>
-            Built for <b style={{ fontWeight: 800 }}>how you hire</b>
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 18 }} className="g3">
+          <div style={{ fontSize: 13, fontWeight: 600, color: k.mid, marginBottom: 16 }}>Who this is for</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }} className="g2">
             {[
-              ["bpo", "BPO & support", "500-a-day drives"],
-              ["retail", "Retail & delivery", "Store-by-store hiring"],
-              ["campus", "Campus hiring", "A batch in one morning"],
-              ["agency", "Staffing agencies", "Hire for clients, branded as you"],
+              ["bpo", "BPO & customer support", "Voice and non-voice drives of a few hundred. One queue, so six recruiters are not working six lists."],
+              ["retail", "Retail & delivery", "The same walk-in in every store. Head office sees today’s numbers, not last Monday’s spreadsheet."],
+              ["campus", "Campus hiring", "A full batch through in one morning. Students get a time. The placement cell gets a report."],
+              ["agency", "Staffing agencies", "Your hall, your name, your clients. They never see each other’s books."],
             ].map(([id, h, d]) => (
-              <button key={id} onClick={() => go(`sol:${id}`)} style={{
-                background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, padding: 26,
+              <button key={id} onClick={() => go(`sol:${id}`)} className="quiet-tile" style={{
+                background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, padding: "26px 24px 22px",
                 textAlign: "left", cursor: "pointer", fontFamily: bdy,
               }}>
-                <div style={{ fontFamily: dsp, fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{h}</div>
-                <div style={{ fontSize: 14, color: k.mid, marginBottom: 16 }}>{d}</div>
-                <span style={{ fontSize: 13.5, color: k.coral, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>Learn more <ArrowRight size={13} /></span>
+                <div style={{ fontFamily: dsp, fontSize: 18, fontWeight: 650, letterSpacing: -0.3 }}>{h}</div>
+                <div style={{ fontSize: 14.5, color: k.ink2, lineHeight: 1.55, marginTop: 8 }}>{d}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: k.coral, marginTop: 16 }}>See how it runs →</div>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      <div style={{ background: "#fff", padding: "96px 0 32px" }}>
+      <div style={{ background: k.cream2, padding: "0 0 48px" }}>
         <CtaBand onLaunch={onLaunch} variant="home" flush />
       </div>
     </>
@@ -826,20 +379,20 @@ export function Home({ go, onLaunch, drives }) {
 }
 
 const CTA_COPY = {
-  home: { head: ["The ", "chaos is over"], sub: "Your next walk-in can run without a clipboard.", btn: "Set up a walk-in" },
-  products: { head: ["Built for ", "the front desk"], sub: "Every piece above works out of the box. Nothing to configure, nothing to install.", btn: "Try it on a real drive" },
-  about: { head: ["Come ", "build it with us"], sub: "We're early, and we'd rather hear from ten real recruiters than guess at what they need.", btn: "Talk to us" },
-  solution: { head: ["Run your next walk-in ", "this way"], sub: "Set it up in a few minutes. Plans start at a small one-day event.", btn: "Set up a walk-in" },
+  home: { head: ["Set up tomorrow’s walk-in."], sub: "Registration, the queue, the rooms, and a candidate file you can send to your ATS — ready before people arrive.", btn: "Set up a walk-in" },
+  products: { head: ["See the product on a real walk-in."], sub: "Check-in, the shared queue, interview rooms, resumes, and the ATS extract.", btn: "Start free" },
+  about: { head: ["Talk to us about a walk-in"], sub: "Tell us the hall, the volume, and how you hand files to HR today.", btn: "Contact" },
+  solution: { head: ["Set up your next walk-in"], sub: "You can be live in a few minutes. Candidates bring their own resume and details.", btn: "Set up a walk-in" },
 };
 export function CtaBand({ onLaunch, variant = "home", onContact, flush }) {
   const c = CTA_COPY[variant] || CTA_COPY.home;
   return (
     <div style={{ maxWidth: 1140, margin: flush ? "0 auto" : "70px auto 0", padding: "0 26px" }}>
-      <div style={{ background: k.band, borderRadius: 28, padding: "56px 40px", textAlign: "center" }}>
-        <h2 style={{ fontFamily: dsp, fontSize: "clamp(28px,3.6vw,42px)", fontWeight: 400, letterSpacing: -1, margin: "0 0 14px" }}>
-          {c.head[0]}<b style={{ fontWeight: 800 }}>{c.head[1]}</b>
+      <div style={{ ...box, borderRadius: 20, padding: "48px 36px", textAlign: "center", background: "#fff" }}>
+        <h2 style={{ fontFamily: dsp, fontSize: "clamp(26px,3.4vw,38px)", fontWeight: 600, letterSpacing: -1, margin: "0 0 10px", color: k.ink }}>
+          {c.head[0]}{c.head[1] ? <b style={{ fontWeight: 700 }}>{c.head[1]}</b> : null}
         </h2>
-        <p style={{ fontSize: 17, color: k.ink2, margin: "0 auto 30px", maxWidth: 460, lineHeight: 1.6 }}>{c.sub}</p>
+        {c.sub ? <p style={{ fontSize: 16, color: k.mid, margin: "0 auto 26px", maxWidth: 400, lineHeight: 1.5 }}>{c.sub}</p> : <div style={{ height: 18 }} />}
         <button onClick={() => (variant === "about" && onContact ? onContact() : onLaunch("employer"))} style={solid}>{c.btn} <ArrowRight size={16} /></button>
       </div>
     </div>
@@ -901,32 +454,23 @@ function LiveBoard() {
 /* --- About --- */
 export function AboutPage({ go, onLaunch }) {
   const principles = [
-    [ShieldCheck, "Privacy by default", "A token and a masked name. Nothing else."],
-    [FileText, "We store as little as possible", "Aadhaar is optional, and even then we keep a one-way hash — never the number."],
-    [HeartHandshake, "One job, done properly", "Walk-in hiring drives. Not general queueing, not an ATS. That focus is the point."],
+    [ShieldCheck, "The waiting room stays private", "The wall shows a token and a masked name. Full name, phone, and resume stay with signed-in recruiters."],
+    [FileText, "We keep what HR actually needs", "Name, phone, email, experience, LinkedIn, and the resume file. Aadhaar is optional, stored only as a one-way hash — never the number."],
+    [HeartHandshake, "Built for walk-in days, not as another ATS", "We run the hall and hand you a file. Offers and joining stay in the system you already use."],
   ];
   return (
     <>
-      <div style={{ background: k.band }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "76px 26px 80px", textAlign: "center" }}>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(34px,4.8vw,52px)", fontWeight: 700, letterSpacing: -1.5, margin: "0 0 22px", lineHeight: 1.12 }}>
-            Nobody should wait all day <Highlight>without knowing why.</Highlight>
-          </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 500 }}>
-            That's the whole reason TokenHire exists.
-          </p>
-        </div>
-      </div>
+      <PageHero bottom={64}>
+        <h1 style={{ ...heroH1, margin: "0 0 16px" }}>People should not wait all day without knowing when they will be seen.</h1>
+        <p style={{ ...heroP, fontSize: 17, maxWidth: 480 }}>That is why TokenHire exists — and why Monday should start with files, not a paper register.</p>
+      </PageHero>
 
-      <div style={{ maxWidth: 660, margin: "0 auto", padding: "70px 26px 0" }}>
-        <p style={{ fontSize: 18, color: k.ink, lineHeight: 1.75, margin: "0 0 22px", fontWeight: 500 }}>
-          A thousand people can pass through a walk-in drive in a weekend. By Monday, nothing's left but a paper register and a rough headcount.
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 26px 0" }}>
+        <p style={{ fontSize: 18, color: k.ink, lineHeight: 1.7, margin: "0 0 18px", fontWeight: 500 }}>
+          A thousand people can pass through a walk-in in a weekend. By Monday, most teams have a paper register and a guess.
         </p>
-        <p style={{ fontSize: 16.5, color: k.ink2, lineHeight: 1.8, margin: "0 0 22px" }}>
-          We watched it happen — candidates standing in corridors with no idea if they'd be seen, recruiters working off a shouted name and a clipboard, nobody able to say afterwards who was screened or why.
-        </p>
-        <p style={{ fontSize: 16.5, color: k.ink2, lineHeight: 1.8, margin: 0 }}>
-          Every tool we found handled sourcing <i>before</i> the drive, or was queue software built for hospitals. Nothing sat at the actual front desk. So we built that: one place for a candidate to become known once, and one place for a recruiter to run the day without losing count of anyone in the room.
+        <p style={{ fontSize: 16, color: k.ink2, lineHeight: 1.7, margin: 0 }}>
+          Candidates register with a resume and their details. They scan the waiting-room screen to join one queue. At the end of the day you export the files to your ATS.
         </p>
       </div>
 
@@ -950,26 +494,20 @@ export function AboutPage({ go, onLaunch }) {
 /* --- Services --- */
 export function Services({ go, onLaunch }) {
   const blocks = [
-    { h: "One scan", d: "Scan the screen. Get a token. Done.", art: <ArtCode /> },
-    { h: "One queue", d: "Every recruiter, the same list.", art: <ArtQueue /> },
-    { h: "One nudge", d: "WhatsApp, 15 minutes before their turn.", art: <ArtNudge /> },
-    { h: "Names stay private", d: "The wall shows R···l, never Rahul.", art: <ArtMasked /> },
-    { h: "Honest wait times", d: "Recalculated from today's actual pace.", art: <ArtPace /> },
-    { h: "A real record", d: "Every outcome, exported to your ATS.", art: <ArtReport /> },
+    { h: "Candidates upload a resume and their details", d: "Name, phone, email, experience, and a PDF or Word file. Recruiters open the file from the queue — they do not collect printouts at the door.", art: <ArtReport /> },
+    { h: "Scan the waiting-room screen to join", d: "One scan issues a token and puts them in line. No second code to type, no paper slip to lose.", art: <ArtCode /> },
+    { h: "Every recruiter works from the same queue", d: "Call, pass, and room assignment happen on one list, so the same person is not called twice.", art: <ArtQueue /> },
+    { h: "WhatsApp when they are about 15 minutes away", d: "One message: be near the waiting area. We do not spam them when they are called or decided.", art: <ArtNudge /> },
+    { h: "The public screen hides full names", d: "The wall shows a token and a masked name. Phone, resume, and the real name stay with signed-in recruiters.", art: <ArtMasked /> },
+    { h: "Export the full file to your ATS", d: "At close of day you send contact details, the resume, and round outcomes. Offers stay in your ATS. This is not a headcount of who attended.", art: <ArtPace /> },
   ];
 
   return (
     <>
-      <div style={{ background: k.band }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "76px 26px 80px", textAlign: "center" }}>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(34px,4.8vw,52px)", fontWeight: 700, letterSpacing: -1.5, margin: "0 0 20px", lineHeight: 1.12 }}>
-            One queue. <Highlight>One record.</Highlight>
-          </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 420 }}>
-            The whole front desk, in one place.
-          </p>
-        </div>
-      </div>
+      <PageHero bottom={64}>
+        <h1 style={{ ...heroH1, margin: "0 0 14px" }}>The queue on the day. The candidate file on Monday.</h1>
+        <p style={{ ...heroP, fontSize: 17, maxWidth: 500 }}>Registration, check-in, rooms, resumes, and an extract you can send to the ATS you already use.</p>
+      </PageHero>
 
       <div style={{ maxWidth: 1140, margin: "0 auto", padding: "70px 26px 0" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22 }} className="g2">
@@ -1074,13 +612,19 @@ function ArtPace() {
   );
 }
 function ArtReport() {
-  const rows = [["Walked in", 100, k.faint], ["Interviewed", 66, k.mid], ["Offered", 28, k.gold], ["Joined", 17, k.teal]];
+  const rows = [
+    ["Phone", "98480 11223"],
+    ["Email", "priya.nair@email.com"],
+    ["Experience", "1–3 years"],
+    ["Resume", "priya_nair_cv.pdf"],
+  ];
   return (
     <ArtFrame>
-      {rows.map(([l, pct, c]) => (
-        <div key={l} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 11.5, color: k.mid, width: 76, flexShrink: 0 }}>{l}</span>
-          <div style={{ flex: 1, height: 14, background: k.cream2, borderRadius: 3, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct}%`, background: c, borderRadius: 3 }} /></div>
+      <div style={{ marginBottom: 12 }}><TokenChip token="014" name="Priya Nair" size={36} /></div>
+      {rows.map(([l, v]) => (
+        <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "7px 0", borderTop: `1px solid ${k.line}`, fontSize: 12.5 }}>
+          <span style={{ color: k.mid }}>{l}</span>
+          <span style={{ fontWeight: 600, color: k.ink }}>{v}</span>
         </div>
       ))}
     </ArtFrame>
@@ -1091,45 +635,45 @@ function ArtReport() {
 const SOLUTIONS = {
   bpo: {
     eyebrow: "BPO & customer support",
-    head: ["Five hundred walk-ins. ", "One calm room."],
-    sub: "Voice and non-voice drives run at volumes nothing else in hiring touches. The bottleneck isn't sourcing — it's the four hours between arriving and being seen.",
+    head: ["Five hundred walk-ins, ", "one shared queue."],
+    sub: "Voice and non-voice drives run at volumes nothing else in hiring touches. The bottleneck is not sourcing — it is the four hours between arriving and being seen, and the empty file on Monday.",
     pains: [
       ["The room holds 80. The queue is 400.", "Nobody knows who is next, so nobody leaves."],
-      ["Six recruiters, six paper lists.", "Names get called twice, or never."],
-      ["Decisions stay in your ATS.", "Outcomes by round. Offers stay in your ATS."],
+      ["Six recruiters, six lists.", "The same name gets called twice, or never."],
+      ["Monday has a register, not a file.", "Each candidate already uploaded a resume and details. You export that to your ATS, with round outcomes."],
     ],
     stat: ["500+", "candidates in a single day's drive"],
   },
   retail: {
     eyebrow: "Retail & delivery",
-    head: ["Hiring in ", "forty stores at once."],
-    sub: "Every store keeps its own notebook. Head office finds out a week later.",
+    head: ["The same walk-in ", "in every store."],
+    sub: "Every store keeps its own notebook. Head office finds out a week later, and the resumes never leave the shop floor.",
     pains: [
-      ["Every store does it differently.", "One flow everywhere, so the numbers compare."],
-      ["Head office is flying blind.", "Each drive posts its own numbers as it happens, instead of a spreadsheet emailed on Monday."],
-      ["Walk-ins clash with the shop floor.", "Keep the aisle clear. They wait outside until nudged."],
+      ["Every store does it differently.", "One registration flow. Numbers you can actually compare."],
+      ["Head office is flying blind.", "Live counts today — not a spreadsheet next Monday."],
+      ["Walk-ins clash with the shop floor.", "They wait outside and get one WhatsApp when it is nearly their turn."],
     ],
     stat: ["40+", "store drives running the same week"],
   },
   campus: {
     eyebrow: "Campus hiring",
-    head: ["A whole batch, ", "through by lunch."],
-    sub: "Three hundred students. Eight minutes each. The maths never works.",
+    head: ["A full campus batch, ", "through in one morning."],
+    sub: "Three hundred students. Eight minutes each. The maths never works if the placement cell is still the queue.",
     pains: [
-      ["Everyone arrives at 9am.", "Everyone arrives at 9am. Staggered times spread the same crowd."],
-      ["The placement cell is the queue.", "Two coordinators managing three hundred students by memory. The queue runs itself instead."],
-      ["No record for the college.", "Placement officers need real numbers per drive. They get a report instead of a headcount."],
+      ["Everyone arrives at 9am.", "Students register in advance with a resume. They get a place in line, not a scrum at the door."],
+      ["The placement cell is the queue.", "Two coordinators. Three hundred students. One list."],
+      ["No record for the college.", "A report with names, files, and outcomes — not a headcount."],
     ],
     stat: ["300", "students, one morning, one queue"],
   },
   agency: {
     eyebrow: "Staffing agencies",
-    head: ["You hire for them. ", "The hall is yours."],
-    sub: "Candidates join your walk-in, under your name. Rival agencies never see your books.",
+    head: ["You hire for the client. ", "The hall and the files stay yours."],
+    sub: "Candidates join your walk-in, under your name. Rival agencies never see your books — or the resumes.",
     pains: [
-      ["One agency space — not a shared soup.", "Your recruiters and front desks only see Quess drives. Another agency (or a captive like Wipro) cannot open yours. Clients are tags inside your space, not logins that peek at each other."],
-      ["The hall says Quess.", "Your mark and your client name on every screen and slip."],
-      ["Branches and clients in one login.", "Tag the drive. The hall and the extract follow."],
+      ["Your space. Not a shared list.", "Only your drives. Clients are tags, not extra logins."],
+      ["The hall shows your name.", "Your mark on every screen. The client is a label on the extract."],
+      ["One login. Many halls.", "Tag the drive. The candidate files and ATS extract follow that tag."],
     ],
     stat: ["1", "agency login, many clients and cities"],
   },
@@ -1140,16 +684,14 @@ export function SolutionPage({ id, go, onLaunch }) {
   if (!s) return null;
   return (
     <>
-      <div style={{ background: k.band }}>
-        <div style={{ maxWidth: 860, margin: "0 auto", padding: "72px 26px 76px", textAlign: "center" }}>
-          <div style={{ fontSize: 15, color: k.coral, fontWeight: 500, marginBottom: 18 }}>{s.eyebrow}</div>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(34px,5vw,56px)", fontWeight: 400, letterSpacing: -1.6, margin: "0 0 22px", lineHeight: 1.08 }}>
-            {s.head[0]}<b style={{ fontWeight: 800 }}>{s.head[1]}</b>
-          </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto 32px", maxWidth: 560 }}>{s.sub}</p>
-          <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
-        </div>
-      </div>
+      <PageHero maxWidth={860} bottom={68}>
+        <div style={{ fontSize: 13, color: k.coral, fontWeight: 600, marginBottom: 14 }}>{s.eyebrow}</div>
+        <h1 style={{ ...heroH1, fontSize: "clamp(34px,5vw,56px)", margin: "0 0 16px" }}>
+          {s.head[0]}<b style={{ fontWeight: 700 }}>{s.head[1]}</b>
+        </h1>
+        <p style={{ ...heroP, fontSize: 17, maxWidth: 440, margin: "0 auto 28px" }}>{s.sub}</p>
+        <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
+      </PageHero>
 
       <div style={{ maxWidth: 1140, margin: "-38px auto 0", padding: "0 26px" }}>
         <div style={{ background: "#fff", border: `1px solid ${k.line}`, borderRadius: 26, padding: "34px 40px", boxShadow: "0 30px 60px -40px rgba(11,16,32,.25)", textAlign: "center" }}>
@@ -1159,7 +701,7 @@ export function SolutionPage({ id, go, onLaunch }) {
       </div>
 
       <div style={{ maxWidth: 1140, margin: "0 auto", padding: "64px 26px 0" }}>
-        <h2 style={{ fontFamily: dsp, fontSize: "clamp(26px,3.6vw,38px)", fontWeight: 700, letterSpacing: -1, margin: "0 0 40px", textAlign: "center" }}>What actually goes wrong</h2>
+        <h2 style={{ fontFamily: dsp, fontSize: "clamp(26px,3.6vw,38px)", fontWeight: 600, letterSpacing: -1, margin: "0 0 40px", textAlign: "center" }}>What goes wrong</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {s.pains.map(([h, d], i) => (
             <div key={h} style={{ display: "grid", gridTemplateColumns: "56px 1fr", gap: 22, background: k.cream2, borderRadius: R.card, padding: "28px 32px" }}>
@@ -1185,35 +727,36 @@ export function SolutionPage({ id, go, onLaunch }) {
 export function PublicDrives({ drives, onLaunch }) {
   const listed = drives.filter((d) => d.visibility !== "private");
   const [city, setCity] = useState("");
+  const [company, setCompany] = useState("");
   const [status, setStatus] = useState("All");
   const [role, setRole] = useState("All roles");
   const [exp, setExp] = useState("");
   const [openId, setOpenId] = useState(null);
-  const roles = ["All roles", ...Array.from(new Set(listed.map((d) => d.role))).sort()];
+  const roles = ["All roles", ...Array.from(new Set(listed.map((d) => d.role))).sort((a, b) => a.localeCompare(b))];
+  const companies = Array.from(new Set(listed.map((d) => listingHost(d)).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   const visible = listed
     .filter((d) => d.status !== "closed")
     .filter((d) => !city || d.city === city)
+    .filter((d) => !company || listingHost(d) === company)
     .filter((d) => status === "All" || d.status === status)
     .filter((d) => role === "All roles" || d.role === role)
     .filter((d) => !exp || !(d.expNeeded || []).length || d.expNeeded.includes(exp))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => {
+      const byCo = listingHost(a).localeCompare(listingHost(b));
+      return byCo || a.date.localeCompare(b.date);
+    });
 
   const liveCount = listed.filter((d) => d.status === "live").length;
   const upcomingCount = listed.filter((d) => d.status === "upcoming").length;
 
   return (
     <>
-      <div style={{ background: k.band }}>
-        <div style={{ maxWidth: 780, margin: "0 auto", padding: "70px 26px 40px", textAlign: "center" }}>
-          <div style={{ fontSize: 15, color: k.coral, fontWeight: 500, marginBottom: 16 }}>Upcoming drives</div>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(34px,4.8vw,54px)", fontWeight: 400, letterSpacing: -1.6, margin: "0 0 18px", lineHeight: 1.08 }}>
-            Find a walk-in <b style={{ fontWeight: 800 }}>near you</b>
-          </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto 30px", maxWidth: 500 }}>
-            Public walk-ins, sorted by date. You still have to be at the venue to join.
-          </p>
-          <button onClick={() => onLaunch("candidate")} style={solid}>Set up my profile <ArrowRight size={16} /></button>
+      <div style={{ background: k.cream2, borderBottom: `1px solid ${k.line}` }}>
+        <div style={{ maxWidth: 780, margin: "0 auto", padding: "56px 26px 36px", textAlign: "center" }}>
+          <h1 style={{ ...heroH1, fontSize: "clamp(34px,4.8vw,54px)" }}>Walk-in drives you can join</h1>
+          <p style={{ ...heroP, margin: "0 auto 26px", maxWidth: 480 }}>Register with your details and resume, then scan the waiting-room screen when you arrive. You have to be there to join the queue.</p>
+          <button onClick={() => onLaunch("candidate")} style={solid}>Check in as a candidate <ArrowRight size={16} /></button>
         </div>
         <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 26px 46px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }} className="g3">
@@ -1231,6 +774,17 @@ export function PublicDrives({ drives, onLaunch }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>City</div>
               <CitySelect value={city} onChange={setCity} allowAll />
             </div>
+            <div style={{ marginBottom: 26 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Company</div>
+              <Select
+                value={company}
+                onChange={setCompany}
+                searchable
+                placeholder="All companies"
+                aria-label="Filter by company"
+                options={[{ value: "", label: "All companies" }, ...companies.map((c) => ({ value: c, label: c }))]}
+              />
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 26 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Status</div>
               {["All", "live", "upcoming"].map((s) => (
@@ -1242,16 +796,21 @@ export function PublicDrives({ drives, onLaunch }) {
             </div>
             <div style={{ marginBottom: 26 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Experience</div>
-              <select value={exp} onChange={(e) => setExp(e.target.value)} style={{ ...input, appearance: "auto" }}>
-                <option value="">All levels</option>
-                {EXP_BANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <Select
+                value={exp}
+                onChange={setExp}
+                placeholder="All levels"
+                options={[{ value: "", label: "All levels" }, ...EXP_BANDS.map((b) => ({ value: b, label: b }))]}
+              />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Role</div>
-              <select value={role} onChange={(e) => setRole(e.target.value)} style={{ ...input, fontSize: 13.5 }}>
-                {roles.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <Select
+                value={role}
+                onChange={setRole}
+                options={roles.map((r) => ({ value: r, label: r }))}
+                style={{ fontSize: 13.5 }}
+              />
             </div>
           </div>
 
@@ -1324,60 +883,45 @@ function DrivePosting({ d, flush }) {
 }
 function QuickStat({ n, label }) {
   return (
-    <div style={{ background: "#fff", borderRadius: R.card, padding: "20px 22px", textAlign: "center" }}>
-      <div style={{ fontFamily: dsp, fontSize: 34, fontWeight: 800, color: k.coral, letterSpacing: -1 }}>{n}</div>
-      <div style={{ fontSize: 13, color: k.ink2, marginTop: 4 }}>{label}</div>
+    <div style={{ background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, padding: "20px 22px", textAlign: "center" }}>
+      <div style={{ fontFamily: dsp, fontSize: 34, fontWeight: 700, color: k.ink, letterSpacing: -1 }}>{n}</div>
+      <div style={{ fontSize: 13, color: k.mid, marginTop: 4 }}>{label}</div>
     </div>
   );
 }
 
 /* --- Pricing --- */
 export function PricingPage({ onLaunch, go }) {
+  const [cycle, setCycle] = useState("month");
   return (
     <>
-      <div style={{ background: k.band }}>
-        <div style={{ maxWidth: 780, margin: "0 auto", padding: "70px 26px 74px", textAlign: "center" }}>
-          <div style={{ fontSize: 15, color: k.coral, fontWeight: 500, marginBottom: 18 }}>Pricing</div>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(32px,4.4vw,50px)", fontWeight: 400, letterSpacing: -1.6, margin: "0 0 18px", lineHeight: 1.1 }}>
-            Priced by <b style={{ fontWeight: 800 }}>how often you hire</b>.
-          </h1>
-          <p style={{ fontSize: 18, color: k.ink2, lineHeight: 1.65, margin: "0 auto", maxWidth: 400 }}>
-            Every plan is the full product. Bigger plans add volume. Excludes GST.
-          </p>
+      <PageHero>
+        <h1 style={heroH1}>A plan for the hall.</h1>
+        <p style={{ ...heroP, margin: "0 auto 22px" }}>
+          You pay for seats and halls — not a pile of unused tokens. GST extra.
+        </p>
+        <div style={{ display: "inline-flex", padding: 4, borderRadius: 999, background: "#fff", border: `1px solid ${k.line}`, gap: 4 }}>
+          {[["month", "Monthly"], ["year", "Yearly · 2 months free"]].map(([id, lab]) => (
+            <button key={id} type="button" onClick={() => setCycle(id)} style={{
+              border: "none", borderRadius: 999, padding: "8px 16px", cursor: "pointer", fontFamily: bdy, fontSize: 13.5, fontWeight: 600,
+              background: cycle === id ? k.ink : "transparent", color: cycle === id ? "#fff" : k.mid,
+            }}>{lab}</button>
+          ))}
         </div>
+      </PageHero>
+
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 26px 0" }}>
+        <PlanCards onChoose={() => onLaunch("employer")} go={go} cycle={cycle} />
       </div>
 
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "54px 26px 0" }}>
-        <PlanCards onChoose={() => onLaunch("employer")} go={go} />
-      </div>
-
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 26px 0" }}>
-        <div style={{ border: `1px solid ${k.line}`, borderRadius: 10, background: k.bandSoft, padding: "24px 26px" }}>
-          <div style={{ fontFamily: dsp, fontSize: 15, fontWeight: 700, marginBottom: 16 }}>In every plan</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "10px 22px" }}>
-            {PRODUCT_FEATS.map((f) => (
-              <div key={f} style={{ display: "flex", gap: 8, fontSize: 13.5, alignItems: "center", color: k.ink2 }}>
-                <Check size={14} color={k.teal} style={{ flexShrink: 0 }} />{f}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 26px 0" }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "56px 26px 0" }}>
         <PlanTable />
       </div>
 
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 26px 80px" }}>
-        <div style={{ border: `1px solid ${k.line}`, borderRadius: 10, background: "#fff", padding: "24px 26px", display: "flex", gap: 20, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-          <div style={{ maxWidth: 560 }}>
-            <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700, marginBottom: 5 }}>25+ drives a month?</div>
-            <p style={{ fontSize: 13.5, color: k.mid, margin: 0, lineHeight: 1.6 }}>
-              Client branding, SSO and an SLA.
-            </p>
-          </div>
-          <button type="button" onClick={() => go("contact")} style={{ ...outline, whiteSpace: "nowrap" }}>Talk to us</button>
-        </div>
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "36px 26px 80px", textAlign: "center" }}>
+        <button type="button" onClick={() => go("contact")} style={{ ...textLink, fontSize: 14 }}>
+          Need more halls or SSO? Talk to us
+        </button>
       </div>
     </>
   );
@@ -1470,14 +1014,18 @@ export function Contact() {
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); if (!f.name.trim() || !f.email.trim()) return; setSent(true); }} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               <Field label="I am a…">
-                <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} style={input}>
-                  <option value="company">Company looking to hire</option>
-                  <option value="agency">Staffing / recruitment agency</option>
-                  <option value="candidate">Candidate</option>
-                  <option value="other">Something else</option>
-                </select>
+                <Select
+                  value={f.role}
+                  onChange={(role) => setF({ ...f, role })}
+                  options={[
+                    { value: "company", label: "Company looking to hire" },
+                    { value: "agency", label: "Staffing / recruitment agency" },
+                    { value: "candidate", label: "Candidate" },
+                    { value: "other", label: "Something else" },
+                  ]}
+                />
               </Field>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }} className="g2">
                 <Field label="Name"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={input} /></Field>
                 <Field label="Email"><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} style={input} /></Field>
               </div>
@@ -1489,7 +1037,7 @@ export function Contact() {
               </Field>
               <Field label="Message"><textarea value={f.msg} onChange={(e) => setF({ ...f, msg: e.target.value })} rows={4} placeholder={rc.msgPh} style={{ ...input, resize: "vertical", fontFamily: bdy }} /></Field>
               <button type="submit" style={{ ...solid, justifyContent: "center", padding: 11, marginTop: 4 }}>Send</button>
-              <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.5 }}>This form isn't connected to an inbox yet — email us directly meanwhile.</div>
+              <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.5 }}>Or write hello@tokenhire.app</div>
             </form>
           )}
         </div>

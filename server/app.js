@@ -120,6 +120,7 @@ app.post("/api/auth/signup", async (req, res) => {
     wash: agency ? "#E6F5F0" : "#EEE8F8",
     email: email.trim(),
     plan: "trial",
+    billingCycle: "month",
     verified: false,
     members: [{ email: email.trim(), role: "recruiter" }],
     clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
@@ -203,6 +204,8 @@ app.patch("/api/org", requireStaff, async (req, res) => {
     clients: patch.clients ?? org.clients,
     branches: patch.branches ?? org.branches,
     plan: patch.plan ?? org.plan,
+    billingCycle: patch.billingCycle ?? org.billingCycle,
+    renewsOn: patch.renewsOn ?? org.renewsOn,
   };
   upsertOrg(next);
   if (patch.password) await setOrgPassword(next, patch.password);

@@ -10,6 +10,7 @@ import GateRedirect from "./pages/GateRedirect.jsx";
 import AppPickPage from "./pages/AppPickPage.jsx";
 import LoginPage from "./pages/auth/LoginPage.jsx";
 import { RouteFallback } from "./components/ui.jsx";
+import { HIDE_PRICING } from "./lib/flags.js";
 
 // Candidates arrive on hall wi-fi, so the join and token screens stay in the first
 // chunk. Everything a recruiter or visitor reaches from a desk is loaded on demand —
@@ -52,7 +53,7 @@ export default function App() {
             <Route element={<SiteLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/products" element={<ProductsPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/pricing" element={HIDE_PRICING ? <Navigate to="/" replace /> : <PricingPage />} />
               <Route path="/walk-ins" element={<WalkInsPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
@@ -74,7 +75,7 @@ export default function App() {
               <Route path="team" element={<OrgTeamPage />} />
               <Route path="sites" element={<OrgSitesPage />} />
               <Route path="brand" element={<OrgBrandPage />} />
-              <Route path="billing" element={<OrgBillingPage />} />
+              <Route path="billing" element={HIDE_PRICING ? <Navigate to="/org/settings" replace /> : <OrgBillingPage />} />
               <Route path="settings" element={<OrgSettingsPage />} />
               <Route path="security" element={<OrgSecurityPage />} />
             </Route>

@@ -2,7 +2,8 @@ import { Building2, CreditCard, HeartHandshake, Palette, Shield, Users2, ArrowLe
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { OrgLogo } from "../components/brand.jsx";
 import { useStore } from "../context/Store.jsx";
-import { isAgencyOrg, orgWash, planLimits, planOf } from "../lib/helpers.js";
+import { isAgencyOrg, planLimits, planOf } from "../lib/helpers.js";
+import { HIDE_PRICING } from "../lib/flags.js";
 import { bdy, dsp, k } from "../theme.js";
 
 const ITEMS = [
@@ -21,15 +22,17 @@ export function OrgLayout() {
   if (!activeOrgId || !org) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
 
   const accent = org.color || k.coral;
-  const items = ITEMS.map((it) => (
-    it.to === "/org/sites"
-      ? { ...it, label: isAgencyOrg(org) && planLimits(org).clients ? "Clients & sites" : "Sites" }
-      : it
-  ));
+  const items = ITEMS
+    .filter((it) => !HIDE_PRICING || it.to !== "/org/billing")
+    .map((it) => (
+      it.to === "/org/sites"
+        ? { ...it, label: isAgencyOrg(org) && planLimits(org).clients ? "Clients & sites" : "Sites" }
+        : it
+    ));
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
-      <aside style={{ width: 232, flexShrink: 0, background: "#fff", borderRight: `1px solid ${k.line}`, display: "flex", flexDirection: "column" }}>
+    <div className="shell" style={{ minHeight: "100vh", display: "flex", background: k.cream2, fontFamily: bdy, color: k.ink }}>
+      <aside className="shell-side" style={{ width: 232, flexShrink: 0, background: "#fff", borderRight: `1px solid ${k.line}`, display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "16px 14px 12px" }}>
           <Link to="/app/hiring" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: k.ink2, textDecoration: "none" }}>
             <ArrowLeft size={15} /> HQ
@@ -39,7 +42,7 @@ export function OrgLayout() {
           <OrgLogo name={org.short || org.name} color={accent} logo={org.logo} size={36} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>{org.name}</div>
-            <div style={{ fontSize: 12, color: k.mid, marginTop: 2 }}>{planOf(org).name} · {staffRole}</div>
+            <div style={{ fontSize: 12, color: k.mid, marginTop: 2 }}>{HIDE_PRICING ? staffRole : `${planOf(org).name} · ${staffRole}`}</div>
           </div>
         </div>
         <nav style={{ display: "flex", flexDirection: "column", gap: 2, padding: "8px 10px 16px" }}>
@@ -55,7 +58,7 @@ export function OrgLayout() {
           ))}
         </nav>
       </aside>
-      <div style={{ flex: 1, minWidth: 0, padding: 26, maxWidth: 720 }}>
+      <div className="shell-main" style={{ flex: 1, minWidth: 0, padding: 26, maxWidth: 720, width: "100%" }}>
         <Outlet />
       </div>
     </div>

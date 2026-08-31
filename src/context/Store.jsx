@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ROTATE, code, memberEmail, memberRole } from "../lib/helpers.js";
 import { seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../data/seed.js";
 import { api, readSavedProfile, readSession, writeSavedProfile, writeSession } from "../lib/api.js";
@@ -14,8 +14,8 @@ function localSeed() {
 
 export function StoreProvider({ children }) {
   const seed = useMemo(localSeed, []);
-  const [drives, setDrives] = useState(seed.drives);
-  const [orgs, setOrgs] = useState(seed.orgs);
+  const [drives, setDrivesState] = useState(seed.drives);
+  const [orgs, setOrgsState] = useState(seed.orgs);
   const [activeOrgId, setActiveOrgId] = useState(() => readSession()?.orgId || null);
   const [staffRole, setStaffRole] = useState(() => readSession()?.role || "recruiter");
   const [staffEmail, setStaffEmail] = useState(() => readSession()?.email || "");
@@ -28,6 +28,10 @@ export function StoreProvider({ children }) {
   const [hydrated, setHydrated] = useState(false);
   const versionRef = useRef(0);
   const skipPoll = useRef(false);
+  // TV / marketing tabs were echoing an older snapshot back and wiping room assignments.
+  const persistFromUi = useRef(false);
+  const setDrives = useCallback((next) => { persistFromUi.current = true; setDrivesState(next); }, []);
+  const setOrgs = useCallback((next) => { persistFromUi.current = true; setOrgsState(next); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,8 +40,8 @@ export function StoreProvider({ children }) {
         const snap = await api.snapshot();
         if (cancelled) return;
         if (!snap?.orgs) return;
-        setOrgs(snap.orgs);
-        setDrives(snap.drives);
+        setOrgsState(snap.orgs);
+        setDrivesState(snap.drives);
         setLeft(snap.deskLeft || ROTATE);
         versionRef.current = snap.version || 0;
         setApiOk(true);
@@ -68,7 +72,7 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!apiOk) {
       const i = setInterval(() => setLeft((s) => {
-        if (s <= 1) { setDrives((p) => p.map((d) => ({ ...d, desk: code(6) }))); return ROTATE; }
+        if (s <= 1) { setDrivesState((p) => p.map((d) => ({ ...d, desk: code(6) }))); return ROTATE; }
         return s - 1;
       }), 1000);
       return () => clearInterval(i);
@@ -80,8 +84,8 @@ export function StoreProvider({ children }) {
         if (skipPoll.current) return;
         if ((snap.version || 0) > versionRef.current) {
           versionRef.current = snap.version;
-          setOrgs(snap.orgs);
-          setDrives(snap.drives);
+          setOrgsState(snap.orgs);
+          setDrivesState(snap.drives);
         }
       } catch { /* keep local */ }
     }, 2000);
@@ -96,9 +100,10 @@ export function StoreProvider({ children }) {
   }, [profile, apiOk]);
 
   useEffect(() => {
-    if (!apiOk) return;
+    if (!apiOk || !persistFromUi.current) return;
     skipPoll.current = true;
     const t = setTimeout(() => {
+      persistFromUi.current = false;
       api.putSnapshot({ orgs, drives }).then((snap) => {
         if (snap?.version) versionRef.current = snap.version;
       }).catch(() => {}).finally(() => { skipPoll.current = false; });
@@ -135,7 +140,7 @@ export function StoreProvider({ children }) {
     try {
       const r = await api.signup({ companyName, email, password, kind });
       writeSession({ token: r.token, orgId: r.orgId, role: r.role, email: r.email });
-      const org = { ...r.org, password, plan: "trial" };
+      const org = { ...r.org, password, plan: "trial", billingCycle: r.org?.billingCycle || "month" };
       setOrgs((p) => [...p.filter((o) => o.id !== org.id), org]);
       signInLocal(r.orgId, r.role, r.email);
       return { ok: true, verify: true };
@@ -152,7 +157,7 @@ export function StoreProvider({ children }) {
       const org = {
         id, name, short: name.split(" ")[0], kind, color: agency ? "#0F8A6B" : "#341C8A",
         logo: agency ? "bars" : "ring", wash: agency ? "#E6F5F0" : "#EEE8F8",
-        email: email.trim(), password, plan: "trial", verified: false,
+        email: email.trim(), password, plan: "trial", billingCycle: "month", verified: false,
         members: [{ email: email.trim(), role: "recruiter" }],
         clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
         branches: [],

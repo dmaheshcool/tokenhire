@@ -1,8 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap');
 
 *{box-sizing:border-box}
-/* Inter is designed for optical smoothing; without these it looks heavy and muddy
-   on macOS, which is most of the difference between "designed" and "default". */
+html,body,#root{max-width:100%;overflow-x:clip}
+html.is-computer,html.is-computer body,html.is-computer #root{overflow-x:auto}
+img,video{max-width:100%;height:auto}
+canvas.qr{max-width:100%}
+button,input,select,textarea{max-width:100%}
 body{margin:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 h1,h2,h3{font-weight:700}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
@@ -18,28 +21,51 @@ h1,h2,h3{font-weight:700}
 @media (max-height:620px){.storyscale{--s:.58}}
 @media (max-height:540px){.storyscale{--s:.48}}
 @keyframes scanSweep{0%{top:18%}100%{top:72%}}
+.livefilm{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.78fr) minmax(0,1.05fr);gap:14px;align-items:stretch;width:100%}
+html.is-phone .livefilm{grid-template-columns:1fr}
+html.is-computer .hallhero-stage{min-height:248px}
+html.is-computer .hallhero-wall{padding-right:252px}
+html.is-computer .hallhero-phone{position:absolute;right:18px;bottom:16px;width:232px;z-index:2}
+html.is-phone .hallhero-phone{margin-top:16px}
 @keyframes paperSettle{from{transform:rotate(var(--r,-2deg)) translateY(10px)}to{transform:rotate(var(--r,-2deg)) translateY(0)}}
-.navitem:hover{color:#0B1020}
+.navitem:hover{color:#111318}
+.quiet-tile{transition:transform .18s ease,box-shadow .18s ease}
+.quiet-tile:hover{transform:translateY(-2px);box-shadow:0 16px 32px -24px rgba(17,19,24,.4)}
 .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tabscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabscroll::-webkit-scrollbar{display:none}
 .nav-burger{display:none}
 .bottabs{display:none}
-@media (max-width:860px){
-  .g3,.g2,.hg{grid-template-columns:1fr!important}
-  .driverow{grid-template-columns:1fr!important}
-  .driverow2{flex-direction:column!important;align-items:flex-start!important}
-  .storystage{flex-direction:column!important;align-items:center!important;transform:none!important;gap:18px!important;min-height:0!important;padding:24px 16px!important;border-radius:20px!important}
-  .storyphone{width:220px!important}
-  .storyreplay{display:none!important}
-  .storytv,.storydesk{width:min(100%,360px)!important}
-  .nav-links,.nav-ctas{display:none!important}
-  .nav-burger{display:flex!important}
-  .toptabs{display:none!important}
-  .bottabs{display:flex}
-  .pagepad{padding:16px 14px!important}
-  .has-bottabs{padding-bottom:96px!important}
-  .chrome-wrap{padding:0!important}
-  .chrome-inner{border-radius:0!important;border-left:none!important;border-right:none!important}
+.plans{grid-template-columns:repeat(4,1fr)}
+.g2,.g3,.g2>*,.g3>*{min-width:0}
+@media (max-width:1100px){html.is-phone .plans{grid-template-columns:repeat(2,1fr)}}
+html.is-phone .g2{grid-template-columns:1fr!important}
+html.is-phone .g3{grid-template-columns:1fr 1fr!important}
+html.is-phone .nav-links,html.is-phone .nav-ctas{display:none!important}
+html.is-phone .nav-burger{display:flex!important}
+html.is-phone .shell{flex-direction:column!important}
+html.is-phone .shell-side{width:100%!important;border-right:none!important;border-bottom:1px solid #E6E4DF}
+html.is-phone .shell-side nav{flex-direction:row!important;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap}
+html.is-phone .shell-side nav a{white-space:nowrap;flex-shrink:0}
+html.is-phone .shell-main{max-width:100%!important;padding:16px 14px!important}
+html.is-phone .split-hero>div:first-child{border-right:none!important;border-bottom:1px solid #E6E4DF}
+html.is-phone .driverow{grid-template-columns:1fr!important}
+html.is-phone .driverow2{flex-direction:column!important;align-items:flex-start!important}
+html.is-phone .plans{grid-template-columns:1fr!important}
+html.is-phone .storystage{flex-direction:column!important;align-items:center!important;transform:none!important;gap:18px!important;min-height:0!important;padding:24px 16px!important;border-radius:20px!important}
+html.is-phone .storyphone{width:220px!important}
+html.is-phone .storyreplay{display:none!important}
+html.is-phone .storytv,html.is-phone .storydesk{width:min(100%,360px)!important}
+html.is-phone .storystage>*{max-width:100%!important}
+html.is-phone .toptabs{display:none!important}
+html.is-phone .bottabs{display:flex}
+html.is-phone .pagepad{padding:16px 14px!important}
+html.is-phone .has-bottabs{padding-bottom:96px!important}
+html.is-phone .chrome-wrap{padding:0!important}
+html.is-phone .chrome-inner{border-radius:0!important;border-left:none!important;border-right:none!important}
+html.is-phone .plan-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+html.is-phone .tv-grid{grid-template-columns:1fr!important}
+@media (max-width:560px){
+  html.is-phone .g3{grid-template-columns:1fr!important}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

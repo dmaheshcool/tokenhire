@@ -10,11 +10,11 @@ export function Pick({ go, back, hasProfile, driveCount }) {
         <button onClick={back} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, marginBottom: 22 }}><ArrowLeft size={14} /> Back to site</button>
         <div style={{ marginBottom: 8 }}><Wordmark size={20} /></div>
         <p style={{ color: k.mid, fontSize: 14, margin: "0 0 26px" }}>One profile for candidates. One live queue for employers.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="g2">
           <button onClick={() => go("candidate")} style={{ ...box, padding: 24, textAlign: "left", cursor: "pointer", fontFamily: bdy, borderLeft: `3px solid ${k.teal}` }}>
             <User size={20} color={k.teal} />
             <div style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700, margin: "12px 0 6px" }}>I'm a candidate</div>
-            <div style={{ fontSize: 13.5, color: k.ink2, lineHeight: 1.55 }}>Build your profile once, verify phone, WhatsApp and email, then join a drive by scanning GATE and the live DESK code in the room.</div>
+            <div style={{ fontSize: 13.5, color: k.ink2, lineHeight: 1.55 }}>One profile. Scan the waiting-room screen. Keep your token on your phone.</div>
             <div style={{ marginTop: 12, fontSize: 12.5, color: k.teal, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>{hasProfile ? "Open my profile" : "Create my profile"} <ArrowRight size={13} /></div>
           </button>
           <button onClick={() => go("employer")} style={{ ...box, padding: 24, textAlign: "left", cursor: "pointer", fontFamily: bdy, borderLeft: `3px solid ${k.coral}` }}>

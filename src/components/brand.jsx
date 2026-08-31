@@ -129,7 +129,7 @@ export function TokenChip({ token, name, size = 36, color, light, pulse, muted, 
       {name != null && name !== "" && (
         <span style={{
           fontFamily: bdy, fontWeight: 600, fontSize: nameSize || Math.max(13, Math.round(size * 0.38)),
-          color: muted ? k.mid : k.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.25,
+          color: light ? "#fff" : muted ? k.mid : k.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.25,
         }}>{name}</span>
       )}
     </span>

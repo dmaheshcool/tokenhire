@@ -4,94 +4,109 @@ export const ROTATE = 45, NOTIFY_MIN = 15, FALLBACK_TAT = 8, MIN = 6e4;
 
 // Listed on every tier once, above the cards, rather than repeated inside each one.
 export const PRODUCT_FEATS = [
-  "Digital candidate registration",
-  "QR check-in",
-  "Automatic token and queue",
-  "Live candidate status",
-  "Recruiter dashboard",
-  "Candidate notifications",
-  "Interviewer management",
-  "Reports and analytics",
+  "Candidate registration with resume and contact details",
+  "QR check-in at the waiting-room screen",
+  "One shared queue and live wait times",
+  "WhatsApp when a candidate is about 15 minutes out",
+  "Recruiter dashboard and room assignment",
+  "Encrypted resume files recruiters can download",
+  "Day-end extract ready to send to your ATS",
 ];
 
 // Drives the pricing comparison table. Keeping it derived from `limits` means the
 // table can never drift from what the app actually enforces.
 export const PLAN_ROWS = [
-  { label: "Drives", get: (l, p) => (l.drives >= 999 ? "Unlimited" : `${l.drives}${p.multiDay ? " / month" : ""}`) },
-  { label: "Candidates per drive", get: (l) => (l.candidates >= 9999 ? "Unlimited" : l.candidates.toLocaleString("en-IN")) },
+  { label: "Walk-ins", get: (l) => (l.drives >= 999 ? "Included" : String(l.drives)) },
+  { label: "People a day", get: (l) => l.candidates.toLocaleString("en-IN") },
   { label: "Recruiter seats", get: (l) => l.seats },
-  { label: "Venues", get: (l) => l.sites },
-  { label: "Waiting screens per venue", get: (l) => l.tvsPerSite },
-  { label: "Candidate notifications", get: (l) => l.notify },
-  { label: "Interview rooms and rounds", get: (l) => l.rooms },
-  { label: "Reports and analytics", get: (l) => l.reports },
-  { label: "Audit log", get: (l) => l.audit },
-  { label: "Client branding", get: (l) => l.whiteLabel },
-  { label: "Priority support", get: (l) => l.sla },
+  { label: "Halls", get: (l) => l.sites },
+  { label: "Screens", get: (l) => l.tvsPerSite },
+  { label: "Nudges", get: (l) => l.notify },
+  { label: "Rooms", get: (l) => l.rooms },
+  { label: "Reports", get: (l) => l.reports },
+  { label: "Audit", get: (l) => l.audit },
+  { label: "Branding", get: (l) => l.whiteLabel },
+  { label: "SLA", get: (l) => l.sla },
   { label: "SSO", get: (l) => l.sso },
 ];
 export const PLANS = [
   {
-    id: "trial", name: "Free", price: "₹0", unit: "", annual: "", listed: true,
-    validity: "1 drive · 30 candidates", blurb: "Try it on a real queue.",
+    id: "trial", name: "Free", monthInr: 0, yearInr: 0, price: "₹0", unit: "", annual: "", listed: true,
+    validity: "One walk-in · 10 people", blurb: "Try the desk on a small morning.",
     ribbon: "FREE", best: false, multiDay: false, cta: "Start free",
-    highlights: ["One drive, up to 30 candidates", "QR check-in, tokens and live queue", "Waiting-room screen"],
-    missing: ["Candidate notifications", "Reports and analytics"],
+    highlights: ["1 walk-in · 10 people", "Token and live queue"],
     feats: [
-      "1 drive · up to 30 candidates",
+      "One walk-in · 10 people on the floor",
       "Digital registration and QR check-in",
       "Token and live queue",
       "No WhatsApp nudges",
       "No reports or analytics",
     ],
-    limits: { drives: 1, sites: 1, cities: 99, seats: 1, tvsPerSite: 1, wa: 0, candidates: 30, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: false, reports: false, rooms: false },
+    limits: { drives: 1, sites: 1, cities: 99, seats: 1, tvsPerSite: 1, wa: 0, candidates: 10, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: false, reports: false, rooms: false },
   },
   {
-    id: "single", name: "Single drive", price: "₹7,500", unit: " per drive", annual: "", listed: true,
-    validity: "1 drive · 300 candidates", blurb: "For occasional hiring days.",
-    best: false, multiDay: false, cta: "Buy one drive",
+    id: "single", name: "Basic", monthInr: 8000, yearInr: 80000, price: "₹8,000", unit: "/ month", annual: "₹6,667/mo", listed: true,
+    validity: "1 hall · 2 seats · 100 a day", blurb: "One site. Two desks. A normal morning.",
+    best: false, multiDay: true, cta: "Subscribe",
     builds: "trial",
-    highlights: ["Up to 300 candidates", "Candidate notifications", "Interview rooms and rounds", "Reports and analytics", "8 recruiter seats"],
-    feats: ["1 drive · up to 300 candidates", ...PRODUCT_FEATS],
-    limits: { drives: 1, sites: 8, cities: 99, seats: 8, tvsPerSite: 1, wa: 500, candidates: 300, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
+    highlights: ["2 recruiter seats", "100 people a day · 1 hall"],
+    feats: ["1 hall · walk-ins included", "2 recruiter seats · 100 people a day", ...PRODUCT_FEATS],
+    limits: { drives: 999, sites: 1, cities: 99, seats: 2, tvsPerSite: 1, wa: 800, candidates: 100, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
   },
   {
-    id: "pack5", name: "Growth", price: "₹15,000", unit: "/ month", annual: "", listed: true,
-    validity: "5 drives / month · 300 each", blurb: "For most weeks of the year.",
-    ribbon: "MOST POPULAR", best: true, multiDay: true, cta: "Start monthly",
+    id: "pack5", name: "Pro", monthInr: 24000, yearInr: 240000, price: "₹24,000", unit: "/ month", annual: "₹20,000/mo", listed: true,
+    validity: "4 halls · 6 seats · 250 a day", blurb: "A few cities. The plan most halls run.",
+    ribbon: "MOST USED", best: true, multiDay: true, cta: "Subscribe",
     builds: "single",
-    highlights: ["5 drives every month", "12 recruiter seats", "2 waiting screens per venue", "20 venues"],
-    feats: ["5 drives / month · 300 candidates each", ...PRODUCT_FEATS],
-    limits: { drives: 5, sites: 20, cities: 99, seats: 12, tvsPerSite: 2, wa: 2500, candidates: 300, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
+    highlights: ["6 recruiter seats", "250 people a day · 4 halls"],
+    feats: ["4 halls · walk-ins included", "6 recruiter seats · 250 people a day", ...PRODUCT_FEATS],
+    limits: { drives: 999, sites: 4, cities: 99, seats: 6, tvsPerSite: 2, wa: 2500, candidates: 250, clients: false, whiteLabel: false, credit: "on", audit: false, sla: false, sso: false, notify: true, reports: true, rooms: true },
   },
   {
-    id: "pack10", name: "Scale", price: "₹25,000", unit: "/ month", annual: "", listed: true,
-    validity: "10 drives / month · 500 each", blurb: "For several halls a week.",
-    best: false, multiDay: true, cta: "Start Scale",
+    id: "pack10", name: "Platinum", monthInr: 42000, yearInr: 420000, price: "₹42,000", unit: "/ month", annual: "₹35,000/mo", listed: true,
+    validity: "10 halls · 12 seats · 500 a day", blurb: "Every site. A full panel. Audit.",
+    best: false, multiDay: true, cta: "Subscribe",
     builds: "pack5",
-    highlights: ["10 drives every month", "Up to 500 candidates per drive", "20 seats, 4 waiting screens", "Audit log"],
-    feats: ["Up to 10 drives / 30 days", "Up to 500 people per drive", "Anywhere in India", "More seats and TVs"],
-    limits: { drives: 10, sites: 30, cities: 99, seats: 20, tvsPerSite: 4, wa: 5000, candidates: 500, clients: false, whiteLabel: false, credit: "on", audit: true, sla: false, sso: false, notify: true, reports: true, rooms: true },
+    highlights: ["12 recruiter seats", "500 people a day · 10 halls · audit"],
+    feats: ["10 halls · walk-ins included", "12 recruiter seats · 500 people a day", ...PRODUCT_FEATS],
+    limits: { drives: 999, sites: 10, cities: 99, seats: 12, tvsPerSite: 3, wa: 5000, candidates: 500, clients: false, whiteLabel: false, credit: "on", audit: true, sla: false, sso: false, notify: true, reports: true, rooms: true },
   },
   {
-    id: "pack25", name: "Volume", price: "₹50,000", unit: "/ month", annual: "", listed: false,
-    validity: "25 drives / month · 500 each", blurb: "For agencies with clients.",
+    id: "pack25", name: "Agency", monthInr: 60000, yearInr: 600000, price: "₹60,000", unit: "/ month", annual: "₹50,000/mo", listed: false,
+    validity: "Client halls · 500 a day", blurb: "Your brand. Their clients.",
     best: false, multiDay: true, cta: "Talk to us",
     builds: "pack10",
-    highlights: ["25 drives every month", "Client branding and separate client records", "40 seats, 8 waiting screens", "Priority support"],
-    feats: ["Up to 25 drives / 30 days", "Up to 500 people per drive", "Anywhere in India", "Priority support"],
-    limits: { drives: 25, sites: 40, cities: 99, seats: 40, tvsPerSite: 8, wa: 12000, candidates: 500, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: false, notify: true, reports: true, rooms: true },
+    highlights: ["Client records and hall branding", "20 seats · 500 people a day"],
+    feats: ["Walk-ins included", "Staffing clients and white-label halls", ...PRODUCT_FEATS],
+    limits: { drives: 999, sites: 16, cities: 99, seats: 20, tvsPerSite: 4, wa: 6000, candidates: 500, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: false, notify: true, reports: true, rooms: true },
   },
   {
-    id: "enterprise", name: "Enterprise", price: "Custom", unit: "", annual: "", listed: false, talk: true,
-    validity: "Unlimited drives", blurb: "For contracts and SSO.",
+    id: "enterprise", name: "Enterprise", monthInr: null, yearInr: null, price: "Custom", unit: "", annual: "", listed: false, talk: true,
+    validity: "Contract · SSO · named support", blurb: "For legal, security, and many cities.",
     best: false, multiDay: true, cta: "Talk to us",
     builds: "pack25",
-    highlights: ["Unlimited drives and candidates", "SSO and SAML", "Signed SLA and named support", "Security review and DPA"],
-    feats: ["High-volume usage", "Staffing clients", "Anywhere in India", "SLA and SSO-ready"],
-    limits: { drives: 999, sites: 80, cities: 99, seats: 80, tvsPerSite: 8, wa: 25000, candidates: 9999, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: true, notify: true, reports: true, rooms: true },
+    highlights: ["SSO and SAML", "Signed SLA and named support", "Up to 500 people a day"],
+    feats: ["Many halls · 500 people a day", "Staffing clients", "SLA and SSO-ready"],
+    limits: { drives: 999, sites: 30, cities: 99, seats: 30, tvsPerSite: 6, wa: 8000, candidates: 500, clients: true, whiteLabel: true, credit: "tiny", audit: true, sla: true, sso: true, notify: true, reports: true, rooms: true },
   },
 ];
+export function inr(n) {
+  return `₹${Number(n || 0).toLocaleString("en-IN")}`;
+}
+export function planPrice(plan, cycle = "month") {
+  if (plan.talk || plan.monthInr == null) return { label: plan.price || "Custom", unit: "", billed: "" };
+  if (!plan.monthInr) return { label: "₹0", unit: "", billed: "" };
+  if (cycle === "year") {
+    return { label: inr(Math.round(plan.yearInr / 12)), unit: "/ mo", billed: `${inr(plan.yearInr)} billed yearly` };
+  }
+  return { label: inr(plan.monthInr), unit: "/ mo", billed: "" };
+}
+export function renewsOn(cycle = "month") {
+  const d = new Date();
+  if (cycle === "year") d.setFullYear(d.getFullYear() + 1);
+  else d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
 export const PUBLIC_PLANS = PLANS.filter((p) => p.listed);
 export function planIdOf(org) {
   const p = org?.plan;
@@ -122,24 +137,57 @@ export function driveSlotsLeft(org, drives) {
 export function driveCapCopy(org) {
   const spec = planOf(org);
   const n = spec.limits.drives;
-  const unit = n === 1 ? "drive" : "drives";
+  if (n >= 999) return "Walk-ins are included on this plan.";
+  const unit = n === 1 ? "walk-in" : "walk-ins";
   return spec.multiDay ? `This plan allows ${n} ${unit} this month.` : `This plan allows ${n} ${unit}.`;
 }
 export function orgCities(org) { return Array.from(new Set((org?.branches || []).map((b) => b.city).filter(Boolean))); }
-// Only the rooms running the round this candidate is actually on. Drives created
-// before rooms carried a round binding have no roundId at all, so those fall back to
-// offering every room rather than silently offering none.
+export function bindRoomsToRounds(rooms = []) {
+  return rooms || [];
+}
+export function waitingRoundIdx(rounds = [], cand) {
+  if (inARound(cand)) return Math.min(cand.roundIdx || 0, Math.max(0, rounds.length - 1));
+  return 0;
+}
+export function roundIndexOfRoom(rounds = [], room) {
+  if (!room?.roundId) return -1;
+  return rounds.findIndex((r) => r.id === room.roundId);
+}
+export function roomRoundLabel(rounds, room) {
+  const i = roundIndexOfRoom(rounds, room);
+  if (i < 0) return room?.name || "Room";
+  return `${rounds[i].name} · ${room.name}`;
+}
+export function roomStaffLabel(room) {
+  const who = room?.interviewer || "Open desk";
+  return room?.name ? `${who} · ${room.name}` : who;
+}
+// Desks that can take this person now. Several recruiters may run the same
+// round — Call picks the person, not a different stage.
 export function roomsForRound(rooms = [], rounds = [], cand) {
-  if (!rooms.some((r) => r.roundId)) return rooms;
-  const idx = inARound(cand) ? cand.roundIdx : 0;
-  const roundId = rounds[idx]?.id;
-  const match = rooms.filter((r) => r.roundId === roundId);
-  return match.length ? match : rooms;
+  const list = rooms || [];
+  const roundId = rounds[waitingRoundIdx(rounds, cand)]?.id;
+  if (!roundId) return list;
+  return list.filter((r) => !r.roundId || r.roundId === roundId);
+}
+export function markPassedUpTo(rounds = [], outcomes = {}, toIdx) {
+  const next = { ...outcomes };
+  for (let i = 0; i < toIdx; i++) {
+    const id = rounds[i]?.id;
+    if (id && !next[id]) next[id] = "passed";
+  }
+  return next;
+}
+export function roundOutcomeOf(cand, round, i) {
+  const o = cand?.roundOutcomes?.[round?.id];
+  if (o) return o;
+  if (inARound(cand) && i < (cand.roundIdx || 0)) return "passed";
+  return "";
 }
 export const DEFAULT_ROOMS = [
-  { id: "rm1", name: "Room 1", interviewer: "Priya" },
-  { id: "rm2", name: "Room 2", interviewer: "Arun" },
-  { id: "rm3", name: "Room 3", interviewer: "Neha" },
+  { id: "rm1", name: "Room 1", interviewer: "Priya", roundId: "r1" },
+  { id: "rm2", name: "Room 2", interviewer: "Arun", roundId: "r2" },
+  { id: "rm3", name: "Room 3", interviewer: "Neha", roundId: "r3" },
 ];
 export const QUALIFICATIONS = ["10th / 12th", "Diploma", "Graduate", "Post-graduate"];
 
@@ -217,7 +265,13 @@ export async function hashAadhaar(num) {
 }
 export const pc = (n, d) => (d > 0 ? Math.round((n / d) * 100) : 0);
 export const mask = (s = "") => { const v = s.trim(); return v.length <= 2 ? v : `${v[0]}${"·".repeat(Math.min(3, v.length - 2))}${v[v.length - 1]}`; };
-export const tat = (w) => { const d = w.candidates.filter((x) => x.calledAt && x.decidedAt); return d.length ? Math.max(2, Math.round(d.reduce((s, x) => s + (x.decidedAt - x.calledAt), 0) / d.length / MIN)) : FALLBACK_TAT; };
+export const tat = (w) => {
+  const d = (w.candidates || []).filter((x) => x.calledAt && x.decidedAt && x.decidedAt > x.calledAt);
+  const mins = d.length
+    ? Math.round(d.reduce((s, x) => s + (x.decidedAt - x.calledAt), 0) / d.length / MIN)
+    : FALLBACK_TAT;
+  return Math.min(25, Math.max(2, mins));
+};
 export const DEMO_OTP = { sms: "482911", wa: "391720", email: "618204" };
 export const nudgeText = (c) => `${c.name.split(" ")[0]}, you're up in about ${NOTIFY_MIN} minutes — number ${c.token}. Please be near the waiting area.`;
 export const inNudgeWindow = (etaMin) => etaMin <= NOTIFY_MIN && etaMin >= 10;

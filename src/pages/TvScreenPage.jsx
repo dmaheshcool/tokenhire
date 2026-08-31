@@ -167,7 +167,7 @@ export default function TvScreenPage() {
 
       <style>{`
         @keyframes tvpulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
-        @media (max-width: 820px) { .tv-grid { grid-template-columns: 1fr !important } }
+        html.is-phone .tv-grid { grid-template-columns: 1fr !important }
       `}</style>
     </div>
   );

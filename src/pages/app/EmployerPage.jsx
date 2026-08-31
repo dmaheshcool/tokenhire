@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { LayoutGrid, MonitorSmartphone, ListChecks, Send, PieChart, ArrowRight, Plus, ArrowLeft, Mail, ShieldCheck, FileText, Building2, Download, Users2, Building, HeartHandshake, Globe, Lock, Palette, MoreHorizontal, Search, Linkedin, Check } from "lucide-react";
 import { bdy, dsp, typ, k, R, box, input, solid, solidSm, outline, outlineSm, ghostSm, iconBtn, link, cell, textLink } from "../../theme.js";
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { HallBrand, OrgLogo, TokenChip, TokenTile, Wordmark } from "../../components/brand.jsx";
-import { ActionSelect, Blank, Btn, CitySelect, Field, Head, Pill, StatusPill, TopBar, fmtDate } from "../../components/ui.jsx";
+import { Blank, Btn, CitySelect, DropPanel, Field, Head, Pill, Select, StatusPill, TopBar, fmtDate } from "../../components/ui.jsx";
 import { useNarrow } from "../../hooks/useNarrow.js";
 import {
   BRAND_COLORS, CITIES, DEFAULT_ROOMS, DEFAULT_ROUNDS, DOC_OPTIONS, EXP_BANDS, LOGO_PRESETS, PASS_TTL,
   bare6, clientOf, code, driveCapCopy, driveSlotsLeft, hallChrome, hallLogo, hallName, inARound, inNudgeWindow,
   isAgencyOrg, isTerminal, listingPlace, livePass, memberEmail, memberName, memberRole, newGate, newHost, newPass,
-  nudgeText, occupantOf, orgColor, orgWash, orgCities, passLabel, planLimits, planOf, recruitersOf, roundLabel, siteOf, tat, todayStr, downloadFile,
-  gateUrl, mask, pc, roomsForRound,
+  nudgeText, occupantOf, orgColor, orgCities, passLabel, planLimits, planOf, recruitersOf, roundLabel, siteOf, tat, todayStr, downloadFile,
+  gateUrl, mask, pc, roomsForRound, roomRoundLabel, roundIndexOfRoom, roundOutcomeOf, waitingRoundIdx, bindRoomsToRounds,
 } from "../../lib/helpers.js";
+import { HIDE_PRICING } from "../../lib/flags.js";
 import QrCode from "../../components/QrCode.jsx";
 import DriveSetup from "./DriveSetup.jsx";
 
@@ -112,6 +113,7 @@ export function Employer({ store, back, initialDriveId }) {
   const tabs = desk ? DESK_TABS : staffTabs(orgs.find((o) => o.id === activeOrgId) || orgs[0]);
   const [id, setId] = useState(initialDriveId || null);
   const [tab, setTab] = useState(desk ? "live" : "today");
+  const [findQ, setFindQ] = useState("");
   useEffect(() => { if (initialDriveId) setId(initialDriveId); }, [initialDriveId]);
   function openDrive(did) {
     setId(did);
@@ -130,20 +132,22 @@ export function Employer({ store, back, initialDriveId }) {
   const upd = useCallback((did, fn) => setDrives((p) => p.map((d) => (d.id === did ? fn(d) : d))), [setDrives]);
   const say = useCallback((did, ch, to, name, text) => upd(did, (d) => ({ ...d, msgs: [{ id: Math.random(), at: Date.now(), ch, to, name, text }, ...d.msgs] })), [upd]);
 
-  // Call a specific candidate into a specific room — the recruiter's core action
+  // Call a recruiter for the round they are already on. Pass is what leaves the round.
   function callTo(cid, roomId) {
     if (!drive) return;
     const cand = drive.candidates.find((x) => x.id === cid);
     const room = (drive.rooms || []).find((r) => r.id === roomId);
-    if (!cand) return;
-    const startFirst = !inARound(cand);
+    if (!cand || !room) return;
+    const taken = occupantOf(drive, roomId);
+    if (taken && taken.id !== cid) return;
+    const idx = waitingRoundIdx(drive.rounds, cand);
     upd(drive.id, (d) => ({ ...d, candidates: d.candidates.map((x) => (x.id === cid ? {
       ...x,
       state: "calling",
       calledAt: Date.now(),
-      room: room || null,
+      room,
       roundAssigned: true,
-      roundIdx: startFirst ? 0 : (x.roundIdx || 0),
+      roundIdx: idx,
     } : x)) }));
   }
 
@@ -169,7 +173,11 @@ export function Employer({ store, back, initialDriveId }) {
       if (state === "calling" && !x.calledAt) next.calledAt = Date.now();
       if (state === "calling" || state === "interviewing") {
         next.roundAssigned = true;
-        if (!inARound(x)) next.roundIdx = 0;
+        if (!inARound(x)) next.roundIdx = waitingRoundIdx(drive.rounds, x);
+        if (x.room) {
+          const ri = roundIndexOfRoom(drive.rounds, x.room);
+          if (ri >= 0) next.roundIdx = ri;
+        }
       }
       if (state === "wait" || state === "absent") { next.room = null; next.calledAt = state === "wait" ? null : x.calledAt; }
       return next;
@@ -178,52 +186,26 @@ export function Employer({ store, back, initialDriveId }) {
 
   function decide(cid, outcome) {
     if (!drive) return;
-    const c = drive.candidates.find((x) => x.id === cid);
-    if (!c) return;
-    const rid = drive.rounds[c.roundIdx]?.id;
-    const last = c.roundIdx >= drive.rounds.length - 1;
-    upd(drive.id, (d) => ({
-      ...d,
-      candidates: d.candidates.map((x) => {
-        if (x.id !== cid) return x;
-        const roundOutcomes = { ...(x.roundOutcomes || {}), [rid]: outcome };
-        if (outcome === "rejected") return { ...x, state: "rejected", decidedAt: Date.now(), roundOutcomes, room: null };
-        if (outcome === "onhold") return { ...x, state: "onhold", decidedAt: Date.now(), roundOutcomes, room: null };
-        if (last) return { ...x, state: "selected", decidedAt: Date.now(), roundOutcomes, room: null };
-        return { ...x, roundIdx: x.roundIdx + 1, state: "wait", calledAt: null, at: Date.now(), pinged: false, roundOutcomes, decidedAt: Date.now(), room: null, roundAssigned: true };
-      }),
-    }));
-  }
-
-  function sendToRound(cid, roundIdx) {
-    if (!drive) return;
-    const idx = Number(roundIdx);
-    if (!Number.isInteger(idx) || idx < 0 || idx >= (drive.rounds || []).length) return;
-    upd(drive.id, (d) => ({
-      ...d,
-      candidates: d.candidates.map((x) => {
-        if (x.id !== cid) return x;
-        const roundOutcomes = { ...(x.roundOutcomes || {}) };
-        if (idx > x.roundIdx) {
-          for (let i = x.roundIdx; i < idx; i++) {
-            const rid = d.rounds[i]?.id;
-            if (rid && !roundOutcomes[rid]) roundOutcomes[rid] = "selected";
-          }
-        }
-        const wasInRoom = ["calling", "interviewing"].includes(x.state);
-        return {
-          ...x,
-          roundIdx: idx,
-          roundAssigned: true,
-          roundOutcomes,
-          state: isTerminal(x.state) || wasInRoom ? "wait" : x.state,
-          calledAt: wasInRoom ? null : x.calledAt,
-          room: null,
-          at: wasInRoom || x.state !== "wait" ? Date.now() : x.at,
-          pinged: false,
-        };
-      }),
-    }));
+    upd(drive.id, (d) => {
+      const c = d.candidates.find((x) => x.id === cid);
+      if (!c) return d;
+      const rid = (d.rounds || [])[c.roundIdx || 0]?.id;
+      const last = (c.roundIdx || 0) >= (d.rounds || []).length - 1;
+      return {
+        ...d,
+        candidates: d.candidates.map((x) => {
+          if (x.id !== cid) return x;
+          const roundOutcomes = { ...(x.roundOutcomes || {}), [rid]: outcome };
+          if (outcome === "rejected") return { ...x, state: "rejected", decidedAt: Date.now(), roundOutcomes, room: null };
+          if (outcome === "onhold") return { ...x, state: "onhold", decidedAt: Date.now(), roundOutcomes, room: null };
+          if (last) return { ...x, state: "selected", decidedAt: Date.now(), roundOutcomes, room: null };
+          const nextIdx = (x.roundIdx || 0) + 1;
+          const peers = d.candidates.filter((p) => p.id !== cid && p.state === "wait" && (p.roundIdx || 0) === nextIdx);
+          const at = peers.length ? Math.min(...peers.map((p) => p.at)) - 1 : Date.now();
+          return { ...x, roundIdx: nextIdx, state: "wait", calledAt: null, at, pinged: false, roundOutcomes, decidedAt: Date.now(), room: null, roundAssigned: true };
+        }),
+      };
+    });
   }
 
   function advance(cid) { decide(cid, "selected"); }
@@ -261,10 +243,11 @@ export function Employer({ store, back, initialDriveId }) {
     if (!drive) return;
     const o = orgs.find((x) => x.id === drive.orgId);
     if (!o || planLimits(o).notify === false || planLimits(o).wa <= 0) return;
-    const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
+    const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => ((a.roundIdx || 0) - (b.roundIdx || 0)) || (a.at - b.at));
     const t = tat(drive);
-    wait.forEach((c, i) => {
-      const etaMin = i * t;
+    wait.forEach((c) => {
+      const peers = wait.filter((x) => (x.roundIdx || 0) === (c.roundIdx || 0));
+      const etaMin = Math.max(0, peers.findIndex((x) => x.id === c.id)) * t;
       if (inNudgeWindow(etaMin) && !c.pinged) {
         upd(drive.id, (d) => ({ ...d, candidates: d.candidates.map((x) => x.id === c.id ? { ...x, pinged: true } : x) }));
         say(drive.id, "WhatsApp", c.whatsapp || c.phone, c.name, nudgeText(c));
@@ -322,12 +305,16 @@ export function Employer({ store, back, initialDriveId }) {
     );
   }
 
-  const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
+  const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => ((a.roundIdx || 0) - (b.roundIdx || 0)) || (a.at - b.at));
   const callingNow = drive.candidates.filter((x) => x.state === "calling");
   const interviewing = drive.candidates.filter((x) => x.state === "interviewing");
   const active = [...callingNow, ...interviewing];
   const t = tat(drive);
-  const eta = (c) => { const i = wait.findIndex((x) => x.id === c.id); return i < 0 ? 0 : i * t; };
+  const eta = (c) => {
+    const peers = wait.filter((x) => (x.roundIdx || 0) === (c.roundIdx || 0));
+    const i = peers.findIndex((x) => x.id === c.id);
+    return i < 0 ? 0 : i * t;
+  };
   const s = {
     all: drive.candidates.length, wait: wait.length, active: active.length,
     seen: drive.candidates.filter((x) => ["interviewing", "selected", "rejected", "onhold"].includes(x.state) || x.decidedAt).length,
@@ -339,10 +326,10 @@ export function Employer({ store, back, initialDriveId }) {
 
   const panel = (
     <>
-      {tab === "today" && !desk && <Today s={s} wait={wait} active={active} msgs={drive.msgs} setTab={setTab} drive={drive} lim={planLimits(org)} />}
-      {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} sendToRound={sendToRound} deskMode={desk} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
-      {tab === "screen" && <Screen driveId={drive.id} gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} />}
-      {tab === "queue" && !desk && <Queue rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} sendToRound={sendToRound} />}
+      {tab === "today" && !desk && <Today s={s} wait={wait} active={active} setTab={setTab} drive={drive} lim={planLimits(org)} callTo={callTo} onFind={(c) => { setFindQ(c.token); setTab("queue"); }} />}
+      {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} deskMode={desk} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
+      {tab === "screen" && <Screen driveId={drive.id} gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} rounds={drive.rounds} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} />}
+      {tab === "queue" && !desk && <Queue rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} initialQ={findQ} />}
       {tab === "rounds" && !desk && <RoundsTab rounds={drive.rounds} setRounds={setRounds} />}
       {tab === "rooms" && !desk && <RoomsTab rooms={drive.rooms || []} setRooms={setRooms} org={org} setOrgs={setOrgs} drive={drive} />}
       {tab === "branding" && !desk && <BrandingTab brand={drive.brand || { name: org.short || org.name, color: org.color, logo: org.logo }} setBrand={setBrand} drive={drive} org={org} />}
@@ -353,8 +340,8 @@ export function Employer({ store, back, initialDriveId }) {
 
   if (!phone) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
-        <aside style={{ width: 232, flexShrink: 0, background: "#fff", borderRight: `1px solid ${k.line}`, display: "flex", flexDirection: "column" }}>
+      <div style={{ minHeight: "100vh", display: "flex", background: k.cream2, fontFamily: bdy, color: k.ink }} className="shell">
+        <aside className="shell-side" style={{ width: 232, flexShrink: 0, background: "#fff", borderRight: `1px solid ${k.line}`, display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "16px 14px 10px", display: "flex", alignItems: "center", gap: 10 }}>
             <button onClick={closeDrive} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> {isAgencyOrg(org) ? "HQ" : "Campus"}</button>
           </div>
@@ -375,11 +362,15 @@ export function Employer({ store, back, initialDriveId }) {
               {!desk && <button onClick={() => upd(drive.id, (d) => ({ ...d, visibility: d.visibility === "private" ? "public" : "private" }))} style={{ ...ghostSm, padding: "4px 10px", fontSize: 11 }}>{drive.visibility === "private" ? "Private" : "Public"}</button>}
               <span style={{ fontSize: 13, color: k.mid }}>{listingPlace(drive)} · {fmtDate(drive.date)}</span>
             </div>
-            <div style={{ display: "flex", gap: 14, fontSize: 12.5, color: k.mid, fontFamily: typ, flexWrap: "wrap" }}>
-              <span style={{ color: k.ink }}>HOST {bare6(drive.host)}</span>
-              <span style={{ color: k.coral }}>GATE {bare6(drive.gate)}</span>
-              <span>DESK {drive.desk || drive.code} · {left}s</span>
-              <span><b style={{ color: k.ink }}>{s.all}</b> in · <b style={{ color: k.coral }}>{t}m</b> avg</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <TokenFind
+                candidates={drive.candidates}
+                compact
+                onPick={(c) => { setFindQ(c.token); setTab("queue"); }}
+              />
+              <span style={{ fontSize: 12.5, color: k.mid, fontFamily: typ, whiteSpace: "nowrap" }}>
+                <b style={{ color: k.ink }}>{s.all}</b> in · <b style={{ color: k.coral }}>{t}m</b>
+              </span>
             </div>
           </div>
           {drive.status === "upcoming" && (
@@ -388,14 +379,14 @@ export function Employer({ store, back, initialDriveId }) {
               <button onClick={() => upd(drive.id, (d) => ({ ...d, status: "live" }))} style={solidSm}>Open for check-in now</button>
             </div>
           )}
-          <div style={{ flex: 1, overflow: "auto", padding: 26, maxWidth: 1120 }}>{panel}</div>
+          <div className="pagepad" style={{ flex: 1, overflow: "auto", padding: 26, maxWidth: 1120 }}>{panel}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
+    <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
       <div style={{ position: "sticky", top: 0, zIndex: 40, background: face.color, color: "#fff", padding: "10px 14px calc(12px)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={closeDrive} style={{ background: "none", border: "none", color: "#fff", padding: 4, cursor: "pointer" }}><ArrowLeft size={20} /></button>
@@ -406,10 +397,8 @@ export function Employer({ store, back, initialDriveId }) {
           </div>
           {desk && <Pill tone="grey">DESK</Pill>}
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 10, overflowX: "auto", fontFamily: typ, fontSize: 11, opacity: .9 }}>
-          <span>GATE {bare6(drive.gate)}</span>
-          <span>DESK {drive.desk || drive.code}</span>
-          <span>{left}s</span>
+        <div style={{ marginTop: 10 }}>
+          <TokenFind candidates={drive.candidates} compact onPick={(c) => { setFindQ(c.token); setTab("queue"); }} />
         </div>
       </div>
       {drive.status === "upcoming" && (
@@ -454,7 +443,7 @@ export function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
     setOrgs((p) => [...p, {
       id, name, short: name.split(" ")[0], kind, color: agency ? "#0F8A6B" : "#341C8A",
       logo: agency ? "bars" : "ring", wash: agency ? "#E6F5F0" : "#EEE8F8",
-      email: email.trim(), password, plan: "trial",
+      email: email.trim(), password, plan: "trial", billingCycle: "month",
       members: [{ email: email.trim(), role: "recruiter" }],
       clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
       branches: [],
@@ -482,8 +471,10 @@ export function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
             <button type="submit" style={{ ...solid, justifyContent: "center", padding: 12, marginTop: 4 }}>Sign in</button>
             <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.7, marginTop: 4 }}>
               Password for every demo: <b style={{ fontFamily: typ }}>demo1234</b><br />
-              Plans — <b style={{ fontFamily: typ }}>trial@tokenhire.demo</b> (free) · <b style={{ fontFamily: typ }}>single@tokenhire.demo</b> (₹7,500) · <b style={{ fontFamily: typ }}>monthly@tokenhire.demo</b> (₹15k) · <b style={{ fontFamily: typ }}>pack10@tokenhire.demo</b> · <b style={{ fontFamily: typ }}>pack25@tokenhire.demo</b> · <b style={{ fontFamily: typ }}>enterprise@tokenhire.demo</b><br />
-              Agency floor: <b style={{ fontFamily: typ }}>demo@vistaar.com</b> / <b style={{ fontFamily: typ }}>hr@quesscorp.com</b>. Campus: <b style={{ fontFamily: typ }}>hr@wipro.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.
+              {HIDE_PRICING
+                ? <>Recruiter: <b style={{ fontFamily: typ }}>demo@vistaar.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.</>
+                : <>Plans — <b style={{ fontFamily: typ }}>trial@tokenhire.demo</b> (Free) · <b style={{ fontFamily: typ }}>single@tokenhire.demo</b> (Basic) · <b style={{ fontFamily: typ }}>monthly@tokenhire.demo</b> (Pro) · <b style={{ fontFamily: typ }}>pack10@tokenhire.demo</b> (Platinum) · <b style={{ fontFamily: typ }}>enterprise@tokenhire.demo</b><br />
+              Agency floor: <b style={{ fontFamily: typ }}>demo@vistaar.com</b> / <b style={{ fontFamily: typ }}>hr@quesscorp.com</b>. Campus: <b style={{ fontFamily: typ }}>hr@wipro.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.</>}
             </div>
           </form>
         ) : (
@@ -534,7 +525,7 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
     setHostErr("");
     const v = host.trim().toUpperCase();
     if (!v) return;
-    if (v.startsWith("GATE") || v.startsWith("DESK")) { setHostErr("That's a candidate GATE or DESK code. Staff use HOST-XXXXXX."); return; }
+    if (v.startsWith("GATE") || v.startsWith("DESK")) { setHostErr("That's a candidate code. Staff use HOST-XXXXXX."); return; }
     const hit = drives.find((d) => d.host.toUpperCase() === v || d.host.toUpperCase() === `HOST-${v}` || (v.startsWith("HOST") && bare6(d.host) === bare6(v)));
     if (!hit) { setHostErr("No walk-in in this space has that HOST code."); return; }
     open(hit.id);
@@ -553,30 +544,26 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
     setF({ ...f, branchId, city: br?.city || f.city, venue: br?.name || f.venue, branch: br?.name || "" });
   }
   return (
-    <div style={{ minHeight: "100vh", background: orgWash(org), fontFamily: bdy, color: k.ink }}>
-      <div style={{ background: accent, color: "#fff", padding: "22px 26px 26px" }}>
-        <div style={{ maxWidth: 920, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <button onClick={back} style={{ background: "none", border: "none", color: "rgba(255,255,255,.85)", display: "flex", gap: 7, alignItems: "center", fontSize: 13, cursor: "pointer", fontFamily: bdy }}><ArrowLeft size={15} /> Back</button>
-            <button onClick={onSignOut} style={{ background: "none", border: "none", color: "rgba(255,255,255,.75)", fontSize: 12.5, cursor: "pointer", fontFamily: bdy }}>Sign out</button>
+    <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
+      <div style={{ background: "#fff", borderBottom: `1px solid ${k.line}`, padding: "16px 26px" }}>
+        <div style={{ maxWidth: 920, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <button onClick={back} style={{ ...iconBtn, display: "flex", gap: 6, alignItems: "center", fontSize: 13, fontWeight: 600 }}><ArrowLeft size={15} /> Back</button>
+            <OrgLogo name={org.short || org.name} color={accent} logo={org.logo} size={36} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 17, letterSpacing: -0.3, lineHeight: 1.15 }}>{org.name}</div>
+              <div style={{ fontSize: 12.5, color: k.mid, marginTop: 2 }}>{agency ? "Clients and sites" : "Walk-ins"}</div>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ background: "#fff", borderRadius: 16, padding: 6, display: "flex" }}>
-              <OrgLogo name={org.short || org.name} color={accent} logo={org.logo} size={52} />
-            </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontSize: 11, letterSpacing: 1.2, fontWeight: 700, textTransform: "uppercase", opacity: .75, marginBottom: 4 }}>{agency ? "Staffing HQ" : "Campus hiring"}</div>
-              <div style={{ fontFamily: dsp, fontWeight: 800, fontSize: 28, letterSpacing: -0.6, lineHeight: 1.1 }}>{org.name}</div>
-              <div style={{ fontSize: 13, opacity: .85, marginTop: 6 }}>{agency ? "Hire for clients. This hall is yours." : "You hire for yourselves — no staffing clients."}</div>
-            </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             {!desk && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={() => nav("/org/sites")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><HeartHandshake size={13} /> {agency && planLimits(org).clients ? "Clients & sites" : "Sites"}</button>
-                <button onClick={() => nav("/org/brand")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Palette size={13} /> Brand</button>
-                <button onClick={() => nav("/org/team")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><Users2 size={13} /> Team</button>
-                <button onClick={() => nav("/org/billing")} style={{ ...ghostSm, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.25)" }}><PieChart size={13} /> Plan</button>
-              </div>
+              <>
+                <button onClick={() => nav("/org/sites")} style={ghostSm}>{agency && planLimits(org).clients ? "Clients" : "Sites"}</button>
+                <button onClick={() => nav("/org/team")} style={ghostSm}>Team</button>
+                {!HIDE_PRICING && <button onClick={() => nav("/org/billing")} style={ghostSm}>Plan</button>}
+              </>
             )}
+            <button onClick={onSignOut} style={ghostSm}>Sign out</button>
           </div>
         </div>
       </div>
@@ -625,19 +612,16 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
             <div>
               <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: 0 }}>{desk ? "Walk-ins today" : "Walk-ins"}</h1>
-              {!desk && lim.drives < 999 && slots > 0 && <div style={{ fontSize: 12.5, color: k.mid, marginTop: 4 }}>{slots} left{multiDay ? " this month" : ""}</div>}
+              {!desk && !HIDE_PRICING && lim.drives < 999 && slots > 0 && <div style={{ fontSize: 12.5, color: k.mid, marginTop: 4 }}>{slots} left{multiDay ? " this month" : ""}</div>}
             </div>
               {!desk && create && slots > 0 && <button onClick={() => setMaking(true)} style={{ ...solid, background: accent }}><Plus size={15} /> New walk-in</button>}
             </div>
             {!desk && create && slots <= 0 && <div style={{ ...box, padding: 14, marginBottom: 14, fontSize: 13.5, color: k.ink2, lineHeight: 1.5 }}>{driveCapCopy(org)} Contact us if you need more.</div>}
-            <div style={{ ...box, padding: 18, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>A teammate started a walk-in on another laptop? Open it with the staff HOST code — never the GATE QR.</div>
-              <div style={{ display: "flex", gap: 9 }}>
-                <input value={host} onChange={(e) => { setHost(e.target.value.toUpperCase()); setHostErr(""); }} onKeyDown={(e) => e.key === "Enter" && openByHost()} placeholder="HOST-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 1.5, flex: 1 }} />
-                <button onClick={openByHost} style={outline}>Open</button>
-              </div>
-              {hostErr && <div style={{ fontSize: 12.5, color: k.red, marginTop: 9 }}>{hostErr}</div>}
+            <div style={{ display: "flex", gap: 9, marginBottom: 18 }}>
+              <input value={host} onChange={(e) => { setHost(e.target.value.toUpperCase()); setHostErr(""); }} onKeyDown={(e) => e.key === "Enter" && openByHost()} placeholder="Staff code" style={{ ...input, fontFamily: typ, letterSpacing: 1.5, flex: 1 }} />
+              <button onClick={openByHost} style={outline}>Open</button>
             </div>
+            {hostErr && <div style={{ fontSize: 12.5, color: k.red, margin: "-8px 0 14px" }}>{hostErr}</div>}
             {!shown.length && <Blank text={drives.length ? "No drives match that filter." : (slots <= 0 ? driveCapCopy(org) : `No walk-ins yet for ${org.name}. Create your first one.`)} />}
             {(grouped.length ? grouped : [""]).map((city) => (
               <div key={city || "all"} style={{ marginBottom: 16 }}>
@@ -652,8 +636,8 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
                           {d.visibility === "private" ? <Pill tone="grey">PRIVATE</Pill> : <Pill tone="teal">PUBLIC</Pill>}
                           {clientOf(d) ? <Pill tone="coral">{d.clientName}</Pill> : null}
                         </div>
-                        <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>{listingPlace(d)} · {d.endDate && d.endDate !== d.date ? `${fmtDate(d.date)} – ${fmtDate(d.endDate)}` : fmtDate(d.date)} — {d.candidates.length} checked in</div>
-                        <div style={{ fontFamily: typ, fontSize: 11.5, color: k.faint, marginTop: 4 }}>{d.host} · {d.gate}</div>
+                        <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>{listingPlace(d)} · {d.endDate && d.endDate !== d.date ? `${fmtDate(d.date)} – ${fmtDate(d.endDate)}` : fmtDate(d.date)}</div>
+                        <div style={{ fontFamily: typ, fontSize: 13, color: k.ink, marginTop: 6 }}>{d.candidates.filter((c) => c.state === "wait").length} waiting · {d.candidates.length} in</div>
                       </div>
                       <button onClick={() => open(d.id)} style={outline}>Open <ArrowRight size={14} /></button>
                     </div>
@@ -664,41 +648,41 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
           </>
         ) : (
           <div style={{ ...box, padding: 26, maxWidth: 540 }}>
-            <h2 style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700, margin: "0 0 5px" }}>Set up a walk-in</h2>
+            <h2 style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700, margin: "0 0 5px" }}>New walk-in</h2>
             <p style={{ fontSize: 13, color: k.mid, margin: "0 0 20px" }}>
-              {canClients
-                ? `Tag the client and location. Candidates see ${org.short || org.name} for that client.`
-                : multiDay
-                  ? `Owned by ${org.name}. You can run this across several days.`
-                  : `Owned by ${org.name}. One event — one day, one location.`}
+              {canClients ? "Client, role, place." : multiDay ? "Role, place, dates." : "Role, place, date."}
             </p>
             <form onSubmit={(e) => { e.preventDefault(); if (driveSlotsLeft(org, drives) <= 0) return; if (!f.role.trim() || !f.venue.trim() || !(lockedCity || f.city.trim())) return; create({ ...f, city: lockedCity || f.city }); setMaking(false); }} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               {canClients && (
                 <Field label="Client company">
-                  <select value={f.clientId || ""} onChange={(e) => setF({ ...f, clientId: e.target.value })} style={{ ...input, appearance: "auto" }}>
-                    <option value="">Select client…</option>
-                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Walk-in for this client. Use Associate bench when you are hiring onto your own payroll.</div>
+                  <Select
+                    value={f.clientId || ""}
+                    onChange={(clientId) => setF({ ...f, clientId })}
+                    placeholder="Select client…"
+                    options={[{ value: "", label: "Select client…" }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+                  />
+                  <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Candidates see {org.short || org.name} for this client.</div>
                 </Field>
               )}
               {!!branches.length && (
                 <Field label="Branch / site">
-                  <select value={f.branchId || ""} onChange={(e) => pickBranch(e.target.value)} style={{ ...input, appearance: "auto" }}>
-                    <option value="">City + venue below</option>
-                    {branches.map((b) => <option key={b.id} value={b.id}>{b.city} · {b.name}</option>)}
-                  </select>
+                  <Select
+                    value={f.branchId || ""}
+                    onChange={pickBranch}
+                    placeholder="City + venue below"
+                    options={[{ value: "", label: "City + venue below" }, ...branches.map((b) => ({ value: b.id, label: `${b.city} · ${b.name}` }))]}
+                  />
                 </Field>
               )}
               <Field label="Role"><input value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} style={input} placeholder="Customer Support Executive" /></Field>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }} className="g2">
                 <Field label="City">{lockedCity ? <div style={{ ...input }}>{lockedCity}</div> : <CitySelect value={f.city} onChange={(city) => setF({ ...f, city })} />}</Field>
                 <Field label={multiDay ? "Start date" : "Date"}><input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} style={input} /></Field>
               </div>
               {multiDay ? (
                 <Field label="End date">
                   <input type="date" value={f.endDate || f.date} min={f.date} onChange={(e) => setF({ ...f, endDate: e.target.value })} style={input} />
-                  <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Runs across multiple days — the same queue and candidate list carries over each morning.</div>
+                  <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Same queue carries over each morning.</div>
                 </Field>
               ) : null}
               <Field label="Venue"><input value={f.venue} onChange={(e) => setF({ ...f, venue: e.target.value })} style={input} placeholder="Gachibowli campus, Gate 1" /></Field>
@@ -720,7 +704,7 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
                     );
                   })}
                 </div>
-                <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Leave all unselected to list as open to every experience level.</div>
+                <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Leave empty for any experience.</div>
               </div>
 
               <div>
@@ -736,35 +720,31 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
                     );
                   })}
                 </div>
-                <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Candidates see this on Upcoming walk-ins so they know what to carry.</div>
+                <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Shown on the public listing.</div>
               </div>
 
-              <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginTop: 4 }}>When should candidates be able to check in?</div>
+              <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginTop: 4 }}>Check-in</div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={() => setF({ ...f, status: "live" })} style={{
-                  flex: 1, textAlign: "left", padding: 12, borderRadius: 6, cursor: "pointer", fontFamily: bdy,
-                  border: `1px solid ${f.status === "live" ? k.coral : k.line}`, background: f.status === "live" ? k.coralDim : "#fff", color: k.ink,
+                  flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: bdy,
+                  border: `1px solid ${f.status === "live" ? k.ink : k.line}`, background: f.status === "live" ? k.ink : "#fff", color: f.status === "live" ? "#fff" : k.ink,
                 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>Right now</div>
-                  <div style={{ fontSize: 11.5, color: k.mid, marginTop: 2 }}>Opens GATE and the rotating DESK code immediately</div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>Open now</div>
+                  <div style={{ fontSize: 11.5, opacity: .7, marginTop: 2 }}>Scan the screen and join</div>
                 </button>
                 <button type="button" onClick={() => setF({ ...f, status: "upcoming" })} style={{
-                  flex: 1, textAlign: "left", padding: 12, borderRadius: 6, cursor: "pointer", fontFamily: bdy,
-                  border: `1px solid ${f.status === "upcoming" ? k.coral : k.line}`, background: f.status === "upcoming" ? k.coralDim : "#fff", color: k.ink,
+                  flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: bdy,
+                  border: `1px solid ${f.status === "upcoming" ? k.ink : k.line}`, background: f.status === "upcoming" ? k.ink : "#fff", color: f.status === "upcoming" ? "#fff" : k.ink,
                 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>Publish for later</div>
-                  <div style={{ fontSize: 11.5, color: k.mid, marginTop: 2 }}>Listed for candidates to browse if this drive is public; open check-in when ready</div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>List first</div>
+                  <div style={{ fontSize: 11.5, opacity: .7, marginTop: 2 }}>Open the door when you arrive</div>
                 </button>
               </div>
 
-              <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginTop: 4 }}>Listing</div>
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: 12, borderRadius: 10, border: `1px solid ${k.line}`, background: f.visibility === "public" ? k.coralDim : "#fff", cursor: "pointer" }}>
-                <input type="checkbox" checked={f.visibility === "public"} onChange={(e) => setF({ ...f, visibility: e.target.checked ? "public" : "private" })} style={{ marginTop: 3 }} />
+              <label style={{ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, border: `1px solid ${k.line}`, background: "#fff", cursor: "pointer" }}>
+                <input type="checkbox" checked={f.visibility === "public"} onChange={(e) => setF({ ...f, visibility: e.target.checked ? "public" : "private" })} />
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>{f.visibility === "public" ? <Globe size={14} /> : <Lock size={14} />} {f.visibility === "public" ? "Public — listed on Upcoming walk-ins" : "Private — unlisted"}</div>
-                  <div style={{ fontSize: 12, color: k.mid, marginTop: 4, lineHeight: 1.5 }}>
-                    Default is public so people can find this weekend's drive. Uncheck only for referral-only or internal days — candidates still check in at the venue: GATE finds the walk-in, the rotating DESK code on the TV proves they're there.
-                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>{f.visibility === "public" ? <Globe size={14} /> : <Lock size={14} />} {f.visibility === "public" ? "Listed on Upcoming walk-ins" : "Unlisted"}</div>
                 </div>
               </label>
 
@@ -879,7 +859,7 @@ export function BrandPanel({ org, setOrgs, setDrives, onClose, embedded }) {
           {!embedded && <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>}
         </div>
         <p style={{ fontSize: 13, color: k.mid, margin: "0 0 16px", lineHeight: 1.5 }}>
-          GATE, TV, and check-in carry this mark.
+          TV, slip, and check-in.
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
           <OrgLogo name={name} color={color} logo={logo} size={48} />
@@ -950,19 +930,23 @@ export function TeamPanel({ org, setOrgs, onClose, embedded }) {
                 <div>{memberName(m)}</div>
                 <div style={{ fontSize: 11.5, color: k.faint, overflow: "hidden", textOverflow: "ellipsis" }}>{memberEmail(m)}</div>
               </span>
-              <select value={memberRole(m)} onChange={(e) => setMemberRole(memberEmail(m), e.target.value)} style={{ ...input, width: "auto", padding: "6px 10px", fontSize: 12 }}>
-                <option value="recruiter">Recruiter</option>
-                <option value="frontdesk">Front desk</option>
-              </select>
+              <Select
+                value={memberRole(m)}
+                onChange={(v) => setMemberRole(memberEmail(m), v)}
+                options={[{ value: "recruiter", label: "Recruiter" }, { value: "frontdesk", label: "Front desk" }]}
+                style={{ width: "auto", padding: "6px 10px", fontSize: 12 }}
+              />
             </div>
           ))}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && invite()} placeholder="colleague@yourcompany.com" style={{ ...input, flex: 1, minWidth: 160 }} />
-          <select value={role} onChange={(e) => setRole(e.target.value)} style={{ ...input, width: 130, padding: "11px 10px" }}>
-            <option value="recruiter">Recruiter</option>
-            <option value="frontdesk">Front desk</option>
-          </select>
+          <Select
+            value={role}
+            onChange={setRole}
+            options={[{ value: "recruiter", label: "Recruiter" }, { value: "frontdesk", label: "Front desk" }]}
+            style={{ width: 130, padding: "11px 10px" }}
+          />
           <button onClick={invite} style={solidSm} disabled={members.length >= planLimits(org).seats}>Invite</button>
         </div>
         <div style={{ fontSize: 11, color: k.faint, marginTop: 10, lineHeight: 1.5 }}>
@@ -991,23 +975,112 @@ export function OutcomeBtns({ cand, rounds, decide }) {
   );
 }
 
-export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, decide, sendToRound, deskMode, issuePass }) {
-  const rooms = drive.rooms || [];
+function waitersByRound(wait, rounds, laterFirst = false) {
+  const groups = (rounds || []).map((r, i) => ({
+    id: r.id,
+    name: r.name,
+    list: wait.filter((c) => (c.roundIdx || 0) === i),
+  })).filter((g) => g.list.length);
+  return laterFirst ? groups.slice().reverse() : groups;
+}
+function justMoved(c) {
+  return c.state === "wait" && (c.roundIdx || 0) > 0 && c.decidedAt && Date.now() - c.decidedAt < 180000;
+}
+
+function RecruiterPick({ rooms, rounds, cand, drive, onPick, onCancel, dark }) {
+  const list = roomsForRound(rooms, rounds, cand);
+  const waitName = (rounds || [])[waitingRoundIdx(rounds, cand)]?.name;
+  const ink = dark ? "#fff" : k.ink;
+  const mute = dark ? "rgba(255,255,255,.55)" : k.mid;
+  return (
+    <div>
+      {waitName ? <div style={{ fontSize: 11.5, fontWeight: 700, color: mute, marginBottom: 8 }}>{waitName}</div> : null}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {list.map((r) => {
+          const busy = occupantOf(drive, r.id);
+          return (
+            <button
+              key={r.id}
+              type="button"
+              disabled={!!busy}
+              onClick={() => { if (!busy) onPick(r.id); }}
+              style={{
+                padding: "10px 14px", borderRadius: 10, cursor: busy ? "default" : "pointer", fontFamily: bdy, textAlign: "left",
+                border: dark ? "1px solid rgba(255,255,255,.16)" : `1px solid ${k.line}`,
+                background: dark ? "rgba(255,255,255,.08)" : "#fff",
+                color: ink, opacity: busy ? .45 : 1,
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{r.interviewer || "Open desk"}</div>
+              <div style={{ fontSize: 11.5, color: mute }}>{r.name}{busy ? ` · ${busy.token}` : ""}</div>
+            </button>
+          );
+        })}
+        {!list.length && <div style={{ fontSize: 12.5, color: mute }}>No recruiter for this round.</div>}
+      </div>
+      {onCancel ? <button type="button" onClick={onCancel} style={{ ...ghostSm, marginTop: 10, background: dark ? "transparent" : "#fff", color: dark ? "#fff" : k.ink2, borderColor: dark ? "rgba(255,255,255,.2)" : k.line }}>Cancel</button> : null}
+    </div>
+  );
+}
+
+function RoundPips({ rounds, cand, light }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0 }}>
+      {(rounds || []).map((r, i) => {
+        const o = roundOutcomeOf(cand, r, i);
+        const on = inARound(cand) && i === (cand.roundIdx || 0) && !isTerminal(cand.state);
+        const color = o === "rejected" ? k.red : o === "onhold" ? k.gold : (o === "selected" || o === "passed") ? (light ? "#8BE0C2" : k.teal) : on ? (light ? "#fff" : k.coral) : (light ? "rgba(255,255,255,.38)" : k.faint);
+        const mark = o === "rejected" ? "out" : o === "onhold" ? "hold" : (o === "selected" || o === "passed") ? "done" : "";
+        return (
+          <span key={r.id} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            {i > 0 && <span style={{ width: 10, height: 1, background: light ? "rgba(255,255,255,.2)" : k.line, margin: "0 6px" }} />}
+            <span style={{ fontSize: 11.5, fontWeight: on || o ? 700 : 500, color, whiteSpace: "nowrap" }}>
+              {r.name}{mark ? ` · ${mark}` : ""}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, decide, deskMode, issuePass }) {
+  const rooms = bindRoomsToRounds(drive.rooms || [], drive.rounds || []);
   const rounds = drive.rounds || [];
-  const next = wait[0];
+  const groups = waitersByRound(wait, rounds);
+  const later = waitersByRound(wait, rounds, true);
   const [pickFor, setPickFor] = useState(null);
+  const [lineRound, setLineRound] = useState("all");
+  const shown = lineRound === "all" ? later : later.filter((g) => g.id === lineRound);
+  const heads = later.map((g) => ({ ...g, cand: g.list[0] })).filter((g) => g.cand);
   const absent = drive.candidates.filter((x) => x.state === "absent");
   const pass = livePass(drive);
   const passLeft = pass ? Math.max(0, Math.ceil((pass.exp - Date.now()) / 1000)) : 0;
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 22 }}>
-        <BigStat n={s.all} label="Checked in" />
-        <BigStat n={s.wait} label="Waiting" color={k.coral} />
-        {!deskMode && <BigStat n={s.active} label="In interview" color="#5C7DE0" />}
-        {!deskMode && <BigStat n={s.selected} label="Selected" color={k.teal} />}
-        {deskMode && <BigStat n={active.filter((x) => x.state === "calling").length} label="Being called" color="#5C7DE0" />}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+          <TallyStat label="In" v={s.all} color={k.ink} />
+          <TallyStat label="Waiting" v={s.wait} color={k.coral} />
+          {!deskMode && <TallyStat label="In room" v={s.active} color={k.ink} />}
+          {!deskMode && <TallyStat label="Selected" v={s.selected} color={k.teal} />}
+          {deskMode && <TallyStat label="Calling" v={active.filter((x) => x.state === "calling").length} color={k.coral} />}
+        </div>
+        <div style={{ ...box, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700 }}>Door pass</div>
+            <div style={{ fontSize: 11, color: k.mid }}>2 min · once</div>
+          </div>
+          {pass && passLeft > 0 ? (
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: typ, fontSize: 16, fontWeight: 700, letterSpacing: 1, color: k.coral }}>PASS-{pass.code}</div>
+              <div style={{ fontSize: 10.5, color: k.faint, fontFamily: typ }}>{passLeft}s</div>
+            </div>
+          ) : (
+            issuePass && <button onClick={issuePass} style={solidSm}>Issue</button>
+          )}
+        </div>
       </div>
 
       {!!rooms.length && (
@@ -1017,12 +1090,9 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
             {rooms.map((r) => {
               const who = occupantOf(drive, r.id);
               return (
-                <div key={r.id} style={{ ...box, padding: "12px 14px", background: who ? k.coralDim : "#fff" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{r.name}</div>
-                  <div style={{ fontSize: 12, color: k.ink2, marginTop: 2 }}>{r.interviewer || "Unassigned"}</div>
-                  <div style={{ fontSize: 11.5, color: who ? k.coral : k.faint, marginTop: 6, fontWeight: 600 }}>
-                    {who ? `${who.token} · ${roundLabel(rounds, who)} · ${who.state === "calling" ? "Calling" : "In interview"}` : "Free"}
-                  </div>
+                <div key={r.id} style={{ ...box, padding: "12px 14px", background: who ? k.ink : "#fff", color: who ? "#fff" : k.ink }}>
+                  <div style={{ fontSize: 12, color: who ? "rgba(255,255,255,.55)" : k.mid }}>{roomRoundLabel(drive.rounds, r)}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginTop: 6, fontFamily: typ }}>{who ? who.token : "Free"}</div>
                 </div>
               );
             })}
@@ -1030,23 +1100,7 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
         </div>
       )}
 
-      <div style={{ ...box, padding: 18, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase" }}>Admit at the door</div>
-          <div style={{ fontSize: 13, color: k.ink2, marginTop: 4, lineHeight: 1.5, maxWidth: 420 }}>Someone scanned GATE but isn't at the TV yet? Issue a one-time pass — it expires in 2 minutes and works once.</div>
-        </div>
-        {pass && passLeft > 0 ? (
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: typ, fontSize: 22, fontWeight: 700, letterSpacing: 2, color: k.coral }}>PASS-{pass.code}</div>
-            <div style={{ fontSize: 11.5, color: k.faint, fontFamily: typ, marginTop: 4 }}>EXPIRES IN {passLeft}s · one use</div>
-            {issuePass && <button onClick={issuePass} style={{ ...ghostSm, marginTop: 8 }}>Issue a new one</button>}
-          </div>
-        ) : (
-          issuePass && <button onClick={issuePass} style={solidSm}>Issue gate pass</button>
-        )}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: deskMode ? "1fr" : "1.1fr 1fr", gap: 18 }} className="g2">
+      <div style={{ display: "grid", gridTemplateColumns: deskMode ? "1fr" : "1fr 1.1fr", gap: 18 }} className="g2">
         {!deskMode && (
         <div style={{ ...box, padding: 22 }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase", marginBottom: 14 }}>In interview now</div>
@@ -1057,16 +1111,16 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <div>
                       <TokenChip token={x.token} name={x.name} size={44} pulse={x.state === "calling"} />
+                      <div style={{ marginTop: 8 }}><RoundPips rounds={rounds} cand={x} /></div>
                       <div style={{ fontSize: 12.5, color: k.ink2, marginTop: 8 }}>
-                        {x.room ? `${x.room.name} · ${x.room.interviewer}` : "No room assigned"}
-                        {" · "}{roundLabel(rounds, x)}
+                        {x.room ? roomRoundLabel(rounds, x.room) : "No room"}
+                        {x.room?.interviewer ? ` · ${x.room.interviewer}` : ""}
                         {x.calledAt && <> · <Elapsed since={x.calledAt} /></>}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                       {x.state === "calling" && <Btn onClick={() => move(x.id, "interviewing")}>Started</Btn>}
-                      {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
-                      <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />
+                      {x.state === "interviewing" && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
                       <Btn q onClick={() => skip(x.id)}>Skip</Btn>
                     </div>
                   </div>
@@ -1077,83 +1131,80 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
         </div>
         )}
 
-        {/* UP NEXT */}
         <div style={{ ...box, padding: 22 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase", marginBottom: 14 }}>Up next</div>
-          {!next ? <Blank text="Queue is empty." /> : (
-            <>
-              <TokenChip token={next.token} name={next.name} size={52} />
-              <div style={{ fontSize: 12.5, color: k.mid, marginTop: 10 }}>{next.expBand}{next.qual ? ` · ${next.qual}` : ""} · {roundLabel(rounds, next)} · waiting {Math.round((Date.now() - next.at) / 60000)} min</div>
-              {pickFor === next.id ? (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Call into which room?</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {roomsForRound(rooms, rounds, next).map((r) => (
-                      <button key={r.id} onClick={() => { callTo(next.id, r.id); setPickFor(null); }} style={{
-                        padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontFamily: bdy, textAlign: "left",
-                        border: `1px solid ${k.line}`, background: "#fff",
-                      }}>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>{r.name}</div>
-                        <div style={{ fontSize: 11.5, color: k.mid }}>{r.interviewer || "Unassigned"}</div>
-                      </button>
-                    ))}
-                    {!rooms.length && <div style={{ fontSize: 12.5, color: k.faint }}>Add rooms on the Rooms tab first.</div>}
-                  </div>
-                  <button onClick={() => setPickFor(null)} style={{ ...ghostSm, marginTop: 10 }}>Cancel</button>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: k.faint, marginBottom: 14 }}>Up next — each round</div>
+          {!heads.length ? <div style={{ color: k.faint, fontSize: 13.5 }}>Queue is empty.</div> : heads.map((g, i) => (
+            <div key={g.id} style={{ padding: i ? "14px 0 0" : 0, marginTop: i ? 14 : 0, borderTop: i ? `1px solid ${k.line}` : "none", background: justMoved(g.cand) ? k.coralDim : "transparent", borderRadius: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>{g.name}</div>
+              <TokenChip token={g.cand.token} name={g.cand.name} size={44} />
+              {justMoved(g.cand) ? <div style={{ marginTop: 8 }}><Pill tone="teal">Just passed</Pill></div> : null}
+              <div style={{ marginTop: 8 }}><RoundPips rounds={rounds} cand={g.cand} /></div>
+              {pickFor === g.cand.id ? (
+                <div style={{ marginTop: 12 }}>
+                  <RecruiterPick rooms={rooms} rounds={rounds} cand={g.cand} drive={drive} onPick={(id) => { callTo(g.cand.id, id); setPickFor(null); }} onCancel={() => setPickFor(null)} />
                 </div>
               ) : (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 18 }}>
-                  <button onClick={() => setPickFor(next.id)} style={{ ...solid, flex: 1, justifyContent: "center", padding: 13, fontSize: 15 }}>
-                    Call {next.token} to a room <ArrowRight size={16} />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                  <button onClick={() => setPickFor(g.cand.id)} style={{ ...solid, flex: 1, justifyContent: "center", padding: 11 }}>
+                    Call {g.cand.token} <ArrowRight size={16} />
                   </button>
-                  {!deskMode && <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(next.id, Number(v))} />}
                 </div>
               )}
-            </>
-          )}
+            </div>
+          ))}
         </div>
       </div>
 
       {/* THE LINE */}
       <div style={{ ...box, marginTop: 18, overflow: "hidden" }}>
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${k.line}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase" }}>The line — {wait.length} waiting</span>
-        </div>
-        {!wait.length ? <Blank text="Nobody waiting." /> : wait.map((x, i) => (
-          <div key={x.id} style={{ display: "grid", gridTemplateColumns: deskMode ? "minmax(180px,1.4fr) 90px 1fr" : "minmax(160px,1.2fr) 90px 110px 1fr", gap: 12, alignItems: "center", padding: "13px 20px", borderTop: i ? `1px solid ${k.line}` : "none", background: i === 0 ? k.cream2 : "transparent" }} className="driverow">
-            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <TokenChip token={x.token} name={x.name} size={34} />
-              {x.skipped ? <Pill tone="gold">SKIPPED {x.skipped}×</Pill> : null}
-            </span>
-            <span style={{ fontSize: 12.5, color: k.mid, fontFamily: typ }}>~{eta(x)}m</span>
-            {!deskMode && (
-              <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                {clientOf(drive) ? <Pill tone="coral">{clientOf(drive)}</Pill> : null}
-                <span style={{ fontSize: 12.5, color: k.ink2, fontWeight: 600 }}>{roundLabel(rounds, x)}</span>
-                <Pill tone="grey">Waiting</Pill>
-              </span>
-            )}
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
-              {pickFor === x.id ? (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  {roomsForRound(rooms, rounds, x).map((r) => (
-                    <button key={r.id} onClick={() => { callTo(x.id, r.id); setPickFor(null); }} style={{
-                      padding: "6px 10px", borderRadius: 8, cursor: "pointer", fontFamily: bdy, textAlign: "left",
-                      border: `1px solid ${k.line}`, background: "#fff", fontSize: 11.5,
-                    }}>
-                      <b>{r.name}</b> · {r.interviewer || "—"}
-                    </button>
-                  ))}
-                  <button onClick={() => setPickFor(null)} style={{ ...ghostSm, padding: "6px 10px" }}>Cancel</button>
-                </div>
-              ) : (
-                <>
-                  <Btn onClick={() => setPickFor(x.id)}>Call to room</Btn>
-                  {!deskMode && <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />}
-                  <Btn q onClick={() => move(x.id, "absent")}>Absent</Btn>
-                </>
-              )}
+        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${k.line}` }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase", marginBottom: groups.length > 1 ? 10 : 0 }}>The line — {wait.length} waiting</div>
+          {groups.length > 1 ? (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setLineRound("all")} style={{
+                border: `1px solid ${lineRound === "all" ? k.ink : k.line}`, borderRadius: 999, padding: "6px 12px", cursor: "pointer",
+                fontFamily: bdy, fontSize: 12.5, fontWeight: 600, background: lineRound === "all" ? k.ink : "#fff", color: lineRound === "all" ? "#fff" : k.ink,
+              }}>All</button>
+              {groups.map((g) => (
+                <button key={g.id} type="button" onClick={() => setLineRound(g.id)} style={{
+                  border: `1px solid ${lineRound === g.id ? k.ink : k.line}`, borderRadius: 999, padding: "6px 12px", cursor: "pointer",
+                  fontFamily: bdy, fontSize: 12.5, fontWeight: 600, background: lineRound === g.id ? k.ink : "#fff", color: lineRound === g.id ? "#fff" : k.ink,
+                }}>{g.name} · {g.list.length}</button>
+              ))}
             </div>
+          ) : null}
+        </div>
+        {!wait.length ? <Blank text="Nobody waiting." /> : shown.map((g) => (
+          <div key={g.id}>
+            <div style={{ padding: "10px 20px", fontSize: 11.5, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", background: k.cream2, borderTop: `1px solid ${k.line}` }}>
+              {g.name} · {g.list.length}
+            </div>
+            {g.list.map((x) => (
+              <div key={x.id} style={{ display: "grid", gridTemplateColumns: deskMode ? "minmax(180px,1.4fr) 90px 1fr" : "minmax(160px,1.2fr) 90px 110px 1fr", gap: 12, alignItems: "center", padding: "13px 20px", borderTop: `1px solid ${k.line}`, background: justMoved(x) ? k.coralDim : "transparent" }} className="driverow">
+                <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <TokenChip token={x.token} name={x.name} size={34} />
+                  {justMoved(x) ? <Pill tone="teal">Next round</Pill> : null}
+                  {x.skipped ? <Pill tone="gold">SKIPPED {x.skipped}×</Pill> : null}
+                </span>
+                <span style={{ fontSize: 12.5, color: k.mid, fontFamily: typ }}>~{eta(x)}m</span>
+                {!deskMode && (
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    {clientOf(drive) ? <Pill tone="coral">{clientOf(drive)}</Pill> : null}
+                    <RoundPips rounds={rounds} cand={x} />
+                  </span>
+                )}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+                  {pickFor === x.id ? (
+                    <RecruiterPick rooms={rooms} rounds={rounds} cand={x} drive={drive} onPick={(id) => { callTo(x.id, id); setPickFor(null); }} onCancel={() => setPickFor(null)} />
+                  ) : (
+                    <>
+                      <Btn onClick={() => setPickFor(x.id)}>Call</Btn>
+                      <Btn q onClick={() => move(x.id, "absent")}>Absent</Btn>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         ))}
       </div>
@@ -1192,31 +1243,87 @@ export function Elapsed({ since }) {
   return <span style={{ fontFamily: typ }}>{m}m elapsed</span>;
 }
 
-export function Today({ s, wait, active, msgs, setTab, drive, lim }) {
-  const rooms = drive?.rooms || [];
+export function TokenFind({ candidates = [], onPick, compact }) {
+  const [q, setQ] = useState("");
+  const wrapRef = useRef(null);
+  const needle = q.trim().toLowerCase();
+  const hits = needle
+    ? candidates.filter((x) => [x.token, x.name, x.phone].some((v) => String(v || "").toLowerCase().includes(needle))).slice(0, 6)
+    : [];
+  return (
+    <div ref={wrapRef} style={{ position: "relative", flex: compact ? "0 1 240px" : "1 1 220px", minWidth: compact ? 180 : 200 }}>
+      <Search size={14} color={k.faint} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Find W-014"
+        style={{ ...input, padding: compact ? "8px 12px 8px 34px" : "11px 14px 11px 36px", fontFamily: typ }}
+      />
+      <DropPanel anchorRef={wrapRef} open={hits.length > 0} onClose={() => setQ("")}>
+        {hits.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => { onPick?.(c); setQ(""); }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", padding: "10px 12px", border: "none", background: "#fff", cursor: "pointer", fontFamily: bdy, textAlign: "left", borderRadius: 8 }}
+          >
+            <TokenChip token={c.token} name={c.name} size={28} />
+            <span style={{ fontSize: 11.5, color: k.mid, fontWeight: 600 }}>{c.state === "wait" ? "Waiting" : c.state === "calling" ? "Calling" : c.state === "interviewing" ? "In room" : c.state}</span>
+          </button>
+        ))}
+      </DropPanel>
+    </div>
+  );
+}
+
+export function Today({ s, wait, active, setTab, drive, lim, callTo, onFind }) {
+  const rooms = bindRoomsToRounds(drive?.rooms || [], drive?.rounds || []);
+  const rounds = drive?.rounds || [];
+  const next = wait[0];
+  const callDesks = roomsForRound(rooms, rounds, next);
   const canRooms = lim?.rooms !== false;
-  const canMsgs = lim?.notify !== false;
   return (
     <div>
-      <div style={{ display: "flex", gap: 22, flexWrap: "wrap", marginBottom: 26 }}>
-        <TallyStat label="Waiting" v={s.wait} color={k.mid} />
-        <TallyStat label="With a recruiter" v={s.active} color={k.coral} />
-        <TallyStat label="Selected" v={s.selected} color={k.teal} />
-        <TallyStat label="On hold" v={s.onhold} color={k.gold} />
-        <TallyStat label="Rejected" v={s.rejected} color={k.red} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, marginBottom: 22, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+          <TallyStat label="Waiting" v={s.wait} color={k.ink} />
+          <TallyStat label="In room" v={s.active} color={k.coral} />
+          <TallyStat label="Selected" v={s.selected} color={k.teal} />
+          <TallyStat label="Hold" v={s.onhold} color={k.gold} />
+          <TallyStat label="Out" v={s.rejected} color={k.red} />
+        </div>
+        <TokenFind candidates={drive?.candidates || []} onPick={onFind} />
       </div>
+
+      {next && (
+        <div style={{ ...box, padding: "24px 26px", marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: k.faint, marginBottom: 12 }}>Up next</div>
+            <TokenChip token={next.token} name={next.name} size={52} />
+            <div style={{ marginTop: 10 }}><RoundPips rounds={rounds} cand={next} /></div>
+            {next.expBand ? <div style={{ fontSize: 12.5, color: k.mid, marginTop: 8 }}>{next.expBand}</div> : null}
+          </div>
+          <div>
+            {callDesks.length ? (
+              <RecruiterPick rooms={rooms} rounds={rounds} cand={next} drive={drive} onPick={(id) => callTo?.(next.id, id)} />
+            ) : (
+              <button onClick={() => setTab("live")} style={solid}>Live queue <ArrowRight size={14} /></button>
+            )}
+          </div>
+        </div>
+      )}
+
       {!!rooms.length && (
         <div style={{ marginBottom: 18 }}>
-          <Head title="Rooms today" action={canRooms ? <button onClick={() => setTab("rooms")} style={link}>Manage rooms <ArrowRight size={12} /></button> : null} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
+          <Head title="Rooms" action={canRooms ? <button onClick={() => setTab("rooms")} style={link}>Edit <ArrowRight size={12} /></button> : null} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
             {rooms.map((r) => {
               const who = occupantOf(drive, r.id);
               return (
-                <div key={r.id} style={{ ...box, padding: "14px 16px", background: who ? k.coralDim : "#fff" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase" }}>{r.name}</div>
-                  <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 700, marginTop: 4 }}>{r.interviewer || "Unassigned"}</div>
-                  <div style={{ fontSize: 12, color: who ? k.coral : k.mid, marginTop: 8, fontWeight: 600 }}>
-                    {who ? `${who.token} · ${roundLabel(drive.rounds || [], who)}` : "Free"}
+                <div key={r.id} style={{ ...box, padding: "12px 14px", background: who ? k.ink : "#fff", color: who ? "#fff" : k.ink }}>
+                  <div style={{ fontSize: 12, color: who ? "rgba(255,255,255,.55)" : k.mid }}>{roomRoundLabel(rounds, r)} · {r.interviewer || "—"}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6, fontFamily: typ, letterSpacing: -0.4 }}>
+                    {who ? who.token : "Free"}
                   </div>
                 </div>
               );
@@ -1224,42 +1331,29 @@ export function Today({ s, wait, active, msgs, setTab, drive, lim }) {
           </div>
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: canMsgs ? "1.35fr 1fr" : "1fr", gap: 18 }} className="g2">
-        <div style={{ ...box, padding: 20 }}>
-          <Head title="The queue right now" action={<button onClick={() => setTab("queue")} style={link}>Open queue <ArrowRight size={12} /></button>} />
-          {!active.length && !wait.length ? <Blank text="Nobody has checked in. Switch to the candidate side and join this drive." /> : (
-            <div>
-              {active.map((x) => (
-                <div key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: k.coralDim, borderRadius: 10, marginBottom: 6, gap: 10 }}>
-                  <div>
-                    <TokenChip token={x.token} name={x.name} size={32} pulse={x.state === "calling"} />
-                    <div style={{ fontSize: 11.5, color: k.ink2, marginTop: 4 }}>{x.room ? `${x.room.name} · ${x.room.interviewer}` : "No room"} · {roundLabel(drive.rounds || [], x)}</div>
+
+      <div style={{ ...box, padding: 20 }}>
+        <Head title="Floor" action={<button onClick={() => setTab("live")} style={link}>Live <ArrowRight size={12} /></button>} />
+        {!active.length && !wait.length ? <Blank text="Waiting for the first check-in." /> : (
+          <div>
+            {active.map((x) => (
+              <div key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 0", gap: 10, borderBottom: `1px solid ${k.line}` }}>
+                <TokenChip token={x.token} name={x.name} size={34} pulse={x.state === "calling"} />
+                <span style={{ fontSize: 12.5, color: k.coral, fontWeight: 600 }}>{x.room?.name || "—"}</span>
+              </div>
+            ))}
+            {waitersByRound(wait, rounds, true).map((g) => (
+              <div key={g.id} style={{ padding: "8px 0 2px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", margin: "8px 0 4px" }}>{g.name}</div>
+                {g.list.slice(0, 4).map((x, i) => (
+                  <div key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${k.line}`, background: justMoved(x) ? k.coralDim : "transparent" }}>
+                    <TokenChip token={x.token} name={x.name} size={28} />
+                    <span style={{ fontSize: 12, color: justMoved(x) ? k.coral : k.faint, fontFamily: typ, fontWeight: justMoved(x) ? 700 : 500 }}>{justMoved(x) ? "Just passed" : (i === 0 ? "Next" : `#${i + 1}`)}</span>
                   </div>
-                  <Pill tone="coral">{x.state === "calling" ? "Calling" : "In interview"}</Pill>
-                </div>
-              ))}
-              {wait.slice(0, 5).map((x, i) => (
-                <div key={x.id} style={{ display: "flex", alignItems: "center", padding: "9px 12px", borderTop: i || active.length ? `1px solid ${k.line}` : "none" }}>
-                  <TokenChip token={x.token} name={x.name} size={28} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {canMsgs && (
-        <div style={{ ...box, padding: 20 }}>
-          <Head title="Messages sent" action={<button onClick={() => setTab("msgs")} style={link}>All <ArrowRight size={12} /></button>} />
-          {!msgs.length ? <Blank text="Messages go out as candidates move." /> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {msgs.slice(0, 4).map((m) => (
-                <div key={m.id} style={{ fontSize: 12.5 }}>
-                  <div style={{ display: "flex", gap: 7, alignItems: "center", marginBottom: 3 }}><Pill tone={m.ch === "WhatsApp" ? "teal" : "grey"}>{m.ch}</Pill><span style={{ color: k.mid }}>{m.name}</span></div>
-                  <div style={{ color: k.ink2, lineHeight: 1.45 }}>{m.text}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -1268,14 +1362,14 @@ export function Today({ s, wait, active, msgs, setTab, drive, lim }) {
 
 export function TallyStat({ label, v, color }) {
   return (
-    <div style={{ ...box, padding: "14px 18px", minWidth: 130 }}>
-      <div style={{ fontSize: 11.5, color: k.mid, fontWeight: 600, marginBottom: 7 }}>{label}</div>
-      <div style={{ fontFamily: typ, fontSize: 24, fontWeight: 700, color, letterSpacing: -0.5 }}>{v}</div>
+    <div style={{ minWidth: 72 }}>
+      <div style={{ fontSize: 11.5, color: k.mid, fontWeight: 600, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontFamily: typ, fontSize: 26, fontWeight: 700, color, letterSpacing: -0.6 }}>{v}</div>
     </div>
   );
 }
 
-export function Screen({ driveId, gate, desk, left, active, wait, eta, brand, clientName, branch, role, credit = "on" }) {
+export function Screen({ driveId, gate, desk, left, active, wait, eta, rounds, brand, clientName, branch, role, credit = "on" }) {
   const name = (brand?.name || "").trim() || "Walk-in";
   const accent = brand?.color || k.coral;
   const logo = brand?.logo || "letter";
@@ -1296,19 +1390,19 @@ export function Screen({ driveId, gate, desk, left, active, wait, eta, brand, cl
             <div style={{ fontFamily: dsp, fontWeight: 800, fontSize: 16, textAlign: "center", lineHeight: 1.25 }}>{clientName ? `${name} · ${clientName}` : name}</div>
             {role ? <div style={{ fontSize: 12, color: k.mid, textAlign: "center" }}>{role}</div> : null}
             {branch ? <div style={{ fontSize: 11.5, color: k.faint }}>{branch}</div> : null}
-            <div style={{ fontSize: 10.5, color: accent, fontFamily: typ, letterSpacing: 1, fontWeight: 700, marginTop: 4 }}>GATE · PRINT THIS</div>
-            <QrCode value={gateUrl(gate)} size={165} alt="Printed GATE QR — identifies the walk-in" />
+            <div style={{ fontSize: 10.5, color: accent, fontFamily: typ, letterSpacing: 1, fontWeight: 700, marginTop: 4 }}>PRINT</div>
+            <QrCode value={gateUrl(gate)} size={165} alt="Printed poster QR — identifies the walk-in" />
             <div style={{ fontFamily: typ, fontSize: 16, fontWeight: 700, letterSpacing: 1.5 }}>{gate}</div>
-            <div style={{ fontSize: 11, color: k.mid, textAlign: "center", lineHeight: 1.45 }}>Never expires. Finds the walk-in — does not check anyone in.</div>
+            <div style={{ fontSize: 11, color: k.mid, textAlign: "center", lineHeight: 1.45 }}>Poster. Finds the walk-in.</div>
             {credit === "on" && <div style={{ fontSize: 11, fontWeight: 700, color: k.coral }}>Powered by TokenHire</div>}
             {credit === "tiny" && <div style={{ fontSize: 9, color: k.faint }}>TokenHire</div>}
           </div>
           <div style={{ ...box, marginTop: 10, padding: "12px 10px", textAlign: "center", background: `${accent}14` }}>
-            <div style={{ fontSize: 10.5, color: k.mid, fontFamily: typ, letterSpacing: 1, marginBottom: 4 }}>DESK · TV ONLY</div>
+            <div style={{ fontSize: 10.5, color: k.mid, fontFamily: typ, letterSpacing: 1, marginBottom: 4 }}>ON THE TV</div>
             <div style={{ fontFamily: typ, fontSize: 22, fontWeight: 700, letterSpacing: 3, color: k.ink }}>DESK-{desk}</div>
-            <div style={{ fontSize: 11, color: k.faint, fontFamily: typ, marginTop: 4 }}>ROTATES IN {left}s · proves you're in the room</div>
+            <div style={{ fontSize: 11, color: k.faint, fontFamily: typ, marginTop: 4 }}>ROTATES IN {left}s</div>
           </div>
-          <div style={{ fontSize: 11.5, color: k.faint, marginTop: 14, lineHeight: 1.5, textAlign: "center" }}>Names hidden here. Recruiters see full profiles.</div>
+          <div style={{ fontSize: 11.5, color: k.faint, marginTop: 14, lineHeight: 1.5, textAlign: "center" }}>Names stay masked on the wall.</div>
         </div>
         <div style={{ ...box, overflow: "hidden" }}>
           <div style={{ padding: "12px 18px", borderBottom: `2px solid ${accent}`, fontFamily: typ, fontSize: 11, letterSpacing: 1.2, color: accent, fontWeight: 700 }}>NOW CALLING</div>
@@ -1317,11 +1411,17 @@ export function Screen({ driveId, gate, desk, left, active, wait, eta, brand, cl
               <TokenChip token={x.token} name={mask(x.name)} size={52} color={accent} pulse />
             </div>
           ))}
-          <div style={{ padding: "12px 18px", borderTop: `1px solid ${k.line}`, borderBottom: `1px solid ${k.line}`, fontFamily: typ, fontSize: 11, letterSpacing: 1.2, color: k.ink2, background: k.cream2 }}>UP NEXT — {wait.length} WAITING</div>
-          {wait.slice(0, 9).map((x, i) => (
-            <div key={x.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "11px 18px", borderBottom: `1px solid ${k.line}`, alignItems: "center" }}>
-              <TokenChip token={x.token} name={mask(x.name)} size={32} color={accent} muted />
-              <span style={{ fontFamily: typ, fontSize: 12.5, color: i === 0 ? accent : k.faint, textAlign: "right" }}>~{eta(x)}m</span>
+          {waitersByRound(wait, rounds).map((g) => (
+            <div key={g.id}>
+              <div style={{ padding: "12px 18px", borderTop: `1px solid ${k.line}`, borderBottom: `1px solid ${k.line}`, fontFamily: typ, fontSize: 11, letterSpacing: 1.2, color: k.ink2, background: k.cream2 }}>
+                {g.name.toUpperCase()} — {g.list.length} WAITING
+              </div>
+              {g.list.slice(0, 5).map((x, i) => (
+                <div key={x.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "11px 18px", borderBottom: `1px solid ${k.line}`, alignItems: "center" }}>
+                  <TokenChip token={x.token} name={mask(x.name)} size={32} color={accent} muted />
+                  <span style={{ fontFamily: typ, fontSize: 12.5, color: i === 0 ? accent : k.faint, textAlign: "right" }}>~{eta(x)}m</span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -1330,13 +1430,16 @@ export function Screen({ driveId, gate, desk, left, active, wait, eta, brand, cl
   );
 }
 
-export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], callTo, sendToRound }) {
+export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms: rawRooms = [], callTo, initialQ = "" }) {
+  const rooms = bindRoomsToRounds(rawRooms, rounds);
   const phone = useNarrow();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQ);
+  useEffect(() => { if (initialQ) setQ(initialQ); }, [initialQ]);
   const [fExp, setFExp] = useState("All");
   const [fRound, setFRound] = useState("All");
   const [fState, setFState] = useState("All");
   const [noteFor, setNoteFor] = useState(null);
+  const [pickFor, setPickFor] = useState(null);
   const label = { wait: ["grey", "Waiting"], calling: ["coral", "Calling"], interviewing: ["coral", "In interview"], selected: ["teal", "Selected"], rejected: ["red", "Rejected"], onhold: ["gold", "On hold"], absent: ["grey", "Absent"] };
   const stateName = (v) => ({ All: "All", wait: "Waiting", calling: "Calling", interviewing: "In interview", selected: "Selected", rejected: "Rejected", onhold: "On hold", absent: "Absent" }[v] || v);
   const needle = q.trim().toLowerCase();
@@ -1396,17 +1499,18 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], c
                     <div style={{ fontSize: 12, color: k.mid, marginTop: 2, fontFamily: typ }}>{x.phone}</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                       <Pill tone={label[x.state]?.[0]}>{label[x.state]?.[1]}</Pill>
-                      <Pill tone="grey">{roundLabel(rounds, x)}</Pill>
+                      <RoundPips rounds={rounds} cand={x} />
                       {x.expBand && <Pill tone={x.expBand === "Fresher" ? "grey" : "coral"}>{x.expBand}</Pill>}
                     </div>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
-                  {x.state === "wait" && <ActionSelect label="Call to room" options={roomsForRound(rooms, rounds, x).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
+                  {x.state === "wait" && (pickFor === x.id
+                    ? <RecruiterPick rooms={rooms} rounds={rounds} cand={x} drive={{ candidates: rows }} onPick={(id) => { callTo(x.id, id); setPickFor(null); }} onCancel={() => setPickFor(null)} />
+                    : <Btn onClick={() => setPickFor(x.id)}>Call</Btn>)}
                   {x.state === "calling" && <><Btn onClick={() => move(x.id, "interviewing")}>Start</Btn><Btn q onClick={() => move(x.id, "absent")}>Absent</Btn></>}
-                  {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
+                  {x.state === "interviewing" && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
                   {x.state === "onhold" && <Btn onClick={() => move(x.id, "wait")}>Back to queue</Btn>}
-                  {!isTerminal(x.state) && <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />}
                   <Btn q onClick={() => setNoteFor(x)}>Notes{noteCount ? ` (${noteCount})` : ""}</Btn>
                 </div>
               </div>
@@ -1434,17 +1538,17 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms = [], c
                   </td>
                   <td style={cell}><Pill tone={x.expBand === "Fresher" ? "grey" : "coral"}>{x.expBand || "—"}</Pill></td>
                   <td style={cell}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{roundLabel(rounds, x)}</div>
-                    <div style={{ fontSize: 11.5, color: k.faint, marginTop: 2 }}>{inARound(x) ? `${x.roundIdx + 1} of ${rounds.length}` : "After check-in"}</div>
+                    <RoundPips rounds={rounds} cand={x} />
                   </td>
                   <td style={cell}><Pill tone={label[x.state]?.[0]}>{label[x.state]?.[1]}</Pill></td>
                   <td style={{ ...cell }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      {x.state === "wait" && <ActionSelect label="Call to room" options={roomsForRound(rooms, rounds, x).map((r) => ({ value: r.id, label: `${r.name} · ${r.interviewer || "—"}` }))} onPick={(id) => callTo(x.id, id)} />}
+                      {x.state === "wait" && (pickFor === x.id
+                        ? <RecruiterPick rooms={rooms} rounds={rounds} cand={x} drive={{ candidates: rows }} onPick={(id) => { callTo(x.id, id); setPickFor(null); }} onCancel={() => setPickFor(null)} />
+                        : <Btn onClick={() => setPickFor(x.id)}>Call</Btn>)}
                       {x.state === "calling" && <><Btn onClick={() => move(x.id, "interviewing")}>Start</Btn><Btn q onClick={() => move(x.id, "absent")}>Absent</Btn></>}
-                      {["calling", "interviewing"].includes(x.state) && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
+                      {x.state === "interviewing" && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
                       {x.state === "onhold" && <Btn onClick={() => move(x.id, "wait")}>Back to queue</Btn>}
-                      {!isTerminal(x.state) && <ActionSelect label="Send to round" options={rounds.map((r, i) => ({ value: String(i), label: r.name }))} onPick={(v) => sendToRound(x.id, Number(v))} />}
                       <Btn q onClick={() => setNoteFor(x)}>Notes{noteCount ? ` (${noteCount})` : ""}</Btn>
                     </div>
                   </td>
@@ -1465,9 +1569,12 @@ export function FilterSelect({ label, value, setValue, options, render }) {
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 148 }}>
       <span style={{ fontSize: 12, fontWeight: 700, color: k.faint, textTransform: "uppercase", letterSpacing: .5 }}>{label}</span>
-      <select value={value} onChange={(e) => setValue(e.target.value)} style={{ ...input, padding: "9px 12px", appearance: "auto", fontSize: 13, width: "auto", minWidth: 148 }}>
-        {options.map((o) => <option key={o} value={o}>{render ? render(o) : o}</option>)}
-      </select>
+      <Select
+        value={value}
+        onChange={setValue}
+        options={options.map((o) => ({ value: o, label: render ? render(o) : o }))}
+        style={{ padding: "9px 12px", fontSize: 13, width: "auto", minWidth: 148 }}
+      />
     </label>
   );
 }
@@ -1488,8 +1595,9 @@ export function NotesPanel({ cand, rounds, onClose, saveNote }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {rounds.map((r, i) => {
-            const assigned = inARound(cand);
-            const done = assigned && i < cand.roundIdx, current = assigned && i === cand.roundIdx;
+            const o = roundOutcomeOf(cand, r, i);
+            const current = inARound(cand) && i === (cand.roundIdx || 0) && !isTerminal(cand.state);
+            const done = o === "selected" || o === "passed";
             return (
               <div key={r.id}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
@@ -1500,7 +1608,10 @@ export function NotesPanel({ cand, rounds, onClose, saveNote }) {
                     {done && <Check size={12} color="#fff" />}
                   </div>
                   <span style={{ fontFamily: dsp, fontSize: 15.5, fontWeight: 700, color: done || current ? k.ink : k.faint }}>{r.name}</span>
-                  {current && <Pill tone="coral">CURRENT</Pill>}
+                  {current && <Pill tone="coral">NOW</Pill>}
+                  {o === "rejected" && <Pill tone="red">Out</Pill>}
+                  {o === "onhold" && <Pill tone="gold">Hold</Pill>}
+                  {done && <Pill tone="teal">Done</Pill>}
                 </div>
                 <textarea
                   value={cand.notes?.[r.id] || ""}
@@ -1524,9 +1635,9 @@ export function BrandingTab({ brand, setBrand, drive, org }) {
   const patch = (partial) => setBrand({ name: hall, color: accent, logo, ...brand, ...partial });
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Location branding</h1>
+      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Hall mark</h1>
       <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.6 }}>
-        Applies across this {isAgencyOrg(org) ? "agency" : "campus"} — GATE, waiting TV, and check-in.
+        TV, slip, and check-in.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 30 }} className="g2">
         <div>
@@ -1578,7 +1689,7 @@ export function RoundsTab({ rounds, setRounds }) {
   return (
     <div style={{ maxWidth: 620 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Interview rounds</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>Calling someone to a room starts the first round. Pass moves them to the next; Select on the last round is the same-day selected outcome. Reject ends them immediately. On hold stays available. Each round has its own private notes.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>Each room runs one round. Call puts them in that room and that round. Pass records it and they wait for the next.</p>
       <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
         {rounds.map((r, i) => (
           <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderTop: i ? `1px solid ${k.line}` : "none" }}>
@@ -1610,7 +1721,7 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   const add = () => {
     if (!name.trim() || planLimits(org).rooms === false) return;
     const email = recruiterEmail;
-    setRooms([...rooms, { id: `rm${Date.now()}`, name: name.trim(), interviewer: email ? pickName(email) : "", recruiterEmail: email || null, roundId: "" }]);
+    setRooms([...rooms, { id: `rm${Date.now()}`, name: name.trim(), interviewer: email ? pickName(email) : "", recruiterEmail: email || null, roundId: (drive.rounds || [])[0]?.id || "" }]);
     setName("");
   };
   const remove = (id) => setRooms(rooms.filter((r) => r.id !== id));
@@ -1630,7 +1741,7 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   return (
     <div style={{ maxWidth: 720 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, margin: "0 0 5px" }}>Rooms and interviewers</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>A room is a desk, the person sitting at it, and the round they run. Candidates are only ever offered rooms running their current round.</p>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 22px", lineHeight: 1.55 }}>Several recruiters can run the same round. Call asks which one takes the person.</p>
       <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
         {!rooms.length && <Blank text="No rooms yet. Add one below." />}
         {rooms.map((r, i) => {
@@ -1639,15 +1750,21 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
             <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderTop: i ? `1px solid ${k.line}` : "none", flexWrap: "wrap" }}>
               <span style={{ fontFamily: typ, fontSize: 13, color: k.faint, width: 22 }}>{i + 1}</span>
               <input value={r.name} onChange={(e) => rename(r.id, e.target.value)} style={{ ...input, flex: "1 1 140px", minWidth: 120 }} />
-              <select value={r.recruiterEmail || ""} onChange={(e) => assign(r.id, e.target.value)} style={{ ...input, flex: "1 1 180px", minWidth: 160, appearance: "auto" }}>
-                <option value="">Unassigned</option>
-                {recruiters.map((m) => <option key={memberEmail(m)} value={memberEmail(m)}>{memberName(m)} · {memberEmail(m)}</option>)}
-              </select>
+              <Select
+                value={r.recruiterEmail || ""}
+                onChange={(v) => assign(r.id, v)}
+                placeholder="Unassigned"
+                options={[{ value: "", label: "Unassigned" }, ...recruiters.map((m) => ({ value: memberEmail(m), label: `${memberName(m)} · ${memberEmail(m)}` }))]}
+                style={{ flex: "1 1 180px", minWidth: 160 }}
+              />
               {/* Without this the room drops out of the round-scoped call pickers. */}
-              <select value={r.roundId || ""} onChange={(e) => setRound(r.id, e.target.value)} style={{ ...input, flex: "1 1 150px", minWidth: 130, appearance: "auto" }}>
-                <option value="">Any round</option>
-                {(drive.rounds || []).map((rd) => <option key={rd.id} value={rd.id}>{rd.name}</option>)}
-              </select>
+              <Select
+                value={r.roundId || ""}
+                onChange={(v) => setRound(r.id, v)}
+                placeholder="Any round"
+                options={[{ value: "", label: "Any round" }, ...(drive.rounds || []).map((rd) => ({ value: rd.id, label: rd.name }))]}
+                style={{ flex: "1 1 150px", minWidth: 130 }}
+              />
               {who ? <Pill tone="coral">{who.token}</Pill> : <Pill tone="grey">FREE</Pill>}
               <button onClick={() => remove(r.id)} style={{ ...ghostSm, padding: "7px 11px", color: k.red }}>Remove</button>
             </div>
@@ -1657,10 +1774,13 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
       {planLimits(org).rooms !== false && (
       <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginBottom: 18 }}>
         <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Room name — e.g. Room 6" style={{ ...input, flex: "1 1 160px" }} />
-        <select value={recruiterEmail} onChange={(e) => setRecruiterEmail(e.target.value)} style={{ ...input, flex: "1 1 180px", appearance: "auto" }}>
-          <option value="">Assign recruiter…</option>
-          {recruiters.map((m) => <option key={memberEmail(m)} value={memberEmail(m)}>{memberName(m)}</option>)}
-        </select>
+        <Select
+          value={recruiterEmail}
+          onChange={setRecruiterEmail}
+          placeholder="Assign recruiter…"
+          options={[{ value: "", label: "Assign recruiter…" }, ...recruiters.map((m) => ({ value: memberEmail(m), label: memberName(m) }))]}
+          style={{ flex: "1 1 180px" }}
+        />
         <button onClick={add} style={solidSm}><Plus size={15} /> Add room</button>
       </div>
       )}
@@ -1734,7 +1854,7 @@ export function Result({ s, drive }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
         <div>
           <h1 style={{ fontFamily: dsp, fontSize: 22, fontWeight: 700, letterSpacing: -0.4, margin: "0 0 5px" }}>Day-end report</h1>
-          <p style={{ color: k.mid, fontSize: 13.5, margin: 0 }}>Offers and joining happen in your ATS later. This extract is who walked in, which rounds they cleared, and who is selected, rejected, or on hold.</p>
+          <p style={{ color: k.mid, fontSize: 13.5, margin: 0 }}>This is the full candidate file — name, phone, email, experience, resume, and round outcomes — ready to send to your ATS. Offers and joining stay there. It is not a list of who attended.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={extractCsv} style={outline}><Download size={14} /> CSV extract</button>

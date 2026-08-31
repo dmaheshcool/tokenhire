@@ -27,7 +27,7 @@ export default function TokenPage() {
   }
   if (!cand) {
     return wrap(
-      <p style={{ fontSize: 14, color: k.mid, lineHeight: 1.55 }}>No token {token} on this drive. Ask the desk to look you up, or join again with GATE + DESK.</p>
+      <p style={{ fontSize: 14, color: k.mid, lineHeight: 1.55 }}>No token {token} on this drive. Ask the desk, or scan the waiting-room screen again.</p>
     );
   }
   if (cand.claim && kCode && cand.claim !== kCode) {
