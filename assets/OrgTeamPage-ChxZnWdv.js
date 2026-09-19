@@ -1,0 +1,1 @@
+import{a,j as n}from"./index-BAw5FS2y.js";import{T as i}from"./EmployerPage-SmLRI5q4.js";import"./QrCode-nBUTegO7.js";function f(){const{orgs:e,setOrgs:t,activeOrgId:o}=a(),r=e.find(s=>s.id===o);return r?n.jsx(i,{org:r,setOrgs:t,embedded:!0}):null}export{f as default};
