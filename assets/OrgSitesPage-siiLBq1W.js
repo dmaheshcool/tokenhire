@@ -1,1 +1,0 @@
-import{a as i,j as n}from"./index-CleT4oP4.js";import{C as a}from"./EmployerPage-g27bXRnN.js";import"./QrCode-C3L03Vg9.js";function f(){const{orgs:t,setOrgs:e,activeOrgId:s}=i(),r=t.find(o=>o.id===s);return r?n.jsx(a,{org:r,setOrgs:e,embedded:!0}):null}export{f as default};
