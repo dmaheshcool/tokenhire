@@ -1,1 +1,0 @@
-import{a as n,j as i}from"./index-BZNIaOnD.js";import{C as a}from"./EmployerPage-DxDk3wUY.js";function f(){const{orgs:r,setOrgs:t,activeOrgId:s}=n(),e=r.find(o=>o.id===s);return e?i.jsx(a,{org:e,setOrgs:t,embedded:!0}):null}export{f as default};
