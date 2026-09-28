@@ -1,1 +1,0 @@
-import{n as s,a as i,c as o,j as r,N as n}from"./index-DTUMOVIN.js";import{E as u}from"./EmployerPage-CusDWSJ0.js";import"./QrCode-B7JyqbuJ.js";function g(){const t=s(),a=i(),{driveId:e}=o();return a.activeOrgId?r.jsx(u,{store:a,back:()=>t("/"),initialDriveId:e}):r.jsx(n,{to:"/login",replace:!0})}export{g as default};
