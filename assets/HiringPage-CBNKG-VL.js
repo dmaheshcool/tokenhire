@@ -1,0 +1,1 @@
+import{n as s,a as i,c as o,j as e,N as n}from"./index-BZNIaOnD.js";import{E as u}from"./EmployerPage-DxDk3wUY.js";function g(){const r=s(),a=i(),{driveId:t}=o();return a.activeOrgId?e.jsx(u,{store:a,back:()=>r("/"),initialDriveId:t}):e.jsx(n,{to:"/login",replace:!0})}export{g as default};

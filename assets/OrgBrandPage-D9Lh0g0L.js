@@ -1,0 +1,1 @@
+import{a,j as d}from"./index-BZNIaOnD.js";import{B as i}from"./EmployerPage-DxDk3wUY.js";function g(){const{orgs:e,setOrgs:t,setDrives:s,activeOrgId:n}=a(),r=e.find(o=>o.id===n);return r?d.jsx(i,{org:r,setOrgs:t,setDrives:s,embedded:!0}):null}export{g as default};
