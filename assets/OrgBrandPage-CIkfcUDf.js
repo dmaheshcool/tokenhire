@@ -1,1 +1,0 @@
-import{a,j as i}from"./index-DinsiNF2.js";import{B as d}from"./EmployerPage-n9L_oIZq.js";import"./QrCode-BqNG3Z3G.js";function g(){const{orgs:e,setOrgs:t,setDrives:s,activeOrgId:o}=a(),r=e.find(n=>n.id===o);return r?i.jsx(d,{org:r,setOrgs:t,setDrives:s,embedded:!0}):null}export{g as default};
