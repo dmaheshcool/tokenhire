@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { Btn, STROKE, useToast } from "../../components/ds.jsx";
@@ -84,10 +84,17 @@ function F({ id, label, error, hint, children, span = 6 }) {
 
 function Stepper({ step, onPick, maxStep }) {
   const steps = tl("console.form.steps");
+  const list = useRef(null);
+  useEffect(() => {
+    const el = list.current?.querySelector("[aria-current]");
+    if (!el) return;
+    const box = list.current;
+    box.scrollTo({ left: box.scrollLeft + el.getBoundingClientRect().left - box.getBoundingClientRect().left, behavior: "smooth" });
+  }, [step]);
   return (
-    <ol className="row gap-8" style={{ listStyle: "none", margin: "0 0 20px", padding: 0, flexWrap: "wrap" }} aria-label={t("console.form.stepOf", { n: step + 1, total: steps.length })}>
+    <ol ref={list} className="row gap-8" style={{ listStyle: "none", margin: "0 0 20px", padding: 0, flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none" }} aria-label={t("console.form.stepOf", { n: step + 1, total: steps.length })}>
       {steps.map((label, i) => (
-        <li key={label}>
+        <li key={label} style={{ flexShrink: 0 }}>
           <button type="button" className="chip" aria-current={i === step ? "step" : undefined} aria-pressed={i === step} disabled={i > maxStep} onClick={() => onPick(i)}>
             <span className="mono" style={{ opacity: 0.6, marginRight: 6 }}>{i + 1}</span>{label}
           </button>
