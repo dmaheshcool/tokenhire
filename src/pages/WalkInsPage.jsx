@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Bookmark, BookmarkCheck, CalendarDays, Check, ChevronRight, Clock, ExternalLink, FileText, IndianRupee, Landmark, ListOrdered, MapPin, Search, Share2, SlidersHorizontal, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, FileText, IndianRupee, Landmark, Lightbulb, ListOrdered, Search, Share2, SlidersHorizontal, X } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
-import { Btn, CardSkeleton, DriveCard, EmptyState, LiveDot, Monogram, QueueLine, STROKE, WhenChip, joinPath, useSaved, useToast } from "../components/ds.jsx";
-import { EXP_FILTERS, cityFromSlug, cityPath, expLabel, expRange, mapsUrl, payLabel, publicDrives, queueStats, sortForBoard, venueLine, waitLabel } from "../lib/listing.js";
-import { driveStatus, driveWhen, hoursLabel, datesLabel, driveSchedule, fromMinutes } from "../lib/status.js";
+import { Btn, CardSkeleton, DriveCard, EmptyState, Monogram, QueueLine, STROKE, WhenChip, joinPath, useSaved, useToast, whenText } from "../components/ds.jsx";
+import { EXP_FILTERS, cityFromSlug, cityPath, expLabel, expRange, mapsUrl, payText, publicDrives, queueStats, sortForBoard, venueLine, waitLabel } from "../lib/listing.js";
+import { clock, driveStatus, driveWhen, hoursLabel, datesLabel, driveSchedule, fromMinutes, istDate, shortDate } from "../lib/status.js";
 import { ROLE_TYPES } from "../data/board.js";
 import { useMeta } from "../hooks/useMeta.js";
-import { t } from "../i18n/strings.js";
+import { t, tl } from "../i18n/strings.js";
 
-const DATE_KEYS = ["any", "today", "tomorrow", "week"];
-const EXP_KEYS = ["any", "fresher", "1-3", "3-6", "6+"];
+const DATE_KEYS = ["any", "today", "tomorrow", "week", "month"];
+const EXP_KEYS = ["any", "fresher", "0-1", "1-3", "3-5", "5+"];
 const PAY_KEYS = ["any", "15", "25", "40", "60"];
+const SORT_KEYS = ["soonest", "pay", "queue"];
+const PAGE_SIZE = 20;
 
 function matchesQuery(d, q) {
   if (!q) return true;
@@ -21,19 +23,31 @@ function matchesQuery(d, q) {
 
 function matchesDate(d, key, now) {
   if (key === "any") return true;
+  if (key === "month") return driveStatus(d, now) !== "wrapped" && String(d.date) <= istDate(30, now);
   const w = driveWhen(d, now).key;
   if (key === "week") return ["today", "tomorrow", "week"].includes(w);
   return w === key;
 }
 
-function applyFilters(list, f, now, skip) {
+function applyFilters(list, f, now, skip, saved) {
   return list.filter((d) =>
     (skip === "city" || !f.city || d.city === f.city)
     && (skip === "type" || !f.type || d.roleType === f.type)
     && (skip === "exp" || f.exp === "any" || EXP_FILTERS[f.exp]?.(expRange(d)))
     && (skip === "date" || matchesDate(d, f.date, now))
     && (skip === "pay" || f.pay === "any" || (Number(d.payMax) || 0) >= Number(f.pay) * 1000)
+    && (!f.saved || saved?.has(d.id))
     && matchesQuery(d, f.q));
+}
+
+function sortList(list, key, now) {
+  const base = sortForBoard(list, now);
+  if (key === "pay") return [...base].sort((a, b) => (Number(b.payMax) || 0) - (Number(a.payMax) || 0));
+  if (key === "queue") {
+    const q = (d) => (driveStatus(d, now) === "live" ? queueStats(d).waiting : Infinity);
+    return [...base].sort((a, b) => q(a) - q(b));
+  }
+  return base;
 }
 
 function FilterGroup({ title, options, value, onPick }) {
@@ -65,14 +79,14 @@ function Filters({ open, pool, f, set, cityLocked, now }) {
         <FilterGroup title={t("browse.city")} value={f.city || ""} onPick={(v) => set({ city: v })}
           options={[{ key: "", label: t("browse.allCities") }, ...cities.slice(0, open ? 30 : 10).map(([c, n]) => ({ key: c, label: c, count: n }))]} />
       )}
-      <FilterGroup title={t("browse.date")} value={f.date} onPick={(v) => set({ date: v })}
-        options={DATE_KEYS.map((k) => ({ key: k, label: t(`browse.dates.${k}`), count: k === "any" ? null : count("date", (d) => matchesDate(d, k, now)) }))} />
       <FilterGroup title={t("browse.roleType")} value={f.type || ""} onPick={(v) => set({ type: v })}
         options={[{ key: "", label: t("browse.any") }, ...ROLE_TYPES.map((rt) => ({ key: rt, label: rt, count: count("type", (d) => d.roleType === rt) })).filter((o) => o.count)]} />
       <FilterGroup title={t("browse.experience")} value={f.exp} onPick={(v) => set({ exp: v })}
         options={EXP_KEYS.map((k) => ({ key: k, label: t(`browse.exp.${k}`), count: k === "any" ? null : count("exp", (d) => EXP_FILTERS[k](expRange(d))) }))} />
-      <FilterGroup title={t("browse.salary")} value={f.pay} onPick={(v) => set({ pay: v })}
-        options={PAY_KEYS.map((k) => ({ key: k, label: t(`browse.pay.${k}`), count: k === "any" ? null : count("pay", (d) => (Number(d.payMax) || 0) >= Number(k) * 1000) }))} />
+      <FilterGroup title={t("browse.date")} value={f.date} onPick={(v) => set({ date: v })}
+        options={DATE_KEYS.map((k) => ({ key: k, label: t(`browse.dates.${k}`), count: k === "any" ? null : count("date", (d) => matchesDate(d, k, now)) }))} />
+      <FilterGroup title={t("browse.pay")} value={f.pay} onPick={(v) => set({ pay: v })}
+        options={PAY_KEYS.map((k) => ({ key: k, label: t(`browse.payOpts.${k}`), count: k === "any" ? null : count("pay", (d) => (Number(d.payMax) || 0) >= Number(k) * 1000) }))} />
     </div>
   );
 }
@@ -92,62 +106,72 @@ function Browse({ city }) {
     exp: EXP_KEYS.includes(params.get("exp")) ? params.get("exp") : "any",
     date: DATE_KEYS.includes(params.get("date")) ? params.get("date") : "any",
     pay: PAY_KEYS.includes(params.get("pay")) ? params.get("pay") : "any",
+    saved: params.get("saved") === "1",
   };
+  const sort = SORT_KEYS.includes(params.get("sort")) ? params.get("sort") : "soonest";
+  const page = Math.max(1, Number(params.get("page")) || 1);
   useEffect(() => { setQDraft(params.get("q") || ""); }, [params]);
 
   const set = (patch) => {
     if ("city" in patch) {
       const rest = new URLSearchParams(params);
       rest.delete("city");
+      rest.delete("page");
       const qs = rest.toString();
       nav(patch.city ? `${cityPath(patch.city)}${qs ? `?${qs}` : ""}` : `/walk-ins${qs ? `?${qs}` : ""}`);
       return;
     }
     const next = new URLSearchParams(params);
+    if (!("page" in patch)) next.delete("page");
     for (const [key, v] of Object.entries(patch)) {
-      if (!v || v === "any") next.delete(key);
-      else next.set(key, v);
+      if (!v || v === "any" || (key === "sort" && v === "soonest") || (key === "page" && v === 1)) next.delete(key);
+      else next.set(key, String(v));
     }
-    setParams(next, { replace: true });
+    setParams(next, { replace: key0(patch) !== "page" });
   };
   const clear = () => nav(city ? cityPath(city) : "/walk-ins");
 
   const pool = useMemo(() => publicDrives(drives), [drives]);
-  const hits = applyFilters(pool, f, now);
-  const open = sortForBoard(hits.filter((d) => driveStatus(d, now) !== "wrapped"), now);
+  const hits = applyFilters(pool, f, now, null, saved);
+  const open = sortList(hits.filter((d) => driveStatus(d, now) !== "wrapped"), sort, now);
   const ended = sortForBoard(hits.filter((d) => driveStatus(d, now) === "wrapped"), now).slice(0, 6);
-  const liveCount = open.filter((d) => driveStatus(d, now) === "live").length;
-  const activeCount = [f.type, f.exp !== "any", f.date !== "any", f.pay !== "any", !city && f.city].filter(Boolean).length;
+  const pages = Math.max(1, Math.ceil(open.length / PAGE_SIZE));
+  const pageNo = Math.min(page, pages);
+  const shown = open.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
+  const activeCount = [f.type, f.exp !== "any", f.date !== "any", f.pay !== "any", f.saved, !city && f.city].filter(Boolean).length;
   const loading = !hydrated && apiOk !== false && !pool.length;
 
-  useMeta({
-    title: city ? `Walk-in interviews in ${city}` : "Walk-in interviews near you",
-    description: city
-      ? `${open.length} walk-in drives in ${city} with timing, venue, pay and a live queue. Get a digital token and walk in when it’s your turn.`
-      : `${open.length} walk-in drives across India with timing, venue, pay and a live queue. Filter by city, role, experience, date and salary.`,
-  });
+  const cityPool = pool.filter((d) => !city || d.city === city);
+  const todayCount = cityPool.filter((d) => driveWhen(d, now).key === "today" && driveStatus(d, now) !== "wrapped").length;
+  const upcomingCount = cityPool.filter((d) => driveStatus(d, now) === "scheduled" && driveWhen(d, now).key !== "today").length;
+  const companiesThisMonth = new Set(cityPool.filter((d) => matchesDate(d, "month", now)).map((d) => d.company)).size;
+
+  useMeta(city
+    ? { title: t("browse.meta.cityTitle", { city }), description: t("browse.meta.cityDescription", { city, count: open.length }) }
+    : { title: t("browse.meta.title"), description: t("browse.meta.description", { count: open.length }) });
 
   const submitQ = (e) => { e.preventDefault(); set({ q: qDraft.trim() }); };
+  const empty = f.saved ? "noSaved" : city && !activeCount && !f.q ? "noCity" : "noResults";
 
   return (
     <>
       <section className="mesh" style={{ borderBottom: "1px solid var(--line)" }}>
         <div className="wrap" style={{ padding: "48px 24px 36px" }}>
           {city && (
-            <nav aria-label="Breadcrumb" className="small muted row gap-6" style={{ marginBottom: 14 }}>
+            <nav aria-label={t("browse.breadcrumb")} className="small muted row gap-6" style={{ marginBottom: 14 }}>
               <Link to="/walk-ins" className="link" style={{ fontWeight: 600 }}>{t("nav.walkIns")}</Link>
               <ChevronRight size={14} strokeWidth={STROKE} aria-hidden="true" />
               <span>{city}</span>
             </nav>
           )}
-          <h1 className="h-1 one-line">{city ? t("browse.titleCity", { city }) : t("browse.title")}</h1>
-          <p className="lede" style={{ marginTop: 12 }}>{city ? t("browse.ledeCity", { city }) : t("browse.lede")}</p>
+          <h1 className="h-1 one-line">{city ? t("browse.cityTitle", { city }) : t("browse.title", { today_count: todayCount, upcoming_count: upcomingCount })}</h1>
+          <p className="lede" style={{ marginTop: 12 }}>{city ? t("browse.cityIntro", { city, count: companiesThisMonth }) : t("browse.lede")}</p>
           <form className="search" role="search" onSubmit={submitQ} style={{ maxWidth: 640, marginTop: 24 }}>
             <Search size={20} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", flexShrink: 0 }} />
-            <label htmlFor="browse-q" className="sr-only">{t("home.searchPlaceholder")}</label>
-            <input id="browse-q" value={qDraft} onChange={(e) => setQDraft(e.target.value)} placeholder={t("home.searchPlaceholder")} autoComplete="off" />
-            {qDraft && <button type="button" className="btn btn-ghost btn-icon" aria-label="Clear search" onClick={() => { setQDraft(""); set({ q: "" }); }}><X size={18} strokeWidth={STROKE} /></button>}
-            <button type="submit" className="btn btn-primary">{t("home.search")}</button>
+            <label htmlFor="browse-q" className="sr-only">{t("home.hero.searchPlaceholder")}</label>
+            <input id="browse-q" value={qDraft} onChange={(e) => setQDraft(e.target.value)} placeholder={t("home.hero.searchPlaceholder")} autoComplete="off" />
+            {qDraft && <button type="button" className="btn btn-ghost btn-icon" aria-label={t("buttons.clear")} onClick={() => { setQDraft(""); set({ q: "" }); }}><X size={18} strokeWidth={STROKE} /></button>}
+            <button type="submit" className="btn btn-primary">{t("home.hero.search")}</button>
           </form>
         </div>
       </section>
@@ -158,11 +182,19 @@ function Browse({ city }) {
           </aside>
           <div className="stack gap-16">
             <div className="row between gap-12" style={{ flexWrap: "wrap" }}>
-              <p className="small" style={{ margin: 0, color: "var(--ink-2)" }}>
-                <b className="mono" style={{ color: "var(--ink)" }}>{open.length}</b> {open.length === 1 ? "drive" : "drives"}
-                {liveCount > 0 && <> · <span className="row gap-6" style={{ display: "inline-flex" }}><LiveDot /> <b className="mono">{liveCount}</b> live now</span></>}
+              <p className="small" style={{ margin: 0, color: "var(--ink-2)" }} aria-live="polite">
+                {open.length
+                  ? t("browse.results", { from: (pageNo - 1) * PAGE_SIZE + 1, to: (pageNo - 1) * PAGE_SIZE + shown.length, total: open.length })
+                  : t("browse.resultsNone")}
               </p>
-              <div className="row gap-8">
+              <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+                <button type="button" className="chip" aria-pressed={f.saved} onClick={() => set({ saved: f.saved ? "" : "1" })}>
+                  {saved.ids.length ? t("browse.savedCount", { n: saved.ids.length }) : t("browse.saved")}
+                </button>
+                <label className="sr-only" htmlFor="browse-sort">{t("browse.sort")}</label>
+                <select id="browse-sort" className="select" style={{ width: "auto", minHeight: 36 }} value={sort} onChange={(e) => set({ sort: e.target.value })}>
+                  {SORT_KEYS.map((k) => <option key={k} value={k}>{t(`browse.sorts.${k}`)}</option>)}
+                </select>
                 {activeCount > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={clear}>{t("browse.clear")}</button>}
                 <button type="button" className="btn btn-secondary btn-sm show-filters" onClick={() => setSheet(true)}>
                   <SlidersHorizontal size={16} strokeWidth={STROKE} aria-hidden="true" /> {t("browse.filters")}{activeCount ? ` · ${activeCount}` : ""}
@@ -170,13 +202,21 @@ function Browse({ city }) {
               </div>
             </div>
             {loading ? (
-              <div className="cards-2">{Array.from({ length: 4 }, (_, i) => <CardSkeleton key={i} />)}</div>
-            ) : open.length ? (
-              <div className="cards-2">{open.map((d) => <DriveCard key={d.id} drive={d} saved={saved} />)}</div>
+              <div className="cards-2" aria-label={t("browse.loading")}>{Array.from({ length: 4 }, (_, i) => <CardSkeleton key={i} />)}</div>
+            ) : shown.length ? (
+              <div className="cards-2">{shown.map((d) => <DriveCard key={d.id} drive={d} saved={saved} />)}</div>
             ) : (
-              <EmptyState title={t("browse.empty.t")} body={t("browse.empty.d")} action={<Btn variant="secondary" onClick={clear}>{t("browse.empty.cta")}</Btn>} />
+              <EmptyState title={t(`empty.${empty}.t`, { city })} body={t(`empty.${empty}.d`)}
+                action={<Btn variant="secondary" onClick={empty === "noResults" ? clear : () => nav("/walk-ins")}>{t(`empty.${empty}.cta`)}</Btn>} />
             )}
-            {ended.length > 0 && (
+            {pages > 1 && (
+              <nav className="row between gap-12" aria-label={t("browse.page", { n: pageNo, total: pages })}>
+                <Btn variant="secondary" size="sm" icon={ChevronLeft} disabled={pageNo <= 1} onClick={() => { set({ page: pageNo - 1 }); window.scrollTo(0, 0); }}>{t("browse.prev")}</Btn>
+                <span className="small muted">{t("browse.page", { n: pageNo, total: pages })}</span>
+                <Btn variant="secondary" size="sm" iconRight={ChevronRight} disabled={pageNo >= pages} onClick={() => { set({ page: pageNo + 1 }); window.scrollTo(0, 0); }}>{t("browse.next")}</Btn>
+              </nav>
+            )}
+            {ended.length > 0 && !f.saved && (
               <div style={{ marginTop: 40 }}>
                 <h2 className="h-3" style={{ marginBottom: 16 }}>{t("browse.ended")}</h2>
                 <div className="cards-2" style={{ opacity: 0.85 }}>{ended.map((d) => <DriveCard key={d.id} drive={d} />)}</div>
@@ -184,7 +224,7 @@ function Browse({ city }) {
             )}
             {!city && (
               <div style={{ marginTop: 40 }}>
-                <h2 className="h-3" style={{ marginBottom: 12 }}>Walk-ins by city</h2>
+                <h2 className="h-3" style={{ marginBottom: 12 }}>{t("browse.byCity")}</h2>
                 <div className="wrap-row gap-8">
                   {[...new Set(pool.map((d) => d.city))].sort().map((c) => <Link key={c} to={cityPath(c)} className="chip">{c}</Link>)}
                 </div>
@@ -198,7 +238,7 @@ function Browse({ city }) {
           <div>
             <div className="row between" style={{ marginBottom: 18 }}>
               <h2 className="h-3">{t("browse.filters")}</h2>
-              <button type="button" className="btn btn-ghost btn-icon" aria-label="Close filters" onClick={() => setSheet(false)}><X size={22} strokeWidth={STROKE} /></button>
+              <button type="button" className="btn btn-ghost btn-icon" aria-label={t("browse.closeFilters")} onClick={() => setSheet(false)}><X size={22} strokeWidth={STROKE} /></button>
             </div>
             <Filters open pool={pool} f={f} set={set} cityLocked={!!city} now={now} />
             <div className="row gap-8" style={{ marginTop: 24, position: "sticky", bottom: 0 }}>
@@ -212,13 +252,15 @@ function Browse({ city }) {
   );
 }
 
+const key0 = (patch) => Object.keys(patch)[0];
+
 function jobPosting(d) {
   const { end, close } = driveSchedule(d);
   const ld = {
     "@context": "https://schema.org",
     "@type": "JobPosting",
     title: d.role,
-    description: d.jd || `${d.company} is hiring a ${d.role} in ${d.city}.`,
+    description: d.jd || d.role,
     datePosted: d.date,
     validThrough: `${end}T${fromMinutes(close)}:00+05:30`,
     employmentType: "FULL_TIME",
@@ -254,35 +296,36 @@ function Detail({ drive }) {
   const live = status === "live";
   const ended = status === "wrapped";
   const q = queueStats(drive);
-  const pay = payLabel(drive);
+  const pay = payText(drive);
   const isSaved = saved.has(drive.id);
   const similar = useMemo(() => sortForBoard(publicDrives(drives).filter((d) => d.city === drive.city && d.id !== drive.id && driveStatus(d) !== "wrapped")).slice(0, 3), [drives, drive]);
+  const closedLine = t("detail.closed", { date: shortDate(drive.date), time: clock(fromMinutes(driveSchedule(drive).open)) });
 
   useMeta({
-    title: `${drive.role} walk-in at ${drive.company}, ${drive.area ? `${drive.area}, ` : ""}${drive.city}`,
-    description: `${drive.company} walk-in for ${drive.role} in ${drive.city} on ${datesLabel(drive)}, ${hoursLabel(drive)}.${pay ? ` Pay ${pay}.` : ""} Get a digital token and see your place in the queue.`,
+    title: t("detail.meta.title", { role: drive.role, company: drive.company, place: venueLine(drive) }),
+    description: t("detail.meta.description", { company: drive.company, role: drive.role, city: drive.city, dates: datesLabel(drive), hours: hoursLabel(drive) }),
     jsonLd: jobPosting(drive),
   });
 
+  const toggleSave = () => { toast(t(isSaved ? "toast.unsaved" : "toast.saved")); saved.toggle(drive.id); };
   const share = async () => {
     const url = window.location.href;
     try {
-      if (navigator.share) await navigator.share({ title: `${drive.role} · ${drive.company}`, url });
-      else { await navigator.clipboard.writeText(url); toast(t("detail.copied")); }
+      if (navigator.share) await navigator.share({ title: t("detail.sticky", { company: drive.company, role: drive.role }), url });
+      else { await navigator.clipboard.writeText(url); toast(t("toast.copied")); }
     } catch { /* dismissed */ }
   };
+  const saveBtn = (props) => <Btn variant="secondary" icon={isSaved ? BookmarkCheck : Bookmark} aria-pressed={isSaved} onClick={toggleSave} {...props}>{isSaved ? t("buttons.saved") : t("buttons.save")}</Btn>;
   const primary = live
-    ? <Btn size="lg" block onClick={() => nav(joinPath(drive))}>{t("detail.getToken")}</Btn>
-    : !ended
-      ? <Btn size="lg" block variant="secondary" icon={isSaved ? BookmarkCheck : Bookmark} aria-pressed={isSaved} onClick={() => saved.toggle(drive.id)}>{isSaved ? t("detail.saved") : t("detail.save")}</Btn>
-      : null;
+    ? <Btn size="lg" block onClick={() => nav(joinPath(drive))}>{t("buttons.getToken")}</Btn>
+    : !ended ? saveBtn({ size: "lg", block: true }) : null;
 
   const rounds = drive.rounds || [];
   const docs = drive.docs || [];
   return (
     <div className="has-sticky-cta">
       <div className="wrap" style={{ padding: "28px 24px 0" }}>
-        <nav aria-label="Breadcrumb" className="small muted row gap-6" style={{ flexWrap: "wrap" }}>
+        <nav aria-label={t("browse.breadcrumb")} className="small muted row gap-6" style={{ flexWrap: "wrap" }}>
           <Link to="/walk-ins" className="link" style={{ fontWeight: 600 }}>{t("nav.walkIns")}</Link>
           <ChevronRight size={14} strokeWidth={STROKE} aria-hidden="true" />
           {drive.city && <><Link to={cityPath(drive.city)} className="link" style={{ fontWeight: 600 }}>{drive.city}</Link><ChevronRight size={14} strokeWidth={STROKE} aria-hidden="true" /></>}
@@ -299,7 +342,8 @@ function Detail({ drive }) {
               <WhenChip drive={drive} />
               <span className="tag">{expLabel(drive)}</span>
               {drive.roleType && <span className="tag">{drive.roleType}</span>}
-              {drive.openings ? <span className="tag">{drive.openings} openings</span> : null}
+              {drive.openings ? <span className="tag">{t("detail.openings", { n: drive.openings })}</span> : null}
+              {drive.board && <span className="tag" title={t("card.demoHint")}>{t("card.demo")}</span>}
             </div>
           </div>
         </div>
@@ -311,30 +355,27 @@ function Detail({ drive }) {
               <p className="body" style={{ maxWidth: "68ch" }}>{drive.jd}</p>
             </Section>
             <div className="cards-2">
-              <Section icon={CalendarDays} title={t("detail.timing")}>
-                <p className="strong" style={{ margin: 0 }}>{datesLabel(drive)}</p>
-                <p className="body muted" style={{ marginTop: 4 }}>{hoursLabel(drive)}</p>
-                <p className="small muted" style={{ marginTop: 12 }}>{live ? "Open now. Tokens are being given out." : ended ? t("detail.ended") : t("detail.notOpen")}</p>
+              <Section icon={CalendarDays} title={t("detail.when")}>
+                <p className="strong" style={{ margin: 0 }}>{whenText(drive)}</p>
+                <p className="body" style={{ marginTop: 12, marginBottom: 0 }}>{drive.venue}</p>
+                <p className="body muted" style={{ marginTop: 4 }}>{venueLine(drive)}</p>
+                {drive.landmark && <p className="small row gap-8" style={{ marginTop: 8, alignItems: "flex-start" }}><Landmark size={16} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", marginTop: 2, flexShrink: 0 }} /><span><span className="muted">{t("detail.landmark")}:</span> {drive.landmark}</span></p>}
+                <div style={{ marginTop: 14 }}><Btn href={mapsUrl(drive)} target="_blank" rel="noreferrer" variant="secondary" size="sm" iconRight={ExternalLink}>{t("detail.map")}</Btn></div>
               </Section>
-              <Section icon={IndianRupee} title={t("detail.salary")}>
-                <p className="strong" style={{ margin: 0, fontSize: 20 }}>{pay || "Discussed at the interview"}</p>
+              <Section icon={IndianRupee} title={t("detail.pay")}>
+                <p className="strong" style={{ margin: 0, fontSize: 18 }}>{pay || t("detail.payTbd")}</p>
                 <p className="body muted" style={{ marginTop: 4 }}>{t("detail.experience")}: {expLabel(drive)}</p>
-                {drive.openings ? <p className="small muted" style={{ marginTop: 12 }}>{drive.openings} {t("detail.openings").toLowerCase()}</p> : null}
+                {drive.openings ? <p className="small muted" style={{ marginTop: 12 }}>{t("detail.openings", { n: drive.openings })}</p> : null}
               </Section>
             </div>
-            <Section icon={MapPin} title={t("detail.venue")}>
-              <p className="strong" style={{ margin: 0 }}>{drive.venue}</p>
-              <p className="body muted" style={{ marginTop: 4 }}>{venueLine(drive)}</p>
-              {drive.landmark && <p className="body row gap-8" style={{ marginTop: 12, alignItems: "flex-start" }}><Landmark size={18} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", marginTop: 3, flexShrink: 0 }} /><span><span className="muted">{t("detail.landmark")}:</span> {drive.landmark}</span></p>}
-              <div style={{ marginTop: 16 }}><Btn href={mapsUrl(drive)} target="_blank" rel="noreferrer" variant="secondary" size="sm" iconRight={ExternalLink}>{t("detail.map")}</Btn></div>
-            </Section>
             {docs.length > 0 && (
-              <Section icon={Check} title={t("detail.documents")}>
+              <Section icon={Check} title={t("detail.carry")}>
                 <ul className="checklist">{docs.map((d) => <li key={d}><Check size={18} strokeWidth={2.25} aria-hidden="true" />{d}</li>)}</ul>
               </Section>
             )}
             {rounds.length > 0 && (
-              <Section icon={ListOrdered} title={t("detail.rounds")}>
+              <Section icon={ListOrdered} title={t("detail.day")}>
+                <p className="small muted" style={{ marginTop: 0 }}>{rounds.length === 1 ? t("detail.dayOne") : t("detail.dayRounds", { n: rounds.length })}</p>
                 <div className="rounds">
                   {rounds.map((r, i) => (
                     <span key={r.id} className="row gap-8">
@@ -345,24 +386,30 @@ function Detail({ drive }) {
                 </div>
               </Section>
             )}
+            <Section icon={Lightbulb} title={t("detail.before.title")}>
+              <ol className="stack gap-8" style={{ margin: 0, paddingLeft: 20 }}>
+                {tl("detail.before.tips").map((tip) => <li key={tip} className="body">{tip}</li>)}
+              </ol>
+            </Section>
           </div>
           <aside className="detail-aside">
             <div className="card card-pad stack gap-16">
-              {pay && <div><p className="tiny muted" style={{ margin: 0, fontWeight: 600 }}>{t("detail.salary")}</p><p className="h-2 nowrap" style={{ marginTop: 4, fontSize: 28 }}>{pay}</p></div>}
+              {pay && <p className="h-3" style={{ margin: 0 }}>{pay}</p>}
               <div className="row gap-8"><WhenChip drive={drive} /><span className="small muted">{hoursLabel(drive)}</span></div>
               {live && (
                 <div className="panel" style={{ padding: 16 }}>
                   <p className="tiny muted" style={{ margin: 0, fontWeight: 600 }}>{t("detail.queueNow")}</p>
                   <div className="row gap-16" style={{ marginTop: 8 }}>
-                    <div><span className="mono strong" style={{ fontSize: 28, fontWeight: 800 }}>{q.waiting}</span><span className="small muted"> in queue</span></div>
+                    <div><span className="mono strong" style={{ fontSize: 28, fontWeight: 800 }}>{q.waiting}</span><span className="small muted"> {t("detail.inQueue")}</span></div>
                     <div className="small muted row gap-6"><Clock size={16} strokeWidth={STROKE} aria-hidden="true" />{waitLabel(q.estMin)}</div>
                   </div>
                 </div>
               )}
               {primary}
-              {!live && !ended && <p className="small muted" style={{ margin: 0 }}>{t("detail.notOpen")}</p>}
-              {ended && <p className="small muted" style={{ margin: 0 }}>{t("detail.ended")}</p>}
-              <Btn variant="ghost" size="sm" icon={Share2} onClick={share}>{t("detail.share")}</Btn>
+              {live && <p className="small muted" style={{ margin: 0 }}>{t("detail.live")}</p>}
+              {!live && !ended && <p className="small muted" style={{ margin: 0 }}>{closedLine}</p>}
+              {ended && <p className="small muted" style={{ margin: 0 }}><Link to={cityPath(drive.city)} className="link">{t("detail.ended", { city: drive.city })}</Link></p>}
+              <Btn variant="ghost" size="sm" icon={Share2} onClick={share}>{t("buttons.share")}</Btn>
             </div>
           </aside>
         </div>
@@ -370,20 +417,19 @@ function Detail({ drive }) {
           <section style={{ marginTop: 64 }}>
             <div className="row between" style={{ marginBottom: 20 }}>
               <h2 className="h-2">{t("detail.similar", { city: drive.city })}</h2>
-              <Link to={cityPath(drive.city)} className="link hide-mobile">See all</Link>
+              <Link to={cityPath(drive.city)} className="link hide-mobile">{t("detail.seeAll")}</Link>
             </div>
             <div className="cards-3">{similar.map((d) => <DriveCard key={d.id} drive={d} saved={saved} />)}</div>
           </section>
         )}
       </div>
-      {(live || !ended) && (
+      {!ended && (
         <div className="sticky-cta">
-          <div className="grow">
-            <p className="strong small" style={{ margin: 0 }}>{pay || drive.company}</p>
-            {live ? <QueueLine drive={drive} /> : <p className="tiny muted" style={{ margin: 0 }}>{driveWhen(drive).label} · {hoursLabel(drive)}</p>}
+          <div className="grow" style={{ minWidth: 0 }}>
+            <p className="strong small clamp-1" style={{ margin: 0 }}>{t("detail.sticky", { company: drive.company, role: drive.role })}</p>
+            {live ? <QueueLine drive={drive} /> : <p className="tiny muted" style={{ margin: 0 }}>{whenText(drive)}</p>}
           </div>
-          {live ? <Btn onClick={() => nav(joinPath(drive))}>{t("detail.getToken")}</Btn>
-            : <Btn variant="secondary" icon={isSaved ? BookmarkCheck : Bookmark} aria-pressed={isSaved} onClick={() => saved.toggle(drive.id)}>{isSaved ? t("detail.saved") : t("card.save")}</Btn>}
+          {live ? <Btn onClick={() => nav(joinPath(drive))}>{t("buttons.getToken")}</Btn> : saveBtn({})}
         </div>
       )}
     </div>
@@ -391,7 +437,7 @@ function Detail({ drive }) {
 }
 
 function NotFound() {
-  useMeta({ title: "Drive not found" });
+  useMeta({ title: t("detail.notFound.t") });
   return (
     <div className="wrap" style={{ padding: "80px 24px" }}>
       <EmptyState title={t("detail.notFound.t")} body={t("detail.notFound.d")} action={<Btn to="/walk-ins" icon={ArrowLeft}>{t("detail.notFound.cta")}</Btn>} />
@@ -410,4 +456,3 @@ export default function WalkInsPage() {
   if (!hydrated) return <div className="wrap" style={{ padding: "48px 24px" }}><div className="cards-2"><CardSkeleton /><CardSkeleton /></div></div>;
   return <NotFound />;
 }
-

@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bookmark, BookmarkCheck, CalendarDays, CircleAlert, CircleCheck, Clock, IndianRupee, MapPin, SearchX } from "lucide-react";
-import { driveStatus, driveWhen, hoursLabel, datesLabel } from "../lib/status.js";
-import { drivePath, expLabel, monogram, payLabel, queueStats, venueLine, waitLabel } from "../lib/listing.js";
+import { driveStatus, driveWhen, hoursLabel, datesLabel, shortDate } from "../lib/status.js";
+import { drivePath, expLabel, isFresherFriendly, monogram, payText, queueStats, venueLine, waitLabel } from "../lib/listing.js";
 import { t } from "../i18n/strings.js";
 
 export const STROKE = 1.75;
@@ -175,18 +175,24 @@ export function QueueLine({ drive }) {
     <span className="row gap-10" style={{ gap: 10 }}>
       <LiveDot />
       <span className="stack" style={{ lineHeight: 1.3 }}>
-        <b className="small" style={{ color: "var(--ink)" }}><span className="mono">{q.waiting}</span> in queue</b>
+        <b className="small" style={{ color: "var(--ink)" }}>{t("card.inQueue", { n: q.waiting })}</b>
         <span className="tiny muted">{t("card.wait", { w: waitLabel(q.estMin) })}</span>
       </span>
     </span>
   );
 }
 
+/** "Today, 10:00 AM to 4:00 PM" or "12 Oct, 10:00 AM to 4:00 PM". */
+export function whenText(drive) {
+  const w = driveWhen(drive);
+  return t("time.when", { day: w.key === "today" || w.key === "tomorrow" ? w.label : datesLabel(drive), hours: hoursLabel(drive) });
+}
+
 export function DriveCard({ drive, saved }) {
   const nav = useNavigate();
   const live = driveStatus(drive) === "live";
   const ended = driveStatus(drive) === "wrapped";
-  const pay = payLabel(drive);
+  const pay = payText(drive);
   const isSaved = saved?.has(drive.id);
   return (
     <article className="card card-lift wcard" style={{ position: "relative" }}>
@@ -201,23 +207,24 @@ export function DriveCard({ drive, saved }) {
       </div>
       <div className="wrap-row gap-6">
         <WhenChip drive={drive} />
-        <span className="tag">{expLabel(drive)}</span>
+        {isFresherFriendly(drive) ? <span className="tag">{t("card.fresher")}</span> : <span className="tag">{expLabel(drive)}</span>}
         {drive.roleType && <span className="tag hide-mobile">{drive.roleType}</span>}
+        {drive.board && <span className="tag" title={t("card.demoHint")}>{t("card.demo")}</span>}
       </div>
       <div className="wcard-meta">
         <MapPin size={16} strokeWidth={STROKE} aria-hidden="true" /><span>{venueLine(drive)}</span>
-        <CalendarDays size={16} strokeWidth={STROKE} aria-hidden="true" /><span>{datesLabel(drive)} · {hoursLabel(drive)}</span>
+        <CalendarDays size={16} strokeWidth={STROKE} aria-hidden="true" /><span>{whenText(drive)}</span>
         {pay && <><IndianRupee size={16} strokeWidth={STROKE} aria-hidden="true" /><span className="strong" style={{ fontWeight: 600 }}>{pay}</span></>}
       </div>
       <div className="wcard-foot">
         <div className="grow">
-          {live ? <QueueLine drive={drive} /> : <span className="small muted row gap-8"><Clock size={15} strokeWidth={STROKE} aria-hidden="true" />{ended ? t("detail.ended") : t("detail.notOpen")}</span>}
+          {live ? <QueueLine drive={drive} /> : <span className="small muted row gap-8"><Clock size={15} strokeWidth={STROKE} aria-hidden="true" />{ended ? t("card.ended") : t("card.opensLater", { when: shortDate(drive.date) })}</span>}
         </div>
         {live ? (
-          <Btn size="sm" onClick={() => nav(joinPath(drive))} style={{ position: "relative", zIndex: 1 }}>{t("card.getToken")}</Btn>
+          <Btn size="sm" onClick={() => nav(joinPath(drive))} style={{ position: "relative", zIndex: 1 }}>{t("buttons.getToken")}</Btn>
         ) : !ended && saved ? (
           <Btn size="sm" variant="secondary" icon={isSaved ? BookmarkCheck : Bookmark} aria-pressed={isSaved} onClick={() => saved.toggle(drive.id)} style={{ position: "relative", zIndex: 1 }}>
-            {isSaved ? t("card.saved") : t("card.save")}
+            {isSaved ? t("buttons.saved") : t("buttons.save")}
           </Btn>
         ) : null}
       </div>

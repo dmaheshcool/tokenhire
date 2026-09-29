@@ -39,5 +39,5 @@ test("some drives are live at any hour, and none in the past are", () => {
 
 test("pay is shown per month", () => {
   const list = seedBoardDrives(tenAm);
-  assert.ok(list.every((d) => /^₹[\d.]+–[\d.]+k\/month$/.test(payLabel(d))));
+  assert.ok(list.every((d) => /^₹[\d,]+ to ₹[\d,]+$/.test(payLabel(d))));
 });

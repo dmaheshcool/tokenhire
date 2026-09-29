@@ -192,6 +192,7 @@ export function addPilot(body = {}) {
     phone: clip(body.phone, 20).replace(/[^\d+ ]/g, ""),
     city: clip(body.city, 60),
     size: clip(body.size, 20),
+    roles: clip(body.roles, 200),
     date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date || "")) ? body.date : "",
     notes: String(body.notes ?? "").trim().slice(0, 1000),
   };

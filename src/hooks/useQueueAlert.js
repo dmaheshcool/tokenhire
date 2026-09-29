@@ -34,7 +34,9 @@ export function armAudio() {
   }
 }
 
-/** Sound + vibration when the candidate becomes next or is called. Needs a tap to unlock audio. */
+const ALMOST = 5;
+
+/** Sound + vibration at about 5 ahead, at next, and when called. Needs a tap to unlock audio. */
 export function useQueueAlert({ state, ahead }) {
   const [armed, setArmed] = useState(false);
   const prev = useRef(null);
@@ -51,8 +53,9 @@ export function useQueueAlert({ state, ahead }) {
     if (!last || last === key) return;
     const [lastState, lastAhead] = last.split(":");
     const becameNext = state === "wait" && ahead === 0 && lastState === "wait" && Number(lastAhead) > 0;
+    const nearlyUp = state === "wait" && ahead > 0 && ahead <= ALMOST && lastState === "wait" && Number(lastAhead) > ALMOST;
     const called = state === "calling" && lastState !== "calling";
-    if (!becameNext && !called) return;
+    if (!becameNext && !nearlyUp && !called) return;
     try { navigator.vibrate?.([180, 70, 180, 70, 240]); } catch { /* ignore */ }
     if (armed) beep();
   }, [state, ahead, armed]);

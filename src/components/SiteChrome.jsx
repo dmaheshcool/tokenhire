@@ -3,10 +3,9 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { TokenMark } from "./brand.jsx";
 import { Btn, STROKE } from "./ds.jsx";
-import { t } from "../i18n/strings.js";
-import { HERO_CITIES, cityPath } from "../lib/listing.js";
+import { t, tl } from "../i18n/strings.js";
+import { cityPath } from "../lib/listing.js";
 import { readSession } from "../lib/api.js";
-import { HIDE_PRICING } from "../lib/flags.js";
 
 export const NAV_LINKS = [
   { to: "/walk-ins", label: t("nav.walkIns") },
@@ -43,7 +42,7 @@ export function SiteNav() {
   return (
     <header className="site-nav">
       <div className="wrap site-nav-inner">
-        <Link to="/" aria-label="TokenHire home" style={{ textDecoration: "none" }}><Logo /></Link>
+        <Link to="/" aria-label={t("nav.home")} style={{ textDecoration: "none" }}><Logo /></Link>
         <nav className="site-nav-links" aria-label="Main">
           {NAV_LINKS.map((l) => (
             <NavLink key={l.to} to={l.to} aria-current={undefined} className={({ isActive }) => (isActive ? "active" : "")}
@@ -74,10 +73,11 @@ export function SiteNav() {
 }
 
 export function SiteFooter() {
+  const email = t("footer.email");
   const col = (title, links) => (
     <div>
       <h3>{title}</h3>
-      {links.map(([label, to]) => <Link key={label} to={to}>{label}</Link>)}
+      {links.map(([label, to]) => (to.startsWith("mailto:") ? <a key={label} href={to}>{label}</a> : <Link key={label} to={to}>{label}</Link>))}
     </div>
   );
   return (
@@ -86,23 +86,21 @@ export function SiteFooter() {
         <div className="site-foot-grid">
           <div className="stack gap-12">
             <Logo size={28} />
-            <p className="small muted" style={{ margin: 0, maxWidth: 300 }}>{t("footer.blurb")}</p>
+            <p className="small muted" style={{ margin: 0, maxWidth: 300 }}>{t("tagline")}</p>
           </div>
-          {col(t("footer.candidates"), [[t("footer.browse"), "/walk-ins"], [t("footer.how"), "/how-it-works"], [t("footer.guides"), "/guides"]])}
-          {col(t("footer.companies"), [
-            [t("footer.runDrive"), "/for-companies"],
-            ...(HIDE_PRICING ? [] : [[t("footer.pricing"), "/for-companies#pricing"]]),
-            [t("footer.contact"), "/for-companies#pilot"],
+          {col(t("footer.findWalkIn"), tl("footer.cities").map((c) => [c, cityPath(c)]))}
+          {col(t("footer.forCandidates"), [[t("footer.browse"), "/walk-ins"], [t("footer.getToken"), "/app/join"], [t("footer.how"), "/how-it-works"], [t("footer.guides"), "/guides"]])}
+          {col(t("footer.forCompanies"), [
+            [t("footer.createDrive"), createDrivePath()],
+            [t("footer.howCompanies"), "/how-it-works?tab=companies"],
+            [t("footer.bookPilot"), "/for-companies#pilot"],
             [t("footer.signIn"), "/login"],
           ])}
-          {col(t("footer.cities"), HERO_CITIES.map((c) => [c, cityPath(c)]))}
+          {col(t("footer.company"), [[t("footer.privacy"), "/privacy"], [t("footer.terms"), "/terms"], [email, `mailto:${email}`]])}
         </div>
         <div className="row between wrap-row gap-12" style={{ borderTop: "1px solid var(--line)", padding: "20px 0 28px" }}>
-          <span className="small muted">© {new Date().getFullYear()} {t("footer.rights")}</span>
-          <span className="row gap-16">
-            <Link to="/privacy" className="small muted" style={{ padding: 0 }}>{t("footer.privacy")}</Link>
-            <Link to="/terms" className="small muted" style={{ padding: 0 }}>{t("footer.terms")}</Link>
-          </span>
+          <span className="small muted">{t("footer.line")}</span>
+          <span className="small muted">{t("footer.copyright", { year: new Date().getFullYear() })}</span>
         </div>
       </div>
     </footer>

@@ -9,6 +9,7 @@ import { KeepTokenLink } from "../../components/KeepTokenLink.jsx";
 import { useQueueAlert } from "../../hooks/useQueueAlert.js";
 import { rememberTicket, readTickets } from "../../lib/api.js";
 import { gateCodeFrom, startQrScan } from "../../lib/scanner.js";
+import { t } from "../../i18n/strings.js";
 import { DEFAULT_ROUNDS, boundToday, code, driveStatus, currentServingToken, dupOf, hallChrome, inARound, isTerminal, joinBlockedReason, listingHost, liveDesk, livePass, listingPlace, queueAhead, resumeName, readResumeFile, roomName, roundLabel, scanEnabled, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
 
 export function Candidate({ store, back }) {
@@ -102,17 +103,17 @@ export function Candidate({ store, back }) {
     setParams({}, { replace: true });
   }, [drives, profile, scannedGate, scannedDesk]);
 
-  // "Get my token" on a listing lands here as ?drive=<id>. That books a place before
-  // the person reaches the venue; the lobby scan later marks them as arrived.
+  // "Get my token" on a listing lands here as ?drive=<id>. Tokens are only given at the
+  // venue, so this opens the drive and still asks for the code on the lobby display.
   useEffect(() => {
     if (autoRef.current || !profile || !wantedDrive) return;
     const hit = drives.find((d) => d.id === wantedDrive);
     if (!hit) return;
     autoRef.current = true;
     setParams({}, { replace: true });
-    if (driveStatus(hit) !== "live") { setJoinErr("This walk-in is not giving out tokens right now."); setTab("join"); return; }
+    if (driveStatus(hit) !== "live") { setJoinErr(t("empty.checkinClosed")); setTab("join"); return; }
     setTab("join");
-    handleMatch(hit, "remote");
+    handleMatch(hit, "gate");
   }, [drives, profile, wantedDrive]);
 
   function tryProve(codeStr) {

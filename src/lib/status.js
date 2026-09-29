@@ -1,3 +1,5 @@
+import { t } from "../i18n/strings.js";
+
 // Drive times are entered and shown in India Standard Time, whatever the viewer's clock says.
 export const IST_OFFSET_MIN = 330;
 export const DEFAULT_START = "09:00";
@@ -76,15 +78,15 @@ export function isWrapped(drive, now = Date.now()) { return driveStatus(drive, n
 /** How a candidate sees the date: today, tomorrow, this week, ended, or the date itself. */
 export function driveWhen(drive, now = Date.now()) {
   const status = driveStatus(drive, now);
-  if (status === "wrapped") return { key: "ended", label: "Ended" };
-  if (status === "live") return { key: "today", label: "Today" };
+  if (status === "wrapped") return { key: "ended", label: t("status.ended") };
+  if (status === "live") return { key: "today", label: t("status.today") };
   const { start, end } = driveSchedule(drive);
-  if (!ISO_DATE.test(start)) return { key: "later", label: "Date to be set" };
+  if (!ISO_DATE.test(start)) return { key: "later", label: t("status.dateTbd") };
   const today = istNow(now).date;
-  if (start <= today && today <= end) return { key: "today", label: "Today" };
+  if (start <= today && today <= end) return { key: "today", label: t("status.today") };
   const ahead = daysBetween(today, start);
-  if (ahead === 1) return { key: "tomorrow", label: "Tomorrow" };
-  if (ahead > 1 && ahead < 7) return { key: "week", label: "This week" };
+  if (ahead === 1) return { key: "tomorrow", label: t("status.tomorrow") };
+  if (ahead > 1 && ahead < 7) return { key: "week", label: t("status.week") };
   return { key: "later", label: shortDate(start) };
 }
 
@@ -97,14 +99,13 @@ export function clock(hhmm) {
   const m = toMinutes(hhmm, null);
   if (m == null) return "";
   const h = Math.floor(m / 60), min = m % 60;
-  const suffix = h < 12 ? "am" : "pm";
-  const h12 = h % 12 || 12;
-  return min ? `${h12}:${String(min).padStart(2, "0")} ${suffix}` : `${h12} ${suffix}`;
+  const suffix = t(h < 12 ? "time.am" : "time.pm");
+  return `${h % 12 || 12}:${String(min).padStart(2, "0")} ${suffix}`;
 }
 
 export function hoursLabel(drive) {
   const { open, close } = driveSchedule(drive);
-  return `${clock(fromMinutes(open))} – ${clock(fromMinutes(close))}`;
+  return t("time.range", { from: clock(fromMinutes(open)), to: clock(fromMinutes(close)) });
 }
 
 export function datesLabel(drive) {

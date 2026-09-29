@@ -8,7 +8,6 @@ import { t } from "../../i18n/strings.js";
 
 const IN_ROUND = ["calling", "interviewing"];
 const DONE = ["selected", "rejected", "onhold", "absent"];
-const OUTCOME = { selected: "Shortlisted", rejected: "Not selected", onhold: "On hold", absent: "No-show" };
 const OUTCOME_TONE = { selected: "var(--success)", rejected: "var(--danger)", onhold: "var(--warning)", absent: "var(--ink-3)" };
 
 function elapsed(since) {
@@ -47,10 +46,10 @@ function Card({ c, drive, col, actions, onDragStart, onNotes, deskMode }) {
         <span className="tiny muted mono grow" style={{ textAlign: "right" }}>
           {col === "waiting" && elapsed(c.arrivedAt || c.at)}
           {col === "round" && [c.room?.name, elapsed(c.calledAt)].filter(Boolean).join(" · ")}
-          {col === "done" && (deskMode ? (c.state === "absent" ? OUTCOME.absent : "Done") : <span style={{ color: OUTCOME_TONE[c.state], fontWeight: 600 }}>{OUTCOME[c.state]}</span>)}
+          {col === "done" && (deskMode ? (c.state === "absent" ? t("console.queue.labels.absent") : t("console.queue.cols.done")) : <span style={{ color: OUTCOME_TONE[c.state], fontWeight: 600 }}>{t(`console.queue.labels.${c.state}`)}</span>)}
         </span>
         {!deskMode && (
-          <button type="button" className="btn btn-ghost btn-sm btn-icon" style={{ width: 30, height: 30, minHeight: 30 }} onClick={() => onNotes(c)} aria-label={`Notes for ${c.name}`} title="Notes">
+          <button type="button" className="btn btn-ghost btn-sm btn-icon" style={{ width: 30, height: 30, minHeight: 30 }} onClick={() => onNotes(c)} aria-label={`${t("console.queue.notes")}: ${c.name}`} title={t("console.queue.notes")}>
             <NotebookPen size={15} strokeWidth={STROKE} />
           </button>
         )}
@@ -58,7 +57,7 @@ function Card({ c, drive, col, actions, onDragStart, onNotes, deskMode }) {
       <div>
         <p className="strong" style={{ margin: 0 }}>{c.name}</p>
         <p className="tiny muted" style={{ margin: "2px 0 0" }}>
-          {col === "round" ? (c.state === "calling" ? "Called, walking over" : "In interview") : round?.name || "Round 1"}
+          {col === "round" ? t(c.state === "calling" ? "console.queue.walking" : "console.queue.interviewing") : round?.name || t("console.form.roundN", { n: 1 })}
           {c.expBand ? ` · ${c.expBand}` : ""}
           {col === "waiting" && c.checkedIn === false && <span className="tag" style={{ marginLeft: 6 }}>{t("console.queue.notArrived")}</span>}
         </p>
@@ -78,13 +77,13 @@ function OutcomeDialog({ cand, rounds, onPick, onClose }) {
         onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
         <div className="row between">
           <h2 id="oc-title" className="h-4">{cand.name} · {tokenNumber(cand.token)}</h2>
-          <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label="Close"><X size={16} /></button>
+          <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label={t("buttons.close")}><X size={16} /></button>
         </div>
         <div className="stack gap-8">
-          <Btn ref={ref} icon={Check} onClick={() => onPick("passed")}>{last ? "Shortlist" : "Pass to next round"}</Btn>
-          <Btn variant="secondary" icon={Pause} onClick={() => onPick("onhold")}>On hold</Btn>
-          <Btn variant="secondary" icon={X} onClick={() => onPick("rejected")}>Not selected</Btn>
-          <Btn variant="ghost" icon={UserX} onClick={() => onPick("absent")}>{t("console.queue.noShow")}</Btn>
+          <Btn ref={ref} icon={Check} onClick={() => onPick("passed")}>{last ? t("console.queue.outcome.shortlist") : t("console.queue.moveTo", { n: (cand.roundIdx || 0) + 2 })}</Btn>
+          <Btn variant="secondary" icon={Pause} onClick={() => onPick("onhold")}>{t("console.queue.outcome.onhold")}</Btn>
+          <Btn variant="secondary" icon={X} onClick={() => onPick("rejected")}>{t("console.queue.outcome.rejected")}</Btn>
+          <Btn variant="ghost" icon={UserX} onClick={() => onPick("absent")}>{t("buttons.noShow")}</Btn>
         </div>
       </div>
     </div>
@@ -121,13 +120,13 @@ export default function QueueBoard({ drive, act, disabled, deskMode }) {
     if (!pick) {
       const free = (drive.rooms || []).filter((r) => (!room || r.id === room) && !occupantOf(drive, r.id));
       const msg = !free.length
-        ? (room ? `${drive.rooms.find((r) => r.id === room)?.name} is busy.` : "Every room is busy. Mark someone done first.")
+        ? (room ? t("console.queue.roomBusy", { room: drive.rooms.find((r) => r.id === room)?.name }) : t("console.queue.allBusy"))
         : t("console.queue.nobody");
       toast(msg, "err");
       return;
     }
     act.callTo(pick.cand.id, pick.room.id);
-    toast(t("console.queue.called", { token: tokenNumber(pick.cand.token), room: pick.room.name }));
+    toast(t("console.queue.called", { token: tokenNumber(pick.cand.token).slice(1), room: pick.room.name }));
   }
   const callNextRef = useRef(callNext);
   callNextRef.current = callNext;
@@ -145,9 +144,9 @@ export default function QueueBoard({ drive, act, disabled, deskMode }) {
 
   function callOne(c) {
     const pick = nextCall({ ...drive, candidates: drive.candidates.map((x) => (x.id === c.id ? x : x.state === "wait" ? { ...x, state: "hold-tmp" } : x)) }, room);
-    if (!pick) { toast("No free room for this round.", "err"); return; }
+    if (!pick) { toast(t("console.queue.noRoom"), "err"); return; }
     act.callTo(c.id, pick.room.id);
-    toast(t("console.queue.called", { token: tokenNumber(c.token), room: pick.room.name }));
+    toast(t("console.queue.called", { token: tokenNumber(c.token).slice(1), room: pick.room.name }));
   }
 
   function outcome(c, o) {
@@ -179,7 +178,7 @@ export default function QueueBoard({ drive, act, disabled, deskMode }) {
         {list.length ? list.slice(0, 60).map((c) => (
           <Card key={c.id} c={c} drive={drive} col={key} onDragStart={startDrag} onNotes={setNotesFor} deskMode={deskMode} actions={disabled ? null : actionsFor(c)} />
         )) : <p className="small muted" style={{ padding: "18px 6px", textAlign: "center" }}>{empty}</p>}
-        {list.length > 60 && <p className="tiny muted" style={{ textAlign: "center" }}>and {list.length - 60} more. Search to find someone.</p>}
+        {list.length > 60 && <p className="tiny muted" style={{ textAlign: "center" }}>{t("console.queue.more", { n: list.length - 60 })}</p>}
       </div>
     </section>
   );
@@ -187,6 +186,13 @@ export default function QueueBoard({ drive, act, disabled, deskMode }) {
   const rooms = drive.rooms || [];
   return (
     <div className="stack gap-16">
+      <p className="small strong" style={{ margin: 0 }} aria-live="polite">
+        {t("console.queue.summary", {
+          waiting: drive.candidates.filter((c) => columnOf(c) === "waiting").length,
+          inside: drive.candidates.filter((c) => columnOf(c) === "round").length,
+          done: drive.candidates.filter((c) => columnOf(c) === "done").length,
+        })}
+      </p>
       <div className="row gap-8 queue-tools">
         <div className="search grow" style={{ minWidth: 200 }}>
           <Search size={17} strokeWidth={STROKE} aria-hidden="true" />
@@ -195,42 +201,45 @@ export default function QueueBoard({ drive, act, disabled, deskMode }) {
         </div>
         <label className="sr-only" htmlFor="qb-room">{t("console.queue.room")}</label>
         <select id="qb-room" className="select" style={{ width: "auto", minWidth: 180 }} value={room} onChange={(e) => setRoom(e.target.value)}>
-          <option value="">Any free room</option>
+          <option value="">{t("console.queue.anyRoom")}</option>
           {rooms.map((r) => {
             const busy = occupantOf(drive, r.id);
             const ri = roundIndexOfRoom(drive.rounds, r);
-            return <option key={r.id} value={r.id}>{r.name}{ri >= 0 ? ` · ${drive.rounds[ri].name}` : ""}{busy ? " (busy)" : ""}</option>;
+            return <option key={r.id} value={r.id}>{r.name}{ri >= 0 ? ` · ${drive.rounds[ri].name}` : ""}{busy ? ` ${t("console.queue.busy")}` : ""}</option>;
           })}
         </select>
         <Btn icon={Megaphone} onClick={callNext} disabled={disabled} aria-keyshortcuts="N">
-          {t("console.queue.callNext")} <span className="kbd hide-mobile" aria-hidden="true">N</span>
+          {t("buttons.callNext")} <span className="kbd hide-mobile" aria-hidden="true">N</span>
         </Btn>
       </div>
 
-      <div className="board-switch" role="group" aria-label="Show column">
-        {[["waiting", t("console.queue.waiting")], ["round", t("console.queue.inRound")], ["done", t("console.queue.done")]].map(([k, l]) => (
+      <div className="board-switch" role="group" aria-label={t("console.queue.showColumn")}>
+        {[["waiting", t("console.queue.cols.waiting")], ["round", t("console.queue.cols.round")], ["done", t("console.queue.cols.done")]].map(([k, l]) => (
           <button key={k} type="button" aria-pressed={view === k} onClick={() => setView(k)}>{l} <span className="mono">{cols[k].length}</span></button>
         ))}
       </div>
       <div className="board">
-        {column("waiting", t("console.queue.waiting"), cols.waiting, t("console.queue.emptyWaiting"), (c) => (
+        {column("waiting", t("console.queue.cols.waiting"), cols.waiting, t("console.queue.empty"), (c) => (
           <>
-            <Btn size="sm" onClick={() => callOne(c)}>Call</Btn>
-            {c.checkedIn === false && <Btn size="sm" variant="secondary" onClick={() => act.arrived(c.id)}>Arrived</Btn>}
-            <Btn size="sm" variant="ghost" icon={SkipForward} onClick={() => act.skip(c.id)}>{t("console.queue.skip")}</Btn>
-            <Btn size="sm" variant="ghost" icon={UserX} onClick={() => act.noShow(c.id)}>{t("console.queue.noShow")}</Btn>
+            <Btn size="sm" onClick={() => callOne(c)}>{t("console.queue.call")}</Btn>
+            {c.checkedIn === false && <Btn size="sm" variant="secondary" onClick={() => act.arrived(c.id)}>{t("console.queue.arrived")}</Btn>}
+            <Btn size="sm" variant="ghost" icon={SkipForward} onClick={() => act.skip(c.id)}>{t("buttons.skip")}</Btn>
+            <Btn size="sm" variant="ghost" icon={UserX} onClick={() => act.noShow(c.id)}>{t("buttons.noShow")}</Btn>
           </>
         ))}
-        {column("round", t("console.queue.inRound"), cols.round, t("console.queue.emptyRound"), (c) => (
+        {column("round", t("console.queue.cols.round"), cols.round, t("console.queue.empty"), (c) => (
           <>
             {c.state === "calling"
-              ? <Btn size="sm" onClick={() => act.move(c.id, "interviewing")}>Started</Btn>
-              : !deskMode && <Btn size="sm" icon={Check} onClick={() => setDeciding(c)}>{t("console.queue.done1")}</Btn>}
-            <Btn size="sm" variant="ghost" icon={SkipForward} onClick={() => act.skip(c.id)}>{t("console.queue.skip")}</Btn>
-            {c.state === "calling" && <Btn size="sm" variant="ghost" icon={UserX} onClick={() => act.noShow(c.id)}>{t("console.queue.noShow")}</Btn>}
+              ? <Btn size="sm" onClick={() => act.move(c.id, "interviewing")}>{t("console.queue.started")}</Btn>
+              : !deskMode && <>
+                {!isLastRound(drive.rounds, c) && <Btn size="sm" icon={Check} onClick={() => act.decide(c.id, "passed")}>{t("console.queue.moveTo", { n: (c.roundIdx || 0) + 2 })}</Btn>}
+                <Btn size="sm" variant={isLastRound(drive.rounds, c) ? "primary" : "secondary"} onClick={() => setDeciding(c)}>{t("console.queue.decide")}</Btn>
+              </>}
+            <Btn size="sm" variant="ghost" icon={SkipForward} onClick={() => act.skip(c.id)}>{t("buttons.skip")}</Btn>
+            {c.state === "calling" && <Btn size="sm" variant="ghost" icon={UserX} onClick={() => act.noShow(c.id)}>{t("buttons.noShow")}</Btn>}
           </>
         ))}
-        {column("done", t("console.queue.done"), cols.done, t("console.queue.emptyDone"), (c) => (
+        {column("done", t("console.queue.cols.done"), cols.done, t("console.queue.empty"), (c) => (
           (!deskMode || c.state === "absent") && <Btn size="sm" variant="ghost" icon={CornerUpLeft} onClick={() => act.recall(c.id)}>{t("console.queue.recall")}</Btn>
         ))}
       </div>

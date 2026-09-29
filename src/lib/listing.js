@@ -1,5 +1,6 @@
 import { driveSchedule, driveStatus, driveWhen, fromMinutes, hoursLabel, datesLabel } from "./status.js";
 import { tat } from "./helpers.js";
+import { t } from "../i18n/strings.js";
 
 export const HERO_CITIES = ["Hyderabad", "Bengaluru", "Pune", "Mumbai", "Chennai", "Delhi"];
 
@@ -16,27 +17,42 @@ export function cityFromSlug(slug, drives) {
 export const drivePath = (drive) => `/walk-ins/${encodeURIComponent(drive.id)}`;
 export const cityPath = (city) => `/walk-ins/${citySlug(city)}`;
 
-function k(n) {
-  const v = n / 1000;
-  return Number.isInteger(v) ? String(v) : v.toFixed(1).replace(/\.0$/, "");
-}
+const rupees = (n) => Math.round(n).toLocaleString("en-IN");
 
-export function payLabel(drive) {
+function payRange(drive) {
   const lo = Number(drive?.payMin) || 0;
   const hi = Number(drive?.payMax) || 0;
-  if (!lo && !hi) return "";
-  if (lo && hi && hi !== lo) return `₹${k(lo)}–${k(hi)}k/month`;
-  return `₹${k(lo || hi)}k/month`;
+  if (!lo && !hi) return null;
+  if (lo && hi && hi !== lo) return { min: rupees(lo), max: rupees(hi) };
+  return { min: rupees(lo || hi) };
+}
+
+/** "₹16,000 to ₹24,000", for tight spots. */
+export function payLabel(drive) {
+  const r = payRange(drive);
+  if (!r) return "";
+  return r.max ? t("card.payShort", r) : t("card.payShortOne", r);
+}
+
+/** "Pay: ₹16,000 to ₹24,000 per month", as on a listing card. */
+export function payText(drive) {
+  const r = payRange(drive);
+  if (!r) return "";
+  return r.max ? t("card.pay", r) : t("card.payOne", r);
+}
+
+export function isFresherFriendly(drive) {
+  return expRange(drive)[0] === 0;
 }
 
 export function expLabel(drive) {
-  if (drive?.expMin == null && drive?.expMax == null && !(drive?.expNeeded || []).length) return "Any experience";
+  if (drive?.expMin == null && drive?.expMax == null && !(drive?.expNeeded || []).length) return t("card.exp.any");
   const [lo, hi] = expRange(drive);
-  if (hi >= 15) return lo ? `${lo}+ yrs` : "Any experience";
-  if (!lo && !hi) return "Freshers";
-  if (!lo) return `0–${hi} yrs`;
-  if (lo === hi) return `${lo} yr${lo === 1 ? "" : "s"}`;
-  return `${lo}–${hi} yrs`;
+  if (hi >= 15) return lo ? t("card.exp.plus", { lo }) : t("card.exp.any");
+  if (!lo && !hi) return t("card.exp.fresher");
+  if (!lo) return t("card.exp.upTo", { hi });
+  if (lo === hi) return t(lo === 1 ? "card.exp.one" : "card.exp.many", { n: lo });
+  return t("card.exp.range", { lo, hi });
 }
 
 const BAND_RANGE = { Fresher: [0, 0], "0–1 yr": [0, 1], "1–3 yrs": [1, 3], "3–5 yrs": [3, 5], "5+ yrs": [5, 15] };
@@ -51,9 +67,10 @@ export function expRange(drive) {
 
 export const EXP_FILTERS = {
   fresher: ([lo]) => lo === 0,
+  "0-1": ([lo]) => lo <= 1,
   "1-3": ([lo, hi]) => lo <= 3 && hi >= 1,
-  "3-6": ([lo, hi]) => lo <= 6 && hi >= 3,
-  "6+": ([, hi]) => hi >= 6,
+  "3-5": ([lo, hi]) => lo <= 5 && hi >= 3,
+  "5+": ([, hi]) => hi >= 5,
 };
 
 export function venueLine(drive) {
