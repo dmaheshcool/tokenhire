@@ -351,7 +351,6 @@
       { "t": "Record decisions.", "d": "Notes and decisions are saved against each round as you go." },
       { "t": "Export for your ATS.", "d": "Download a CSV or Excel file at the end of the day." }
     ],
-    "ready": "Ready to try it?",
     "faqTitle": "Questions"
   },
 

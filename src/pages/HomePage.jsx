@@ -252,7 +252,7 @@ function Proof() {
             ))}
           </div>
           <div className="row gap-12" style={{ marginTop: 28, flexWrap: "wrap" }}>
-            <Btn to="/how-it-works?tab=companies" variant="lime" size="lg" iconRight={ArrowRight}>{t("home.band.cta")}</Btn>
+            <Btn to="/how-it-works#companies" variant="lime" size="lg" iconRight={ArrowRight}>{t("home.band.cta")}</Btn>
             <Btn to={createDrivePath()} variant="ghost" size="lg" icon={Plus} className="on-dark">{t("buttons.createDrive")}</Btn>
           </div>
         </div>

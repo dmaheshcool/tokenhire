@@ -92,7 +92,7 @@ export function SiteFooter() {
           {col(t("footer.forCandidates"), [[t("footer.browse"), "/walk-ins"], [t("footer.getToken"), "/app/join"], [t("footer.how"), "/how-it-works"], [t("footer.guides"), "/guides"]])}
           {col(t("footer.forCompanies"), [
             [t("footer.createDrive"), createDrivePath()],
-            [t("footer.howCompanies"), "/how-it-works?tab=companies"],
+            [t("footer.howCompanies"), "/how-it-works#companies"],
             [t("footer.bookPilot"), "/for-companies#pilot"],
             [t("footer.signIn"), "/login"],
           ])}
