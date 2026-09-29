@@ -1,0 +1,609 @@
+{
+  "brand": "TokenHire",
+  "tagline": "Walk-in hiring, without the queue.",
+  "subline": "Get a token. Wait anywhere. Walk in when it's your turn.",
+
+  "nav": {
+    "walkIns": "Walk-ins",
+    "how": "How it works",
+    "companies": "For companies",
+    "guides": "Guides",
+    "signIn": "Sign in",
+    "createDrive": "Create a drive",
+    "menu": "Menu",
+    "close": "Close menu",
+    "home": "TokenHire home"
+  },
+
+  "buttons": {
+    "getToken": "Get my token",
+    "save": "Save this walk-in",
+    "saved": "Saved",
+    "createDrive": "Create a drive",
+    "runDrive": "Run drive",
+    "callNext": "Call next",
+    "skip": "Skip",
+    "noShow": "No-show",
+    "exportAts": "Export for ATS",
+    "bookPilot": "Book a pilot",
+    "browse": "Browse walk-ins",
+    "back": "Back",
+    "next": "Next",
+    "cancel": "Cancel",
+    "close": "Close",
+    "share": "Share",
+    "copyLink": "Copy link",
+    "directions": "Directions",
+    "clear": "Clear search"
+  },
+
+  "footer": {
+    "findWalkIn": "Find a walk-in",
+    "cities": ["Hyderabad", "Bengaluru", "Pune", "Mumbai", "Chennai", "Delhi", "Kolkata", "Ahmedabad"],
+    "forCandidates": "For candidates",
+    "browse": "Browse walk-ins",
+    "getToken": "Get my token",
+    "how": "How it works",
+    "guides": "Guides",
+    "forCompanies": "For companies",
+    "createDrive": "Create a drive",
+    "howCompanies": "How it works for companies",
+    "bookPilot": "Book a pilot",
+    "signIn": "Sign in",
+    "company": "Company",
+    "privacy": "Privacy",
+    "terms": "Terms of use",
+    "email": "hello@tokenhire.app",
+    "line": "Built for the people who show up early.",
+    "copyright": "© {{year}} TokenHire"
+  },
+
+  "home": {
+    "meta": {
+      "title": "Walk-in interviews near you, with a live queue",
+      "description": "Find walk-in interviews near you, get a token at the venue and see how many people are ahead of you. Companies run the whole drive from one screen."
+    },
+    "hero": {
+      "live": "{{n}} walk-ins live right now",
+      "sub": "Find a hiring drive near you, get a token, and see how many people are ahead of you. Companies run the whole drive from one screen.",
+      "searchPlaceholder": "Search by role, company or city",
+      "search": "Find walk-ins",
+      "citiesLabel": "Popular cities"
+    },
+    "phone": {
+      "alt": "A candidate's token on a phone: token 042, 7 people ahead, about 25 minutes, go to Room B when called",
+      "company": "Northwind Support Services",
+      "role": "Customer Support Executive",
+      "place": "HITEC City, Hyderabad",
+      "live": "Live",
+      "yourToken": "Your token",
+      "token": "#042",
+      "ahead": "7 people ahead",
+      "wait": "About 25 minutes",
+      "room": "Go to Room B when called",
+      "progress": "Queue progress",
+      "timeline": ["Registered", "In the queue", "Called", "In round 1"]
+    },
+    "stats": {
+      "label": "Live numbers",
+      "today": "walk-ins today",
+      "queue": "candidates in queue right now",
+      "cities": "cities"
+    },
+    "steps": {
+      "eyebrow": "3 steps",
+      "title": "How it works",
+      "s1": { "t": "Find a walk-in.", "d": "Search by role or city. Every listing shows pay, timing and the documents to carry." },
+      "s2": { "t": "Get your token.", "d": "Scan the QR code at the venue when check-in opens. Your number and place in line show on your phone." },
+      "s3": { "t": "Walk in when called.", "d": "Go for a coffee. We'll show your live position and tell you when you're about 5 away." }
+    },
+    "candidates": {
+      "eyebrow": "For candidates",
+      "title": "No more standing outside for hours.",
+      "bullets": ["See your exact place in line", "Know which room to go to", "Carry the right documents the first time"],
+      "cta": "Browse walk-ins"
+    },
+    "companies": {
+      "eyebrow": "For companies",
+      "title": "Run your walk-in like a calm, organised day.",
+      "bullets": ["One queue for every recruiter and room", "No duplicate calls, no lost resumes", "A clean candidate file for your ATS at the end of the day"],
+      "cta": "Create a drive"
+    },
+    "today": {
+      "title": "Happening today",
+      "seeAll": "See all walk-ins",
+      "empty": "No walk-ins today. Here are the next ones."
+    },
+    "band": {
+      "eyebrow": "For companies",
+      "title": "What a company gets on drive day",
+      "items": [
+        { "t": "Live queue", "d": "See who is waiting, who is in a round and who is done. Call the next token with one key." },
+        { "t": "Multiple rooms and rounds", "d": "Each recruiter calls into their own room. The lobby display shows who goes where." },
+        { "t": "One list for everyone", "d": "One token per phone number, so nobody is called twice and no resume goes missing." },
+        { "t": "ATS-ready export", "d": "At the end of the day, download a CSV or Excel file your ATS can import." }
+      ],
+      "cta": "How it works for companies"
+    },
+    "board": {
+      "queue": "Queue",
+      "cols": ["In queue", "In a round", "Done"]
+    },
+    "faq": {
+      "title": "Questions",
+      "seeAll": "See all questions"
+    },
+    "closing": {
+      "title": "Running a walk-in soon?",
+      "body": "Tell us your roles and cities and we'll set up your first drive with you.",
+      "cta": "Book a pilot"
+    }
+  },
+
+  "faq": {
+    "candidates": "For candidates",
+    "companies": "For companies",
+    "c": [
+      { "q": "Is TokenHire free for candidates?", "a": "Yes. Finding a walk-in and getting a token is free." },
+      { "q": "Can I get a token from home?", "a": "No. Tokens are given at the venue. When check-in opens, scan the QR code on the lobby display and your place in line shows on your phone." },
+      { "q": "What happens if I miss my call?", "a": "Go to the front desk within 10 minutes of the call. They can put you back in line." },
+      { "q": "How is the wait time worked out?", "a": "From the number of people ahead of you and how long recent interviews at that drive have taken. It changes as rounds move." },
+      { "q": "What if I can't make it?", "a": "Open your token and tap \"I can't make it\". Your place goes to the people behind you." }
+    ],
+    "k": [
+      { "q": "How do we list a walk-in?", "a": "Create a drive with the role, venue, date and time, rounds and documents. Turn on the public listing and it shows on the walk-in list." },
+      { "q": "Do my recruiters need accounts?", "a": "Recruiters who read resumes, write notes and record decisions sign in with their work email. Front-desk staff can call and check in candidates with a Desk PIN, no account needed." },
+      { "q": "Can we run several rooms and rounds at once?", "a": "Yes. Add as many rounds and rooms as you need. Each recruiter calls the next person into their own room." },
+      { "q": "How do candidates check in?", "a": "They scan the QR code on the lobby display at the venue. That gives them a token and puts them in line." },
+      { "q": "Can we export to our ATS?", "a": "Yes. Export a CSV or Excel file with name, phone, role, notes and the decision from every round." },
+      { "q": "How much does it cost?", "a": "Start with a pilot. Tell us about your drives and we'll talk through pricing with you." }
+    ]
+  },
+
+  "status": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "week": "This week",
+    "ended": "Ended",
+    "later": "Upcoming",
+    "draft": "Draft",
+    "scheduled": "Scheduled",
+    "live": "Live",
+    "wrapped": "Wrapped up",
+    "dateTbd": "Date to be set"
+  },
+
+  "time": {
+    "range": "{{from}} to {{to}}",
+    "when": "{{day}}, {{hours}}",
+    "am": "AM",
+    "pm": "PM"
+  },
+
+  "card": {
+    "pay": "Pay: ₹{{min}} to ₹{{max}} per month",
+    "payOne": "Pay: ₹{{min}} per month",
+    "payShort": "₹{{min}} to ₹{{max}}",
+    "payShortOne": "₹{{min}}",
+    "perMonth": "per month",
+    "fresher": "Fresher friendly",
+    "today": "Today",
+    "inQueue": "{{n}} in queue",
+    "wait": "about {{w}} wait",
+    "noQueue": "No queue yet",
+    "demo": "Demo",
+    "demoHint": "Sample listing for the demo",
+    "checkinOpen": "Check-in open at the venue",
+    "opensLater": "Check-in opens {{when}}",
+    "ended": "This walk-in has ended",
+    "exp": {
+      "any": "Any experience",
+      "fresher": "Fresher",
+      "upTo": "0 to {{hi}} years",
+      "range": "{{lo}} to {{hi}} years",
+      "plus": "{{lo}}+ years",
+      "one": "{{n}} year",
+      "many": "{{n}} years"
+    }
+  },
+
+  "browse": {
+    "meta": {
+      "title": "Walk-in interviews near you",
+      "description": "{{count}} walk-in interviews across India with pay, timing, venue and a live queue. Filter by city, role, experience, date and pay.",
+      "cityTitle": "Walk-in interviews in {{city}}",
+      "cityDescription": "{{count}} walk-in interviews in {{city}} with pay, timing, venue and the documents to carry. Get your token at the venue and see your place in line."
+    },
+    "title": "{{today_count}} walk-ins today, {{upcoming_count}} coming up",
+    "lede": "Every listing shows pay, timing and the documents to carry.",
+    "cityTitle": "Walk-ins in {{city}}",
+    "cityIntro": "{{count}} companies are hiring in person in {{city}} this month. Pick a walk-in, check what to carry, and plan your day before you leave home.",
+    "breadcrumb": "Breadcrumb",
+    "filters": "Filters",
+    "closeFilters": "Close filters",
+    "city": "City",
+    "roleType": "Role type",
+    "experience": "Experience",
+    "date": "Date",
+    "pay": "Pay",
+    "allCities": "All cities",
+    "any": "Any",
+    "clear": "Clear all",
+    "show": "Show {{n}} walk-ins",
+    "exp": { "any": "Any", "fresher": "Fresher", "0-1": "0 to 1 year", "1-3": "1 to 3 years", "3-5": "3 to 5 years", "5+": "5+ years" },
+    "dates": { "any": "Any date", "today": "Today", "tomorrow": "Tomorrow", "week": "This week", "month": "Next 30 days" },
+    "payOpts": { "any": "Any", "15": "₹15,000+ per month", "25": "₹25,000+ per month", "40": "₹40,000+ per month", "60": "₹60,000+ per month" },
+    "sort": "Sort",
+    "sorts": { "soonest": "Soonest first", "pay": "Highest pay", "queue": "Shortest queue" },
+    "results": "Showing {{from}} to {{to}} of {{total}} walk-ins",
+    "resultsNone": "Showing 0 walk-ins",
+    "prev": "Previous",
+    "next": "Next",
+    "page": "Page {{n}} of {{total}}",
+    "saved": "Saved walk-ins",
+    "savedCount": "Saved walk-ins · {{n}}",
+    "ended": "Recently ended",
+    "byCity": "Walk-ins by city",
+    "loading": "Loading walk-ins"
+  },
+
+  "detail": {
+    "meta": {
+      "title": "{{role}} walk-in at {{company}}, {{place}}",
+      "description": "{{company}} walk-in for {{role}} in {{city}} on {{dates}}, {{hours}}. See pay, what to carry and how the day runs."
+    },
+    "about": "About the role",
+    "when": "When and where",
+    "map": "Open in Maps",
+    "landmark": "Landmark",
+    "pay": "Pay and shifts",
+    "payTbd": "Discussed at the interview",
+    "experience": "Experience",
+    "openings": "{{n}} openings",
+    "carry": "What to carry",
+    "day": "How the day runs",
+    "dayRounds": "{{n}} rounds on the day, in this order.",
+    "dayOne": "One round on the day.",
+    "before": {
+      "title": "Before you go",
+      "tips": [
+        "Reach 30 minutes before your slot. Your token holds your place, but you still need to check in at the venue.",
+        "Carry printed copies. Not all venues can print.",
+        "Keep your phone charged. Your token lives on your phone."
+      ]
+    },
+    "queueNow": "Queue right now",
+    "inQueue": "in queue",
+    "live": "Check-in is open. Scan the QR code on the lobby display at the venue to get your token.",
+    "closed": "Check-in opens on {{date}} at {{time}}. Save this walk-in so it's easy to find on the day.",
+    "ended": "This walk-in has ended. See other walk-ins in {{city}}.",
+    "endedLink": "See other walk-ins in {{city}}",
+    "similar": "More walk-ins in {{city}}",
+    "seeAll": "See all",
+    "sticky": "{{company}} · {{role}}",
+    "notFound": { "t": "That walk-in isn't here.", "d": "It may have been removed by the company.", "cta": "Browse walk-ins" }
+  },
+
+  "token": {
+    "metaTitle": "Your token #{{token}}",
+    "yourToken": "Your token",
+    "number": "#{{token}}",
+    "ahead": "{{ahead}} people ahead of you",
+    "aheadOne": "1 person ahead of you",
+    "next": "You're next",
+    "minutes": "About {{minutes}} minutes. This can change as rounds move.",
+    "anyMinute": "Any minute now. Stay close to the lobby.",
+    "progress": "Your place in the queue",
+    "nowCalling": "Now calling",
+    "nowCallingIn": "{{token}} in {{room}}",
+    "firstCall": "Waiting for the first call",
+    "timeline": { "registered": "Registered", "queue": "In the queue", "called": "Called", "round": "In round {{n}}", "roundNamed": "In round {{n}} · {{name}}", "decision": "Decision" },
+    "called": {
+      "title": "It's your turn.",
+      "body": "Go to {{room}} now. Show token #{{token}} at the door.",
+      "bodyNoRoom": "Go to the front desk now. Show token #{{token}}."
+    },
+    "inRound": "You're in {{room}}.",
+    "almost": "You're almost up. Head to the venue lobby now.",
+    "missed": "We called #{{token}} at {{time}}. Go to the front desk within {{grace_minutes}} minutes to keep your place.",
+    "missedLate": "We called #{{token}} at {{time}} and couldn't find you. Speak to the front desk if that's wrong.",
+    "calendar": "Add to calendar",
+    "cant": "I can't make it",
+    "cancelConfirm": "Give up your place? Others will move up. You can get a new token only if check-in is still open.",
+    "cancelYes": "Give up my place",
+    "cancelNo": "Keep my place",
+    "released": "You gave up this token.",
+    "decision": {
+      "selected": "Shortlisted for the next round",
+      "rejected": "Not selected this time",
+      "onhold": "Waiting on the recruiter"
+    },
+    "thanks": "Thanks for coming today. {{company}} will contact you if there is a next step.",
+    "wrapped": "This walk-in has wrapped up.",
+    "alertOff": "Alert me when I'm about 5 away",
+    "alertOn": "Sound and vibration on",
+    "refresh": "Updates on its own",
+    "linkCopied": "Link copied. Open it on this phone any time.",
+    "copyPrompt": "Copy your token link",
+    "details": "Walk-in details",
+    "others": "Other walk-ins",
+    "notFound": { "t": "We can't find that token.", "d": "Open the link on the phone you used at the venue, or ask the front desk.", "cta": "Browse walk-ins" }
+  },
+
+  "howPage": {
+    "meta": { "title": "How it works", "description": "One queue, from the gate to the final round. How TokenHire works for candidates and for companies." },
+    "eyebrow": "How it works",
+    "title": "How TokenHire works",
+    "sub": "One queue, from the gate to the final round.",
+    "tabs": { "candidates": "For candidates", "companies": "For companies" },
+    "candidates": [
+      { "t": "Find a walk-in.", "d": "Search by role, company or city. Each listing shows pay, timing, the venue and what to carry." },
+      { "t": "Go to the venue.", "d": "Reach about 30 minutes before your slot with printed copies of your documents." },
+      { "t": "Scan and get your token.", "d": "Scan the QR code on the lobby display. Your token number and place in line show on your phone." },
+      { "t": "Wait nearby.", "d": "Your phone shows how many people are ahead of you and tells you when you're about 5 away." },
+      { "t": "Walk in when called.", "d": "Go to the room on your screen and show your token at the door." }
+    ],
+    "companies": [
+      { "t": "Create a drive.", "d": "Add the role, venue, date and time, pay and the documents to carry." },
+      { "t": "Set up rounds and rooms.", "d": "Add each round, the room it runs in and the recruiters on it." },
+      { "t": "Put up the lobby display.", "d": "Open it on a screen at the venue. Candidates scan its QR code to get a token." },
+      { "t": "Call by token.", "d": "Recruiters press Call next and the next person goes to their room. Front-desk staff can help with a Desk PIN." },
+      { "t": "Record decisions.", "d": "Notes and decisions are saved against each round as you go." },
+      { "t": "Export for your ATS.", "d": "Download a CSV or Excel file at the end of the day." }
+    ],
+    "ready": "Ready to try it?",
+    "faqTitle": "Questions"
+  },
+
+  "forCo": {
+    "meta": { "title": "For companies", "description": "Run walk-in drives with one queue and one clean file. Token queue, rooms and rounds, Desk PINs and ATS export." },
+    "eyebrow": "For companies",
+    "title": "Run walk-ins without the chaos.",
+    "sub": "If you hire in person, you know the day: hundreds of people, paper resumes, and nobody sure who's next. TokenHire gives you one queue and one clean file.",
+    "problem": {
+      "title": "What drive day looks like now",
+      "items": [
+        { "t": "A crowd at the gate", "d": "Everyone arrives at opening time and waits outside for hours." },
+        { "t": "Paper everywhere", "d": "Resumes get stacked, lost and typed into sheets late at night." },
+        { "t": "Nobody sure who's next", "d": "Names are shouted, some people are called twice and some never." }
+      ]
+    },
+    "solution": {
+      "title": "What TokenHire changes",
+      "items": [
+        { "t": "Token queue", "d": "Every candidate gets a number at the venue and sees their place in line on their phone." },
+        { "t": "Rooms and rounds", "d": "Each recruiter calls the next person into their room, round by round." },
+        { "t": "Desk PINs", "d": "Front-desk staff call and check in candidates with a PIN. No account needed." },
+        { "t": "ATS export", "d": "One clean file with name, phone, role, notes and every decision." }
+      ]
+    },
+    "pilot": {
+      "title": "Start with one drive.",
+      "body": "Tell us about your next walk-in. We'll help you set it up and stay with you on the day.",
+      "name": "Your name",
+      "email": "Work email",
+      "phone": "Phone",
+      "company": "Company",
+      "city": "City",
+      "roles": "Roles you hire for",
+      "size": "About how many candidates come to a typical walk-in",
+      "notes": "About your drives",
+      "notesPlaceholder": "Tell us about your walk-in drives: roles, volume, cities.",
+      "optional": "(optional)",
+      "submit": "Send",
+      "sending": "Sending…",
+      "sent": "Thanks. We'll reply within two working days.",
+      "again": "Send another",
+      "orWrite": "Or write to {{email}}",
+      "errWork": "Use a work email.",
+      "errRequired": "Add your name, work email and company.",
+      "errNetwork": "We couldn't send this right now. Write to hello@tokenhire.app instead."
+    }
+  },
+
+  "guides": {
+    "meta": { "title": "Guides for walk-in day", "description": "Practical advice for candidates and hiring teams." },
+    "eyebrow": "Guides",
+    "title": "Guides for walk-in day",
+    "sub": "Practical advice for candidates and hiring teams.",
+    "candidates": "For candidates",
+    "companies": "For hiring teams",
+    "minutes": "{{n}} min read",
+    "back": "All guides",
+    "more": "More guides",
+    "ctaCandidates": "Find a walk-in near you.",
+    "ctaCompanies": "Ready to run a drive?",
+    "missing": "That guide isn't here."
+  },
+
+  "empty": {
+    "noResults": { "t": "No walk-ins match those filters.", "d": "Try another city or clear a filter.", "cta": "Clear filters" },
+    "noCity": { "t": "No walk-ins in {{city}} right now.", "d": "Try a nearby city, or check back later this week.", "cta": "See all walk-ins" },
+    "noSaved": { "t": "No saved walk-ins yet.", "d": "Tap Save this walk-in on any listing and it shows here on this phone.", "cta": "See all walk-ins" },
+    "checkinClosed": "Check-in is closed for this walk-in.",
+    "network": "You're offline. We'll keep trying."
+  },
+
+  "toast": {
+    "saved": "Saved on this phone.",
+    "unsaved": "Removed from saved.",
+    "copied": "Link copied.",
+    "exportReady": "Your file is ready."
+  },
+
+  "console": {
+    "nav": { "today": "Today", "drives": "Drives", "venues": "Venues", "teams": "Hiring teams", "talent": "Talent pool", "team": "Team", "billing": "Billing", "settings": "Settings" },
+    "createDrive": "Create a drive",
+    "newShort": "New",
+    "signOut": "Sign out",
+    "today": {
+      "title": "Today's drives",
+      "empty": "No drives today. Create a drive and share the link with candidates.",
+      "live": "Live",
+      "startsAt": "Starts at {{time}}",
+      "inQueue": "{{n}} in queue",
+      "inRound": "{{n}} in a round",
+      "seen": "{{n}} seen",
+      "run": "Run drive",
+      "startNow": "Start now",
+      "viewQueue": "View queue",
+      "next": "Up next",
+      "done": "{{done}} of {{total}} done"
+    },
+    "drives": { "title": "Drives", "all": "All", "edit": "Edit", "export": "Export", "empty": "No drives yet." },
+    "form": {
+      "titleNew": "Create a drive",
+      "titleEdit": "Edit drive",
+      "stepOf": "Step {{n}} of {{total}}",
+      "steps": ["Basics", "Candidates", "Rounds and rooms", "Documents to carry", "Review and publish"],
+      "role": "Role",
+      "rolePlaceholder": "Customer Support Executive (Voice)",
+      "roleType": "Role type",
+      "team": "Hiring team",
+      "teamHelp": "Group drives by team or client, like \"Retail BFSI\" or \"Voice process\".",
+      "teamNone": "No specific team",
+      "venue": "Venue",
+      "venueHelp": "The office or centre where candidates will report.",
+      "venueOther": "Another address",
+      "city": "City",
+      "area": "Area",
+      "areaPlaceholder": "HITEC City",
+      "landmark": "Landmark",
+      "landmarkPlaceholder": "Opposite the metro exit",
+      "address": "Address",
+      "addressPlaceholder": "Building, floor, street",
+      "dateTime": "Date and time",
+      "starts": "Starts",
+      "ends": "Ends",
+      "open": "Doors open",
+      "close": "Last entry",
+      "experience": "Experience needed",
+      "expMin": "From (years)",
+      "expMax": "To (years)",
+      "pay": "Pay range",
+      "payMin": "From (₹ per month)",
+      "payMax": "To (₹ per month)",
+      "openings": "Number of openings",
+      "about": "About the job",
+      "aboutHelp": "What the work is, the shift, and who should come. Plain words.",
+      "rounds": "Rounds",
+      "roundName": "Round name",
+      "room": "Room",
+      "recruiters": "Recruiters",
+      "recruitersPlaceholder": "Priya, Arun",
+      "addRound": "Add a round",
+      "addRoom": "Add a room",
+      "removeRound": "Remove round",
+      "removeRoom": "Remove room",
+      "roundN": "Round {{n}}",
+      "docs": "Documents to carry",
+      "docCustom": "Add your own item",
+      "docAdd": "Add",
+      "docBad": "That document name isn't allowed.",
+      "deskPin": "Desk PIN",
+      "deskPinHelp": "Front-desk staff use this PIN to call and check in candidates. No account needed.",
+      "deskPinLater": "You get a Desk PIN when you publish.",
+      "public": "Public listing",
+      "publicHelp": "Turn this on to show the drive on the TokenHire walk-in list.",
+      "review": "Check the details. Candidates see this on the walk-in page.",
+      "edit": "Edit",
+      "publish": "Publish drive",
+      "save": "Save drive",
+      "saveDraft": "Save as draft",
+      "noSlots": "This account can't create more drives right now. Wrap up or delete an older drive first.",
+      "saved": "Drive saved.",
+      "created": "Drive published.",
+      "draftSaved": "Draft saved.",
+      "err": {
+        "role": "Add the role you are hiring for.",
+        "city": "Pick a city.",
+        "venue": "Add the venue address.",
+        "date": "Pick a start date.",
+        "endDate": "End date can't be before the start date.",
+        "time": "Add the walk-in hours.",
+        "payMax": "The top of the range is below the bottom.",
+        "expMax": "The top of the range is below the bottom.",
+        "jd": "Write at least two sentences about the job.",
+        "rounds": "Add at least one round with a room."
+      }
+    },
+    "queue": {
+      "cols": { "waiting": "In queue", "round": "In a round", "done": "Done" },
+      "summary": "{{waiting}} waiting · {{inside}} inside · {{done}} done",
+      "search": "Search by name or token",
+      "room": "Room",
+      "anyRoom": "Any free room",
+      "busy": "(busy)",
+      "empty": "Nobody here yet.",
+      "more": "and {{n}} more. Search to find someone.",
+      "call": "Call",
+      "arrived": "Arrived",
+      "started": "Started",
+      "moveTo": "Move to round {{n}}",
+      "decide": "Decision",
+      "recall": "Back to queue",
+      "notArrived": "Not arrived",
+      "walking": "Called, walking over",
+      "interviewing": "In interview",
+      "nobody": "No one is waiting to be called.",
+      "allBusy": "Every room is busy. Mark someone done first.",
+      "roomBusy": "{{room}} is busy.",
+      "noRoom": "No free room for this round.",
+      "called": "Called #{{token}} to {{room}}",
+      "startNow": "Start now",
+      "wrapUp": "Wrap up",
+      "wrapNow": "Wrap up now",
+      "keepRunning": "Keep running",
+      "publish": "Publish",
+      "lobby": "Lobby display",
+      "deskPin": "Desk PIN",
+      "deskCopied": "Desk link copied.",
+      "publicPage": "Public page",
+      "notLive": "The queue opens when the drive starts.",
+      "readOnly": "This drive has wrapped up. The board is read-only.",
+      "isLive": "Drive is live. Candidates can scan in at the venue.",
+      "wrapped": "Drive wrapped up.",
+      "published": "Drive published.",
+      "notes": "Notes",
+      "showColumn": "Show column",
+      "outcome": {
+        "shortlist": "Shortlist",
+        "onhold": "On hold",
+        "rejected": "Not selected",
+        "absent": "No-show"
+      },
+      "labels": { "selected": "Shortlisted", "rejected": "Not selected", "onhold": "On hold", "absent": "No-show" }
+    },
+    "tabs": { "queue": "Queue", "rooms": "Rooms and rounds", "candidates": "Candidates", "report": "Report" },
+    "report": {
+      "title": "Drive report",
+      "funnel": { "registered": "Registered", "checkedIn": "Checked in", "interviewed": "Interviewed", "shortlisted": "Shortlisted" },
+      "export": "Export for ATS",
+      "helper": "Includes name, phone, role, notes and the decision from every round.",
+      "formatFor": "Format for",
+      "csv": "CSV",
+      "xlsx": "Excel",
+      "avgWait": "Average wait",
+      "avgRound": "Average round",
+      "onHold": "On hold",
+      "noShows": "No-shows",
+      "candidates": "Candidates",
+      "none": "No candidates yet.",
+      "cols": ["Token", "Name", "Phone", "Experience", "Round", "Status", "Notes"],
+      "states": { "wait": "In queue", "calling": "Called", "interviewing": "In a round", "selected": "Shortlisted", "rejected": "Not selected", "onhold": "On hold", "absent": "No-show" }
+    },
+    "billing": {
+      "plan": "Plan",
+      "invoices": "Invoices",
+      "usage": "Usage"
+    }
+  },
+
+  "desk": {
+    "title": "Desk check-in",
+    "lede": "Enter the Desk PIN for this drive. No account needed.",
+    "pin": "Desk PIN",
+    "open": "Open desk",
+    "wrong": "That Desk PIN doesn't match a live drive."
+  }
+}
