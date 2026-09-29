@@ -27,8 +27,8 @@ export default function DrivesPage() {
   const list = f === "all" ? sorted : sorted.filter((d) => driveStatus(d) === f);
   return (
     <>
-      <PageHead title={t("console.drives.title")} lede={t("console.drives.lede")} />
-      <div className="chips-scroll" role="group" aria-label="Filter drives" style={{ marginBottom: 18 }}>
+      <PageHead title={t("console.drives.title")} />
+      <div className="chips-scroll" role="group" aria-label={t("console.drives.title")} style={{ marginBottom: 18 }}>
         {FILTERS.map((k) => (
           <button key={k} type="button" className="chip" aria-pressed={f === k} onClick={() => setF(k)}>
             {k === "all" ? t("console.drives.all") : t(`status.${k}`)} <span className="mono" style={{ opacity: 0.7 }}>{counts[k]}</span>
@@ -49,8 +49,8 @@ export default function DrivesPage() {
                 <div style={{ minWidth: 0 }}><QueueSummary drive={d} /></div>
                 <div className="row gap-6 drive-row-actions">
                   {s === "live"
-                    ? <Btn size="sm" icon={Play} onClick={() => nav(`/app/drives/${d.id}`)}>{t("console.drives.run")}</Btn>
-                    : <Btn size="sm" variant="secondary" onClick={() => nav(`/app/drives/${d.id}`)}>{t("console.drives.queue")}</Btn>}
+                    ? <Btn size="sm" icon={Play} onClick={() => nav(`/app/drives/${d.id}`)}>{t("buttons.runDrive")}</Btn>
+                    : <Btn size="sm" variant="secondary" onClick={() => nav(`/app/drives/${d.id}`)}>{t("console.today.viewQueue")}</Btn>}
                   {!desk && <Btn size="sm" variant="ghost" icon={Pencil} onClick={() => nav(`/app/drives/${d.id}/edit`)}>{t("console.drives.edit")}</Btn>}
                   {!desk && <Btn size="sm" variant="ghost" icon={Download} onClick={() => downloadAts(d, "standard", "csv")}>{t("console.drives.export")}</Btn>}
                 </div>

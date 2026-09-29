@@ -11,7 +11,7 @@ export default [
   {
     files: ["src/**/*.{js,jsx}"],
     languageOptions: {
-      ecmaVersion: 2023,
+      ecmaVersion: "latest",
       sourceType: "module",
       globals: { ...globals.browser, React: "readonly" },
       parserOptions: { ecmaFeatures: { jsx: true } },
@@ -33,7 +33,7 @@ export default [
   {
     files: ["server/**/*.js", "scripts/**/*.mjs", "api/**/*.js"],
     languageOptions: {
-      ecmaVersion: 2023,
+      ecmaVersion: "latest",
       sourceType: "module",
       globals: globals.node,
     },

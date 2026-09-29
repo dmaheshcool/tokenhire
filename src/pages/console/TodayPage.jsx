@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarPlus, Play } from "lucide-react";
-import { Btn, EmptyState, QueueBar, StatusChip } from "../../components/ds.jsx";
+import { Btn, EmptyState, QueueBar, StatusChip, whenText } from "../../components/ds.jsx";
 import { PageHead, useConsole } from "../../layouts/ConsoleLayout.jsx";
 import { useMeta } from "../../hooks/useMeta.js";
 import { queueStats, venueLine } from "../../lib/listing.js";
-import { datesLabel, driveStatus, driveWhen, hoursLabel, startNowPatch } from "../../lib/status.js";
+import { clock, datesLabel, driveStatus, driveWhen, hoursLabel, startNowPatch } from "../../lib/status.js";
 import { t } from "../../i18n/strings.js";
 
 export function QueueSummary({ drive, big }) {
@@ -17,13 +17,13 @@ export function QueueSummary({ drive, big }) {
       {big && (
         <p style={{ margin: 0 }}>
           <span className="mono" style={{ fontSize: 48, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}>{q.waiting}</span>
-          <span className="body muted"> {t("console.today.inQueue")}</span>
+          <span className="body muted"> {t("detail.inQueue")}</span>
         </p>
       )}
       <p className="small" style={{ margin: 0, color: "var(--ink-2)" }}>
-        <b className="mono">{q.waiting}</b> {t("console.today.inQueue")} · <b className="mono">{q.inRound}</b> in round · <b className="mono">{q.seen}</b> {t("console.today.seen")}
+        {t("console.today.inQueue", { n: q.waiting })} · {t("console.today.inRound", { n: q.inRound })} · {t("console.today.seen", { n: q.seen })}
       </p>
-      <QueueBar value={done} max={total} label={`${done} of ${total} done`} />
+      <QueueBar value={done} max={total} label={t("console.today.done", { done, total })} />
     </div>
   );
 }
@@ -37,7 +37,7 @@ function TodayCard({ drive, setDrives }) {
     <article className="card card-pad stack gap-16">
       <div className="row between gap-8">
         <StatusChip drive={drive} />
-        <span className="small muted">{status === "live" ? hoursLabel(drive) : `${driveWhen(drive).label} · ${hoursLabel(drive)}`}</span>
+        <span className="small muted">{status === "live" ? hoursLabel(drive) : driveWhen(drive).key === "today" ? t("console.today.startsAt", { time: clock(drive.startTime) }) : whenText(drive)}</span>
       </div>
       <div>
         <h2 className="h-3">{drive.role}</h2>
@@ -48,8 +48,8 @@ function TodayCard({ drive, setDrives }) {
         {status === "live"
           ? <Btn icon={Play} onClick={open}>{t("console.today.run")}</Btn>
           : <>
-            <Btn variant="secondary" onClick={startNow}>{t("console.queue.startNow")}</Btn>
-            <Btn variant="ghost" onClick={open}>{t("console.drives.queue")}</Btn>
+            <Btn variant="secondary" onClick={startNow}>{t("console.today.startNow")}</Btn>
+            <Btn variant="ghost" onClick={open}>{t("console.today.viewQueue")}</Btn>
           </>}
       </div>
     </article>
@@ -68,12 +68,12 @@ export default function TodayPage() {
   }, [mine]);
   return (
     <>
-      <PageHead title={t("console.today.title")} lede={t("console.today.lede")} />
+      <PageHead title={t("console.today.title")} />
       {now.length ? (
         <div className="cards-3">{now.map((d) => <TodayCard key={d.id} drive={d} setDrives={setDrives} />)}</div>
       ) : (
-        <EmptyState icon={CalendarPlus} title={t("console.today.empty.t")} body={t("console.today.empty.d")}
-          action={desk ? null : <Btn to="/app/drives/new">{t("console.today.empty.cta")}</Btn>} />
+        <EmptyState icon={CalendarPlus} title={t("console.today.empty")}
+          action={desk ? null : <Btn to="/app/drives/new">{t("buttons.createDrive")}</Btn>} />
       )}
       {next.length > 0 && (
         <section style={{ marginTop: 40 }}>

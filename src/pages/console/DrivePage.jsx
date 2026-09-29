@@ -21,10 +21,10 @@ function DeskPin({ drive }) {
   const pin = String(drive.host || "").replace(/^HOST-/, "");
   const copy = async () => {
     const url = `${window.location.origin}${import.meta.env.BASE_URL}desk?pin=${pin}`;
-    try { await navigator.clipboard.writeText(url); toast("Desk link copied."); } catch { toast(`Desk PIN: ${pin}`); }
+    try { await navigator.clipboard.writeText(url); toast(t("console.queue.deskCopied")); } catch { toast(`${t("console.queue.deskPin")}: ${pin}`); }
   };
   return (
-    <button type="button" className="btn btn-secondary" onClick={copy} title="Copy the desk link">
+    <button type="button" className="btn btn-secondary" onClick={copy} title={t("console.queue.deskCopied")}>
       <span className="tiny muted" style={{ fontWeight: 600 }}>{t("console.queue.deskPin")}</span>
       <span className="mono strong" style={{ letterSpacing: "0.08em" }}>{pin}</span>
       <Copy size={15} strokeWidth={STROKE} aria-hidden="true" />
@@ -40,7 +40,7 @@ export default function DrivePage() {
   const drive = drives.find((d) => d.id === id && d.orgId === org.id);
   const act = useDriveActions(drive, setDrives);
   const [confirmWrap, setConfirmWrap] = useState(false);
-  useMeta({ title: drive ? drive.role : "Drive" });
+  useMeta({ title: drive ? drive.role : t("console.nav.drives") });
   if (!drive) return <Navigate to="/app/drives" replace />;
 
   const tabs = desk ? ["queue"] : TABS;
@@ -56,8 +56,8 @@ export default function DrivePage() {
     return i < 0 ? 0 : i * minutes;
   };
 
-  const startNow = () => { act.patch({ ...startNowPatch(drive), draft: false }); toast("Drive is live. Candidates can get tokens."); };
-  const wrapUp = () => { act.patch(wrapUpPatch()); setConfirmWrap(false); toast("Drive wrapped up."); };
+  const startNow = () => { act.patch({ ...startNowPatch(drive), draft: false }); toast(t("console.queue.isLive")); };
+  const wrapUp = () => { act.patch(wrapUpPatch()); setConfirmWrap(false); toast(t("console.queue.wrapped")); };
 
   return (
     <>
@@ -74,22 +74,22 @@ export default function DrivePage() {
           <p className="small muted" style={{ margin: 0 }}>{venueLine(drive) || drive.venue}{drive.clientName ? ` · ${drive.clientName}` : ""}</p>
         </div>
         <div className="row gap-8" style={{ flexWrap: "wrap" }}>
-          {!desk && status === "draft" && <Btn icon={Send} onClick={() => { act.patch({ draft: false }); toast("Drive published."); }}>Publish</Btn>}
+          {!desk && status === "draft" && <Btn icon={Send} onClick={() => { act.patch({ draft: false }); toast(t("console.queue.published")); }}>{t("console.queue.publish")}</Btn>}
           {!desk && status === "scheduled" && <Btn icon={Play} onClick={startNow}>{t("console.queue.startNow")}</Btn>}
           {!desk && status === "live" && (confirmWrap
-            ? <><Btn variant="danger" icon={Square} onClick={wrapUp}>Wrap up now</Btn><Btn variant="ghost" onClick={() => setConfirmWrap(false)}>Keep running</Btn></>
+            ? <><Btn variant="danger" icon={Square} onClick={wrapUp}>{t("console.queue.wrapNow")}</Btn><Btn variant="ghost" onClick={() => setConfirmWrap(false)}>{t("console.queue.keepRunning")}</Btn></>
             : <Btn variant="secondary" icon={Square} onClick={() => setConfirmWrap(true)}>{t("console.queue.wrapUp")}</Btn>)}
           <Btn variant="secondary" icon={MonitorPlay} to={`/tv/${drive.id}`} target="_blank" rel="noopener">{t("console.queue.lobby")}</Btn>
           {!desk && <DeskPin drive={drive} />}
-          {!desk && <Btn variant="ghost" icon={Pencil} to={`/app/drives/${drive.id}/edit`}>Edit</Btn>}
-          {!desk && drive.visibility !== "private" && status !== "draft" && <Btn variant="ghost" icon={ExternalLink} to={drivePath(drive)} className="hide-mobile">Public page</Btn>}
+          {!desk && <Btn variant="ghost" icon={Pencil} to={`/app/drives/${drive.id}/edit`}>{t("console.drives.edit")}</Btn>}
+          {!desk && drive.visibility !== "private" && status !== "draft" && <Btn variant="ghost" icon={ExternalLink} to={drivePath(drive)} className="hide-mobile">{t("console.queue.publicPage")}</Btn>}
         </div>
       </div>
 
       <div className="card card-pad" style={{ marginBottom: 20 }}><QueueSummary drive={drive} /></div>
 
       {tabs.length > 1 && (
-        <div className="tabs" role="tablist" aria-label="Drive" style={{ marginBottom: 20 }}>
+        <div className="tabs" role="tablist" aria-label={drive.role} style={{ marginBottom: 20 }}>
           {tabs.map((k) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{t(`console.tabs.${k}`)}</button>
           ))}
@@ -101,7 +101,7 @@ export default function DrivePage() {
           <>
             {status !== "live" && (
               <div className="panel small" role="status" style={{ marginBottom: 16 }}>
-                {status === "wrapped" ? "This drive has wrapped up. The board is read-only." : "The queue opens when the drive starts."}
+                {status === "wrapped" ? t("console.queue.readOnly") : t("console.queue.notLive")}
               </div>
             )}
             <QueueBoard drive={drive} act={act} disabled={status === "wrapped"} deskMode={desk} />

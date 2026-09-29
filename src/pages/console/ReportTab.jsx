@@ -4,9 +4,8 @@ import { Btn } from "../../components/ds.jsx";
 import { ATS_TARGETS, downloadAts } from "../../lib/ats.js";
 import { roundLabel } from "../../lib/helpers.js";
 import { tokenNumber } from "../../lib/listing.js";
-import { t } from "../../i18n/strings.js";
+import { t, tl } from "../../i18n/strings.js";
 
-const STATUS = { wait: "Waiting", calling: "Called", interviewing: "In round", selected: "Shortlisted", rejected: "Not selected", onhold: "On hold", absent: "No-show" };
 const sane = (a) => a.filter((n) => n >= 0 && n < 12 * 60);
 const avg = (a) => (sane(a).length ? Math.round(sane(a).reduce((p, n) => p + n, 0) / sane(a).length) : 0);
 const dur = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`);
@@ -35,7 +34,6 @@ export default function ReportTab({ drive }) {
   const [target, setTarget] = useState("standard");
   const r = useMemo(() => reportNumbers(drive), [drive]);
   const top = Math.max(1, r.funnel[0][1]);
-  const chosen = ATS_TARGETS.find((x) => x.id === target) || ATS_TARGETS[0];
   const rows = [...r.cs].sort((a, b) => String(a.token).localeCompare(String(b.token), undefined, { numeric: true }));
   return (
     <div className="stack gap-24">
@@ -43,10 +41,10 @@ export default function ReportTab({ drive }) {
         <div className="row between gap-16" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
           <div className="stack gap-4">
             <h2 id="rp-export" className="h-3">{t("console.report.export")}</h2>
-            <p className="small muted" style={{ maxWidth: 560 }}>{chosen.hint}</p>
+            <p className="small muted" style={{ maxWidth: 560 }}>{t("console.report.helper")}</p>
           </div>
           <div className="row gap-8" style={{ flexWrap: "wrap" }}>
-            <label className="sr-only" htmlFor="rp-target">Format for</label>
+            <label className="sr-only" htmlFor="rp-target">{t("console.report.formatFor")}</label>
             <select id="rp-target" className="select" style={{ width: "auto" }} value={target} onChange={(e) => setTarget(e.target.value)}>
               {ATS_TARGETS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
             </select>
@@ -68,7 +66,7 @@ export default function ReportTab({ drive }) {
           ))}
         </div>
         <div className="cards-4" style={{ marginTop: 8 }}>
-          {[["Average wait", dur(r.avgWait)], ["Average round", dur(r.avgRound)], ["On hold", r.onHold], ["No-shows", r.noShow]].map(([l, v]) => (
+          {[[t("console.report.avgWait"), dur(r.avgWait)], [t("console.report.avgRound"), dur(r.avgRound)], [t("console.report.onHold"), r.onHold], [t("console.report.noShows"), r.noShow]].map(([l, v]) => (
             <div key={l} className="panel stack gap-4">
               <span className="tiny muted">{l}</span>
               <span className="mono strong" style={{ fontSize: 22 }}>{v}</span>
@@ -78,11 +76,11 @@ export default function ReportTab({ drive }) {
       </section>
 
       <section className="stack gap-12" aria-labelledby="rp-table">
-        <h2 id="rp-table" className="h-4">Candidates <span className="muted mono">{rows.length}</span></h2>
+        <h2 id="rp-table" className="h-4">{t("console.report.candidates")} <span className="muted mono">{rows.length}</span></h2>
         {rows.length ? (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Token</th><th>Name</th><th>Phone</th><th>Experience</th><th>Round</th><th>Status</th><th>Notes</th></tr></thead>
+              <thead><tr>{tl("console.report.cols").map((h) => <th key={h}>{h}</th>)}</tr></thead>
               <tbody>
                 {rows.map((c) => (
                   <tr key={c.id}>
@@ -91,14 +89,14 @@ export default function ReportTab({ drive }) {
                     <td className="mono">{c.phone}</td>
                     <td>{c.expBand || c.exp || "—"}</td>
                     <td>{roundLabel(drive.rounds, c)}</td>
-                    <td>{STATUS[c.state] || c.state}</td>
+                    <td>{t(`console.report.states.${c.state}`)}</td>
                     <td className="small muted" style={{ maxWidth: 260 }}>{Object.values(c.notes || {}).filter(Boolean).join(" · ") || "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : <p className="small muted">No candidates yet.</p>}
+        ) : <p className="small muted">{t("console.report.none")}</p>}
       </section>
     </div>
   );
