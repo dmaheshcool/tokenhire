@@ -1,0 +1,1 @@
+import{n as o,r as t,j as r,aM as n}from"./index-BZqdSDEd.js";function f(){const{signOut:e}=o(),[s,a]=t.useState(!1);return t.useEffect(()=>{e().finally(()=>a(!0))},[]),s?r.jsx(n,{to:"/login",replace:!0}):null}export{f as default};
