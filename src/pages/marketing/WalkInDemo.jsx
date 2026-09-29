@@ -6,10 +6,10 @@ import { TokenChip, TokenMark, TokenTile, Wordmark } from "../../components/bran
 const STORY_SCENES = [
   { id: "title", ms: 2800, kicker: "TokenHire", line: "A walk-in day with digital candidate files." },
   { id: "chaos", ms: 3200, kicker: "Without TokenHire", line: "Paper lists. Photocopies. Nobody knows who is next." },
-  { id: "gate", ms: 3800, kicker: "Check-in", line: "She scans the waiting-room screen and joins the queue." },
+  { id: "gate", ms: 3800, kicker: "Check-in", line: "She scans the lobby display and joins the queue." },
   { id: "prove", ms: 3800, kicker: "At the door", line: "A forwarded photo of the code expires in 45 seconds." },
   { id: "checkin", ms: 4200, kicker: "Her file", line: "Token 014. Resume and details are already on file." },
-  { id: "nudge", ms: 3600, kicker: "WhatsApp", line: "One message: be near the door in about 15 minutes." },
+  { id: "nudge", ms: 3600, kicker: "Token page", line: "Keep this page open. Sound and vibration when it is your turn." },
   { id: "floor", ms: 4000, kicker: "The desk", line: "The recruiter calls her to Room 2." },
   { id: "end", ms: 6200, kicker: "End of day", line: "The full file is ready to send to your ATS." },
 ];
@@ -310,7 +310,7 @@ function StoryChaos() {
         <StoryPaper rot={4.2} width={250} z={2}>
           <div style={{ fontFamily: typ, fontSize: 10, letterSpacing: 1.2, color: k.gold, fontWeight: 700, marginBottom: 8 }}>FRONT DESK</div>
           <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 10, letterSpacing: -0.4 }}>“Priya? Which list?”</div>
-          <div style={{ fontSize: 14, color: k.ink2, lineHeight: 1.45, marginBottom: 16 }}>Notebook. Three photocopies. A WhatsApp group named Walk-in TODAY.</div>
+          <div style={{ fontSize: 14, color: k.ink2, lineHeight: 1.45, marginBottom: 16 }}>Notebook. Three photocopies. A paper list named Walk-in TODAY.</div>
           <div style={{ background: k.redDim, color: k.red, borderRadius: 8, padding: "12px 14px", fontSize: 13.5, fontWeight: 700 }}>40 at the gate · nobody next</div>
         </StoryPaper>
       </div>
@@ -323,7 +323,7 @@ function StoryGate() {
     <StorySet>
       <StoryTv>
         <div style={{ padding: "14px 20px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 12, letterSpacing: 1.5, color: k.ink2, display: "flex", justifyContent: "space-between" }}>
-          <span>WAITING ROOM</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
+          <span>LOBBY DISPLAY</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
         </div>
         <div style={{ padding: "26px 22px 24px", textAlign: "center", background: k.cream2 }}>
           <div style={{ fontFamily: typ, fontSize: 11.5, letterSpacing: 1.8, color: k.coral, fontWeight: 700, marginBottom: 14 }}>SCAN TO GET YOUR TOKEN</div>
@@ -352,7 +352,7 @@ function StoryProve({ fill = 0 }) {
     <StorySet tone="night">
       <StoryTv>
         <div style={{ padding: "14px 20px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 12, letterSpacing: 1.5, color: k.ink2, display: "flex", justifyContent: "space-between" }}>
-          <span>WAITING ROOM</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
+          <span>LOBBY DISPLAY</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
         </div>
         <div style={{ padding: "30px 22px 26px", textAlign: "center", background: k.cream2 }}>
           <div style={{ display: "flex", justifyContent: "center", opacity: .9 }}><DemoQr seed={`ROT-${Math.ceil(left / 5)}`} size={150} /></div>
@@ -371,7 +371,7 @@ function StoryProve({ fill = 0 }) {
           </div>
           <div style={{ background: k.redDim, border: `1px solid ${k.red}33`, borderRadius: 12, padding: "14px 15px" }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: k.red, marginBottom: 4 }}>This code has expired</div>
-            <div style={{ fontSize: 13, color: k.ink2, lineHeight: 1.45 }}>Scan the screen in the waiting room.</div>
+            <div style={{ fontSize: 13, color: k.ink2, lineHeight: 1.45 }}>Scan the lobby display.</div>
           </div>
         </div>
       </StoryPhone>
@@ -428,14 +428,14 @@ function StoryNudge() {
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700 }}>TokenHire</div>
-            <div style={{ fontSize: 12, opacity: .88 }}>WhatsApp · now</div>
+            <div style={{ fontSize: 12, opacity: .88 }}>Live · now</div>
           </div>
         </div>
         <div style={{ background: k.cream2, minHeight: 380, padding: "28px 18px" }}>
-          <div style={{ background: "#fff", borderRadius: "4px 18px 18px 18px", padding: "16px 18px", fontSize: 15.5, color: k.ink, lineHeight: 1.5, boxShadow: "0 1px 3px rgba(11,16,32,.06)" }}>
-            Priya, you're up in about 15 minutes — 014. Please be near the waiting area.
+          <div style={{ background: "#fff", borderRadius: "18px", padding: "16px 18px", fontSize: 15.5, color: k.ink, lineHeight: 1.5, boxShadow: "0 1px 3px rgba(11,16,32,.06)" }}>
+            You’re next. Please stay nearby — you’ll be called to Room 2.
           </div>
-          <div style={{ fontSize: 12.5, color: k.mid, marginTop: 12 }}>11:02am · one message</div>
+          <div style={{ fontSize: 12.5, color: k.mid, marginTop: 12 }}>Keep this page open</div>
         </div>
       </StoryPhone>
     </StorySet>

@@ -1,7 +1,8 @@
 import express from "express";
+import { isWorkEmail } from "../src/lib/helpers.js";
 import {
-  candidateByPhone, checkOrgPassword, consumeReset, createSession, DEMO_RESET, dropSession, findOrgByEmail,
-  flushWrites, getState, publicSnapshot, ready, roleFor, saveCandidate, sessionOf, setOrgPassword, setReset,
+  addPilot, candidateByPhone, checkOrgPassword, consumeReset, createSession, DEMO_RESET, dropSession, findOrgByEmail,
+  confirmListing, flushWrites, getState, publicSnapshot, publishListing, ready, roleFor, saveCandidate, sessionOf, setOrgPassword, setReset,
   setSnapshot, storageMode, upsertOrg,
 } from "./db.js";
 
@@ -53,6 +54,16 @@ function throttled(keyStr) {
 function clearThrottle(keyStr) {
   attempts.delete(keyStr);
 }
+function looseThrottle(keyStr, max) {
+  const now = Date.now();
+  const rec = attempts.get(keyStr);
+  if (!rec || now - rec.first > 10 * 60 * 1000) {
+    attempts.set(keyStr, { first: now, n: 1 });
+    return false;
+  }
+  rec.n += 1;
+  return rec.n > max;
+}
 
 app.get("/api/health", (_req, res) => {
   const s = getState();
@@ -85,6 +96,31 @@ app.put("/api/snapshot", async (req, res) => {
   res.json(snap);
 });
 
+app.post("/api/listings", async (req, res) => {
+  const ip = req.ip || req.headers["x-forwarded-for"] || "local";
+  if (looseThrottle(`list:${ip}`, 40)) return res.status(429).json({ ok: false, error: "Too many listings from this network. Wait a few minutes." });
+  const result = publishListing(req.body || {}, sessionOf(bearer(req)));
+  if (!result.ok) return res.status(400).json(result);
+  await flushWrites();
+  res.json(result);
+});
+
+app.post("/api/pilot", async (req, res) => {
+  const ip = req.ip || req.headers["x-forwarded-for"] || "local";
+  if (looseThrottle(`pilot:${ip}`, 10)) return res.status(429).json({ ok: false, error: "Too many requests from this network. Try again in a few minutes." });
+  const result = addPilot(req.body || {});
+  if (!result.ok) return res.status(400).json(result);
+  await flushWrites();
+  res.json(result);
+});
+
+app.post("/api/listings/confirm", async (req, res) => {
+  const result = confirmListing(req.body?.token);
+  if (!result.ok) return res.status(400).json(result);
+  await flushWrites();
+  res.json(result);
+});
+
 app.post("/api/auth/login", async (req, res) => {
   const email = (req.body?.email || "").trim();
   const password = req.body?.password || "";
@@ -105,6 +141,9 @@ app.post("/api/auth/signup", async (req, res) => {
   if (!companyName?.trim() || !email?.trim() || !password?.trim()) {
     return res.status(400).json({ ok: false, error: "Fill in all fields." });
   }
+  if (!isWorkEmail(email)) {
+    return res.status(400).json({ ok: false, error: "Use a work email." });
+  }
   if (findOrgByEmail(email)) {
     return res.status(409).json({ ok: false, error: "An account with that email already exists — sign in instead." });
   }
@@ -119,8 +158,7 @@ app.post("/api/auth/signup", async (req, res) => {
     logo: agency ? "bars" : "ring",
     wash: agency ? "#E6F5F0" : "#EEE8F8",
     email: email.trim(),
-    plan: "trial",
-    billingCycle: "month",
+    plan: "setup",
     verified: false,
     members: [{ email: email.trim(), role: "recruiter" }],
     clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
@@ -229,12 +267,12 @@ app.get("/api/routes", (_req, res) => {
     ok: true,
     pages: [
       "/login", "/signup", "/forgot-password", "/reset-password", "/verify", "/invite",
-      "/app", "/app/join", "/app/hiring",
-      "/org", "/org/team", "/org/sites", "/org/brand", "/org/billing", "/org/settings", "/org/security",
+      "/app/join", "/desk",
+      "/app/today", "/app/drives", "/app/drives/new", "/app/venues", "/app/teams", "/app/talent", "/app/team", "/app/settings", "/app/billing",
       "/status", "/developers",
     ],
     api: [
-      "GET /api/health", "GET /api/snapshot", "PUT /api/snapshot",
+      "GET /api/health", "GET /api/snapshot", "PUT /api/snapshot", "POST /api/listings", "POST /api/listings/confirm", "POST /api/pilot",
       "POST /api/auth/login", "POST /api/auth/signup", "POST /api/auth/forgot", "POST /api/auth/reset",
       "POST /api/auth/verify", "GET /api/auth/me", "POST /api/auth/logout", "POST /api/auth/invite/accept",
       "GET /api/org", "PATCH /api/org", "GET /api/candidate/:phone", "PUT /api/candidate",

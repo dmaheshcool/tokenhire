@@ -1,9 +1,310 @@
-import { useOutletContext } from "react-router-dom";
-import { Home } from "./marketing/site.jsx";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Check, Clock3, DoorOpen, MapPin, FileSpreadsheet, LayoutGrid, Plus, Search, ShieldCheck, Ticket, Users } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
+import { Btn, CountUp, DriveCard, LiveDot, QueueBar, Reveal, STROKE, useSaved } from "../components/ds.jsx";
+import { createDrivePath } from "../components/SiteChrome.jsx";
+import { HERO_CITIES, boardStats, cityPath, publicDrives, sortForBoard } from "../lib/listing.js";
+import { driveStatus, driveWhen } from "../lib/status.js";
+import { useMeta } from "../hooks/useMeta.js";
+import { t } from "../i18n/strings.js";
+
+function HeroPhone() {
+  return (
+    <div className="phone" aria-label="A candidate’s token on a phone: token 042, 7 ahead, about 25 minutes, Room B" role="img">
+      <div className="phone-screen stack gap-12">
+        <div className="row between">
+          <span className="tiny strong" style={{ fontWeight: 700 }}>Northwind Care</span>
+          <span className="status status-live">{t("home.phone.live")}</span>
+        </div>
+        <div className="ticket" style={{ "--cut": "74px" }}>
+          <div className="ticket-top" style={{ padding: "14px 16px 0" }}>
+            <p className="tiny muted" style={{ margin: 0, fontWeight: 600 }}>Customer Support Executive</p>
+            <p className="tiny muted" style={{ margin: "2px 0 0" }}>HITEC City · till 6 pm</p>
+          </div>
+          <div className="ticket-tear" style={{ margin: "0 14px" }} />
+          <div className="ticket-body" style={{ padding: "14px 16px 16px" }}>
+            <p className="tiny muted" style={{ margin: 0, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" }}>{t("home.phone.yourToken")}</p>
+            <p className="ticket-num" style={{ fontSize: 64, margin: "6px 0 10px" }}>#042</p>
+            <div className="row between" style={{ marginBottom: 8 }}>
+              <span className="small"><b className="mono">7</b> {t("home.phone.ahead")}</span>
+              <span className="small muted">{t("home.phone.wait", { min: 25 })}</span>
+            </div>
+            <QueueBar value={35} max={42} label="Queue progress" />
+          </div>
+        </div>
+        <div className="card" style={{ padding: "12px 14px", borderRadius: 14 }}>
+          <div className="row between">
+            <span className="tiny muted" style={{ fontWeight: 600 }}>Now calling</span>
+            <span className="tiny strong" style={{ fontWeight: 700 }}>{t("home.phone.room", { room: "B" })}</span>
+          </div>
+          <div className="row gap-6" style={{ marginTop: 8 }}>
+            {["#035", "#036", "#037"].map((n, i) => <span key={n} className={`token-pill${i === 2 ? " lime" : ""}`}>{n}</span>)}
+          </div>
+        </div>
+        <ol className="timeline" style={{ padding: "4px 4px 0" }} aria-hidden="true">
+          {[["Registered", "done"], ["In queue", "now"], ["Called", ""], ["In round 1", ""]].map(([label, st]) => (
+            <li key={label} className={st} style={{ fontSize: 12.5, paddingBottom: 10 }}>
+              <span className="tl-dot" style={{ width: 16, height: 16 }}>{st === "done" && <Check size={10} strokeWidth={3} />}</span>{label}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+function Hero({ stats }) {
+  const nav = useNavigate();
+  const [q, setQ] = useState("");
+  const submit = (e) => {
+    e.preventDefault();
+    const v = q.trim();
+    nav(v ? `/walk-ins?q=${encodeURIComponent(v)}` : "/walk-ins");
+  };
+  return (
+    <section className="mesh">
+      <div className="wrap" style={{ paddingTop: 64, paddingBottom: 80 }}>
+        <p className="row gap-8 small" style={{ margin: "0 0 20px", fontWeight: 600, color: "var(--ink-2)" }}>
+          <LiveDot /> <span><span className="mono">{stats.live}</span> drives live right now</span>
+        </p>
+        <h1 className="h-display hero-title">{t("tagline")}</h1>
+        <div className="grid-12" style={{ alignItems: "start", marginTop: 28 }}>
+          <div className="span-7 stack gap-24" style={{ paddingTop: 8 }}>
+            <p className="lede" style={{ fontSize: "clamp(18px, 1.9vw, 23px)" }}>{t("subline")}</p>
+            <form className="search" role="search" onSubmit={submit} style={{ maxWidth: 560 }}>
+              <Search size={20} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", flexShrink: 0 }} />
+              <label htmlFor="hero-q" className="sr-only">{t("home.searchPlaceholder")}</label>
+              <input id="hero-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("home.searchPlaceholder")} autoComplete="off" />
+              <button type="submit" className="btn btn-primary">{t("home.search")}</button>
+            </form>
+            <div className="chips-scroll" aria-label="Popular cities">
+              {HERO_CITIES.map((c) => <Link key={c} to={cityPath(c)} className="chip">{c}</Link>)}
+            </div>
+            <ul className="hero-facts">
+              {[
+                [Ticket, "A token from your phone, no app or login"],
+                [Clock3, "Live place in the queue and a wait estimate"],
+                [MapPin, "Venue, landmark and documents on every listing"],
+              ].map(([Icon, text]) => (
+                <li key={text}><Icon size={18} strokeWidth={STROKE} aria-hidden="true" />{text}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="span-5 row hero-phone" style={{ justifyContent: "center" }}>
+            <HeroPhone />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatStrip({ stats }) {
+  const items = [
+    [stats.today, t("home.stats.drives")],
+    [stats.inQueue, t("home.stats.queue")],
+    [stats.cities, t("home.stats.cities")],
+  ];
+  return (
+    <div className="wrap" style={{ marginTop: -36, position: "relative" }}>
+      <div className="stats" aria-label="Live numbers">
+        {items.map(([n, label]) => (
+          <div key={label}>
+            <span className="stat-num"><CountUp value={n} /></span>
+            <span className="small muted">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Steps() {
+  const steps = [
+    [Search, t("home.steps.s1.t"), t("home.steps.s1.d")],
+    [Ticket, t("home.steps.s2.t"), t("home.steps.s2.d")],
+    [DoorOpen, t("home.steps.s3.t"), t("home.steps.s3.d")],
+  ];
+  return (
+    <section className="section" aria-labelledby="how-h">
+      <div className="wrap">
+        <p className="eyebrow">3 steps</p>
+        <h2 id="how-h" className="h-1" style={{ margin: "10px 0 40px" }}>{t("home.steps.title")}</h2>
+        <div className="cards-3">
+          {steps.map(([Icon, title, body], i) => (
+            <Reveal key={title} delay={i * 80} className="card card-pad stack gap-16">
+              <div className="row between">
+                <span className={`step-icon${i === 1 ? " lime" : ""}`}><Icon size={24} strokeWidth={STROKE} aria-hidden="true" /></span>
+                <span className="mono faint" style={{ fontSize: 14, fontWeight: 700 }}>0{i + 1}</span>
+              </div>
+              <h3 className="h-3">{title}</h3>
+              <p className="body muted">{body}</p>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Audiences() {
+  const bullets = (keys, dark) => (
+    <ul className="bullets">
+      {keys.map((b) => <li key={b}><Check size={18} strokeWidth={2} aria-hidden="true" /><span>{b}</span></li>)}
+      {dark ? null : null}
+    </ul>
+  );
+  return (
+    <section className="section" style={{ paddingTop: 0 }}>
+      <div className="wrap cards-2">
+        <Reveal className="card card-pad stack gap-24" style={{ padding: 32 }}>
+          <p className="eyebrow">{t("home.forCandidates.eyebrow")}</p>
+          <h2 className="h-2">{t("home.forCandidates.title")}</h2>
+          {bullets([t("home.forCandidates.b1"), t("home.forCandidates.b2"), t("home.forCandidates.b3")])}
+          <div style={{ marginTop: "auto" }}><Btn to="/walk-ins" size="lg" iconRight={ArrowRight}>{t("home.forCandidates.cta")}</Btn></div>
+        </Reveal>
+        <Reveal delay={80} className="card card-pad band-dark stack gap-24" style={{ padding: 32, borderColor: "transparent" }}>
+          <p className="eyebrow" style={{ color: "var(--lime)" }}>{t("home.forCompanies.eyebrow")}</p>
+          <h2 className="h-2">{t("home.forCompanies.title")}</h2>
+          {bullets([t("home.forCompanies.b1"), t("home.forCompanies.b2"), t("home.forCompanies.b3")], true)}
+          <div style={{ marginTop: "auto" }}><Btn to="/for-companies" variant="lime" size="lg" iconRight={ArrowRight}>{t("home.forCompanies.cta")}</Btn></div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function Today({ drives }) {
+  const saved = useSaved();
+  const list = useMemo(() => {
+    const pub = publicDrives(drives);
+    const today = sortForBoard(pub.filter((d) => driveWhen(d).key === "today"));
+    const next = sortForBoard(pub.filter((d) => driveStatus(d) === "scheduled" && driveWhen(d).key !== "today"));
+    const seen = new Set();
+    const out = [];
+    for (const d of [...today, ...next]) {
+      const key = `${d.company}|${d.role}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(d);
+      if (out.length === 6) break;
+    }
+    return { cards: out, empty: today.length === 0 };
+  }, [drives]);
+  return (
+    <section className="section" style={{ paddingTop: 0 }} aria-labelledby="today-h">
+      <div className="wrap">
+        <div className="row between gap-16" style={{ marginBottom: 28, flexWrap: "wrap" }}>
+          <h2 id="today-h" className="h-1 row gap-12"><LiveDot /> {t("home.today.title")}</h2>
+          <Link to="/walk-ins" className="link row gap-6">{t("home.today.seeAll")} <ArrowRight size={18} strokeWidth={STROKE} aria-hidden="true" /></Link>
+        </div>
+        {list.empty && <p className="body muted" style={{ marginBottom: 20 }}>{t("home.today.empty")}</p>}
+        <div className="cards-3">
+          {list.cards.map((d) => <DriveCard key={d.id} drive={d} saved={saved} />)}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function MiniBoard() {
+  const col = (title, tokens, tone) => (
+    <div className="stack gap-8" style={{ background: "rgba(255,255,255,.05)", borderRadius: 14, padding: 12, minWidth: 0 }}>
+      <span className="tiny" style={{ color: "#9AA1B4", fontWeight: 600 }}>{title} · <span className="mono">{tokens.length}</span></span>
+      {tokens.map(([n, who, room]) => (
+        <div key={n} className="row gap-8" style={{ background: "rgba(255,255,255,.07)", borderRadius: 10, padding: "8px 10px" }}>
+          <span className={`token-pill${tone === "lime" ? " lime" : ""}`} style={tone === "lime" ? undefined : { background: "#F2F3F7", color: "#0B1020" }}>{n}</span>
+          <span className="tiny grow" style={{ color: "#C9CDD8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{who}</span>
+          {room && <span className="tiny" style={{ color: "#9AA1B4" }}>{room}</span>}
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div className="card" style={{ background: "#121729", borderColor: "rgba(255,255,255,.08)", padding: 16 }} aria-hidden="true">
+      <div className="row between" style={{ marginBottom: 14 }}>
+        <span className="small" style={{ color: "#fff", fontWeight: 700 }}>Queue</span>
+        <span className="btn btn-lime btn-sm" style={{ pointerEvents: "none" }}>Call next <span className="kbd" style={{ borderColor: "rgba(11,16,32,.3)" }}>N</span></span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+        {col("Waiting", [["#043", "Ritu S."], ["#044", "Imran K."], ["#045", "Asha P."]])}
+        {col("In round", [["#041", "Varun M.", "A"], ["#042", "Neha J.", "B"]], "lime")}
+        {col("Done", [["#039", "Arjun R."], ["#040", "Divya N."]])}
+      </div>
+    </div>
+  );
+}
+
+function Proof() {
+  const items = [
+    [LayoutGrid, t("home.proof.p1.t"), t("home.proof.p1.d")],
+    [Users, t("home.proof.p2.t"), t("home.proof.p2.d")],
+    [ShieldCheck, t("home.proof.p3.t"), t("home.proof.p3.d")],
+    [FileSpreadsheet, t("home.proof.p4.t"), t("home.proof.p4.d")],
+  ];
+  return (
+    <section className="band-dark section" aria-labelledby="proof-h">
+      <div className="wrap">
+        <p className="eyebrow" style={{ color: "var(--lime)" }}>{t("home.proof.eyebrow")}</p>
+        <h2 id="proof-h" className="h-1" style={{ margin: "10px 0 40px" }}>{t("home.proof.title")}</h2>
+      </div>
+      <div className="wrap grid-12" style={{ alignItems: "start", rowGap: 32 }}>
+        <div className="span-6">
+          <MiniBoard />
+        </div>
+        <div className="span-6">
+          <div className="cards-2">
+            {items.map(([Icon, title, body]) => (
+              <div key={title} className="stack gap-12" style={{ padding: 24, borderRadius: 16, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <Icon size={24} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--lime)" }} />
+                <h3 className="h-3">{title}</h3>
+                <p className="body" style={{ color: "#C9CDD8" }}>{body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="row gap-12" style={{ marginTop: 28, flexWrap: "wrap" }}>
+            <Btn to="/for-companies" variant="lime" size="lg" iconRight={ArrowRight}>{t("home.proof.cta")}</Btn>
+            <Btn to={createDrivePath()} variant="ghost" size="lg" icon={Plus} className="on-dark">{t("nav.createDrive")}</Btn>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Faq() {
+  const qs = ["q1", "q2", "q3", "q4", "q5"];
+  return (
+    <section className="section" aria-labelledby="faq-h">
+      <div className="wrap grid-12">
+        <div className="span-4"><h2 id="faq-h" className="h-1">{t("home.faq.title")}</h2></div>
+        <div className="span-8 faq">
+          {qs.map((q) => (
+            <details key={q}>
+              <summary>{t(`home.faq.${q}.q`)}<Plus size={22} strokeWidth={STROKE} aria-hidden="true" /></summary>
+              <p>{t(`home.faq.${q}.a`)}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function HomePage() {
-  const { go, onLaunch } = useOutletContext();
   const { drives } = useStore();
-  return <Home go={go} onLaunch={onLaunch} drives={drives} />;
+  const stats = useMemo(() => boardStats(drives), [drives]);
+  useMeta({ description: "Find walk-in interviews near you, get a digital token and see your live place in the queue. Companies run the whole drive from one screen." });
+  return (
+    <>
+      <Hero stats={stats} />
+      <StatStrip stats={stats} />
+      <Steps />
+      <Audiences />
+      <Today drives={drives} />
+      <Proof />
+      <Faq />
+    </>
+  );
 }

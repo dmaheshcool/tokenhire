@@ -13,7 +13,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const from = loc.state?.from || "/app/hiring";
+  const [who, setWho] = useState("company");
+  const from = loc.state?.from || "/app/today";
 
   if (activeOrgId) return <Navigate to={from} replace />;
 
@@ -27,8 +28,24 @@ export default function LoginPage() {
     nav(from, { replace: true });
   }
 
+  const tab = (id, label) => (
+    <button type="button" onClick={() => setWho(id)} style={{
+      flex: 1, border: "none", cursor: "pointer", padding: "12px 8px", fontFamily: "inherit", fontWeight: 700, fontSize: 14,
+      background: who === id ? k.coral : k.cream2, color: who === id ? "#fff" : k.ink2,
+      borderRadius: id === "person" ? "12px 0 0 0" : "0 12px 0 0",
+    }}>{label}</button>
+  );
+
   return (
-    <AuthShell title="Sign in" sub="Recruiters and front desk.">
+    <AuthShell title="Sign in" sub={who === "company" ? "Company account." : "You do not need a password."}>
+      <div style={{ display: "flex", margin: "-24px -24px 16px" }}>{tab("person", "Get my token")}{tab("company", "Company")}</div>
+      {who === "person" ? (
+        <div>
+          <p style={{ fontSize: 14.5, color: k.ink2, lineHeight: 1.55, margin: "0 0 16px" }}>Find a walk-in and tap Get my token. When you arrive, scan the lobby display.</p>
+          <Link to="/walk-ins" style={{ ...solid, justifyContent: "center", textDecoration: "none", width: "100%" }}>Browse walk-ins</Link>
+          <Link to="/app/join" style={{ ...textLink, display: "inline-block", marginTop: 14 }}>Check in</Link>
+        </div>
+      ) : (
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <Field label="Work email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} placeholder="hr@yourcompany.com" autoComplete="username" /></Field>
         <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} autoComplete="current-password" /></Field>
@@ -36,14 +53,11 @@ export default function LoginPage() {
         <button type="submit" disabled={busy} style={{ ...solid, justifyContent: "center", padding: 12 }}>{busy ? "Signing in…" : "Sign in"}</button>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <Link to="/forgot-password" style={textLink}>Forgot password</Link>
-          <Link to="/signup" style={textLink}>Create an account</Link>
-        </div>
-        <div style={{ borderTop: `1px solid ${k.line}`, marginTop: 4, paddingTop: 14, fontSize: 12.5, color: k.mid, lineHeight: 1.55 }}>
-          Here for an interview? You don’t need an account —{" "}
-          <Link to="/app/join" style={{ ...textLink, fontSize: 12.5 }}>check in here</Link>.
+          <Link to="/signup" style={textLink}>Register</Link>
         </div>
         {demoHint}
       </form>
+      )}
     </AuthShell>
   );
 }

@@ -15,7 +15,7 @@ export default function InvitePage() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (activeOrgId) return <Navigate to="/app/hiring" replace />;
+  if (activeOrgId) return <Navigate to="/app/today" replace />;
 
   async function submit(e) {
     e.preventDefault();
@@ -26,7 +26,7 @@ export default function InvitePage() {
       writeSession({ token: r.token, orgId: r.orgId, role: r.role, email: r.email });
       if (r.org) setOrgs((p) => p.some((o) => o.id === r.org.id) ? p : [...p, r.org]);
       signInLocal(r.orgId, r.role, r.email);
-      nav("/app/hiring", { replace: true });
+      nav("/app/today", { replace: true });
     } catch (ex) {
       setErr(ex.message);
     }

@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ChevronDown } from "lucide-react";
-import { bdy, dsp, typ, input, k, iconBtn, chromeStrip } from "../theme.js";
-import { CITIES } from "../lib/helpers.js";
+import { bdy, dsp, typ, input, k, iconBtn, chromeStrip, outline } from "../theme.js";
+import { DOC_GROUPS, DOC_OPTIONS, INDIA_CITIES, cityKeywords, docNameOf } from "../lib/helpers.js";
 import { Wordmark } from "./brand.jsx";
 
 let closeOpenMenu = null;
@@ -91,12 +91,31 @@ export function DropPanel({ anchorRef, open, onClose, children, minWidth, align 
   );
 }
 
-export function Select({ value, onChange, options, placeholder, style, disabled, searchable, "aria-label": ariaLabel }) {
+export function Select({ value, onChange, options, placeholder, style, disabled, searchable, allowCustom, searchPlaceholder = "Type to search", "aria-label": ariaLabel }) {
   const btnRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const current = (options || []).find((o) => String(o.value) === String(value));
-  const shown = (options || []).filter((o) => !searchable || !q.trim() || String(o.label).toLowerCase().includes(q.trim().toLowerCase()));
+  const typed = q.trim().replace(/\s+/g, " ");
+  const qn = typed.toLowerCase();
+  const shown = (options || []).filter((o) => {
+    if (!searchable) return true;
+    if (!o.value || qn.length < 1) return false;
+    return `${o.label} ${o.keywords || ""}`.toLowerCase().includes(qn);
+  }).slice(0, 8);
+  const exact = qn.length > 0 && (options || []).some((o) => String(o.value).toLowerCase() === qn || String(o.label).toLowerCase() === qn);
+  const canUse = !!(allowCustom && typed.length >= 2 && !exact);
+  function choose(next) {
+    onChange(next);
+    setOpen(false);
+    setQ("");
+  }
+  function onSearchKey(e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (shown.length === 1) choose(shown[0].value);
+    else if (canUse && !shown.length) choose(typed);
+  }
   return (
     <>
       <button
@@ -105,7 +124,7 @@ export function Select({ value, onChange, options, placeholder, style, disabled,
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={ariaLabel || current?.label || placeholder}
+        aria-label={ariaLabel || current?.label || value || placeholder}
         onClick={() => { setOpen((v) => !v); setQ(""); }}
         style={{
           ...input,
@@ -118,8 +137,8 @@ export function Select({ value, onChange, options, placeholder, style, disabled,
           ...style,
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: current ? k.ink : k.faint, flex: 1 }}>
-          {current?.label || placeholder || "Select"}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: current || value ? k.ink : k.faint, flex: 1 }}>
+          {current?.label || value || placeholder || "Select"}
         </span>
         <ChevronDown size={15} color={k.faint} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none" }} />
       </button>
@@ -129,7 +148,8 @@ export function Select({ value, onChange, options, placeholder, style, disabled,
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Type to find a company"
+            onKeyDown={onSearchKey}
+            placeholder={searchPlaceholder}
             style={{ ...input, margin: "8px 8px 4px", width: "calc(100% - 16px)" }}
           />
         ) : null}
@@ -141,7 +161,7 @@ export function Select({ value, onChange, options, placeholder, style, disabled,
               type="button"
               role="option"
               aria-selected={on}
-              onClick={() => { onChange(o.value); setOpen(false); setQ(""); }}
+              onClick={() => choose(o.value)}
               style={{
                 display: "block", width: "100%", textAlign: "left", padding: "9px 11px", border: "none",
                 borderRadius: 8, cursor: "pointer", fontFamily: bdy, fontSize: 13.5,
@@ -152,22 +172,137 @@ export function Select({ value, onChange, options, placeholder, style, disabled,
             </button>
           );
         })}
-        {searchable && !shown.length ? (
-          <div style={{ padding: "10px 12px", fontSize: 13, color: k.mid }}>No company matches that name.</div>
-        ) : null}
+        {searchable && !typed && (
+          <div style={{ padding: "10px 12px", fontSize: 13, color: k.mid }}>Type a city. If it is not listed, you can still use that name.</div>
+        )}
+        {canUse && (
+          <button
+            type="button"
+            onClick={() => choose(typed)}
+            style={{
+              display: "block", width: "100%", textAlign: "left", padding: "9px 11px", border: "none",
+              borderRadius: 8, cursor: "pointer", fontFamily: bdy, fontSize: 13.5,
+              background: "transparent", color: k.coral, fontWeight: 600,
+            }}
+          >
+            Use “{typed}”
+          </button>
+        )}
       </DropPanel>
     </>
   );
 }
 
 export function Field({ label, children }) { return <label style={{ display: "flex", flexDirection: "column", gap: 5 }}><span style={{ fontSize: 12, color: k.mid, fontWeight: 600 }}>{label}</span>{children}</label>; }
+
+function docChip(on) {
+  return {
+    border: `1px solid ${on ? k.coral : k.line}`,
+    background: on ? k.coralDim : "#fff",
+    color: on ? k.coral : k.ink2,
+    borderRadius: 999,
+    padding: "8px 12px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: bdy,
+    textAlign: "left",
+  };
+}
+
+export function DocPicker({ docs, onChange }) {
+  const selected = Array.isArray(docs) ? docs : [];
+  const known = new Set(DOC_OPTIONS);
+  const custom = selected.filter((d) => docNameOf(d) && !known.has(d));
+  const [extra, setExtra] = useState("");
+  const [note, setNote] = useState("");
+
+  function toggle(doc) {
+    onChange(selected.includes(doc) ? selected.filter((x) => x !== doc) : [...selected, doc]);
+  }
+
+  function addExtra() {
+    const typed = extra.trim();
+    if (/aadhaar|aadhar/i.test(typed)) {
+      setNote("Don’t ask candidates to carry Aadhaar.");
+      return;
+    }
+    if (/passbook|cheque|checkbook/i.test(typed)) {
+      setNote("Don’t ask candidates to carry a bank passbook.");
+      return;
+    }
+    const name = docNameOf(typed);
+    if (!name) {
+      setNote(typed ? "Use a short document name." : "");
+      return;
+    }
+    setExtra("");
+    setNote("");
+    if (!selected.includes(name)) onChange([...selected, name]);
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: k.mid, lineHeight: 1.45, marginBottom: 12 }}>
+        Candidates see this before they travel. Tick only what you will check at the venue.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {DOC_GROUPS.map((group) => (
+          <div key={group.title}>
+            <div style={{ fontSize: 12, fontWeight: 650, color: k.ink, marginBottom: 6 }}>{group.title}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {group.items.map((doc) => {
+                const on = selected.includes(doc);
+                return (
+                  <button key={doc} type="button" aria-pressed={on} onClick={() => toggle(doc)} style={docChip(on)}>{doc}</button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      {custom.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+          {custom.map((doc) => (
+            <button key={doc} type="button" onClick={() => toggle(doc)} style={docChip(true)}>{doc} ×</button>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
+        <input
+          value={extra}
+          onChange={(e) => { setExtra(e.target.value); setNote(""); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExtra(); } }}
+          placeholder="Add a document that is not listed"
+          aria-label="Add a document"
+          style={{ ...input, flex: 1 }}
+        />
+        <button type="button" onClick={addExtra} style={{ ...outline, flexShrink: 0 }}>Add</button>
+      </div>
+      {note ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 8 }}>{note}</div> : null}
+    </div>
+  );
+}
 export function CitySelect({ value, onChange, allowAll, placeholder = "Select a city" }) {
   const options = [
     ...(allowAll ? [{ value: "", label: "All cities" }] : []),
-    ...(!allowAll && !value ? [{ value: "", label: placeholder }] : []),
-    ...CITIES.map((c) => ({ value: c, label: c })),
+    ...INDIA_CITIES.flatMap((c) => (
+      c.states.length === 1
+        ? [{ value: c.name, label: `${c.name}, ${c.states[0]}`, keywords: `${c.states[0]} ${cityKeywords(c.name)}` }]
+        : c.states.map((s) => ({ value: `${c.name}, ${s}`, label: `${c.name}, ${s}`, keywords: `${s} ${cityKeywords(c.name)}` }))
+    )),
   ];
-  return <Select value={value} onChange={onChange} options={options} placeholder={placeholder} />;
+  return (
+    <Select
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      searchable
+      allowCustom={!allowAll}
+      searchPlaceholder="Type any city"
+    />
+  );
 }
 export function SectionLabel({ children }) { return <div style={{ fontFamily: typ, fontSize: 10.5, letterSpacing: 1.2, color: k.mid, marginBottom: 9, fontWeight: 700 }}>{children.toString().toUpperCase()}</div>; }
 export function Blank({ text }) { return <div style={{ color: k.faint, fontSize: 13.5, padding: "30px 16px", textAlign: "center", lineHeight: 1.5 }}>{text}</div>; }

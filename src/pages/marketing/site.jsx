@@ -1,28 +1,20 @@
-import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ArrowRight, Mail, Linkedin, Phone, ChevronDown, Menu, X, Play, Pause, Search, MapPin, Users2, QrCode, Check, ListChecks, ShieldCheck, FileText, HeartHandshake, Send, BadgeCheck } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { ArrowLeft, ArrowRight, Mail, Linkedin, Phone, ChevronDown, Menu, X, Search, MapPin, Users2, QrCode, Check, BadgeCheck } from "lucide-react";
 import { bdy, dsp, typ, k, R, solid, solidSm, outline, outlineSm, iconBtn, navBtn, box, input, ghostSm, textLink } from "../../theme.js";
 import { HallBrand, OrgLogo, TokenChip, Wordmark } from "../../components/brand.jsx";
-import { Link } from "react-router-dom";
-import { pc, PLANS, PLAN_ROWS, PUBLIC_PLANS, planPrice, listingHost, listingPlace, EXP_BANDS, DEFAULT_ROUNDS } from "../../lib/helpers.js";
-import { HIDE_PRICING } from "../../lib/flags.js";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { pc, PLANS, PLAN_ROWS, PUBLIC_PLANS, planPrice, listingHost, listingPlace, EXP_BANDS, citiesMatching, cityQueryHits, docsOf, driveEnded, driveOpenToday, driveWindow, todayStr } from "../../lib/helpers.js";
 import { readSession } from "../../lib/api.js";
 import { pathFor } from "../../lib/routes.js";
-import { Pill, fmtDate, CitySelect, Blank, DropPanel, Field, Select, StatusPill } from "../../components/ui.jsx";
+import { Pill, fmtDate, CitySelect, DropPanel, Field, Select } from "../../components/ui.jsx";
 
-export const PAGES = [["home", "Home"], ["services", "Products"], ["drives", "Upcoming walk-ins"], ["about", "About us"], ["contact", "Contact us"]];
+export const PAGES = [["home", "Home"], ["services", "Products"], ["drives", "Walk-ins"], ["about", "About us"], ["contact", "Contact us"]];
 
 export const NAV = [
-  {
-    label: "Solutions", menu: [
-      ["sol:bpo", "BPO & customer support", "High-volume voice and non-voice drives, one shared queue"],
-      ["sol:retail", "Retail & delivery", "The same walk-in in every store, with today’s numbers at head office"],
-      ["sol:campus", "Campus hiring", "A full campus batch through in one morning, with a report for the college"],
-      ["sol:agency", "Staffing agencies", "Your hall and your clients — they never see each other’s files"],
-    ],
-  },
-  ...(!HIDE_PRICING ? [{ id: "pricing", label: "Pricing" }] : []),
-  { id: "drives", label: "Upcoming walk-ins" },
-  { id: "about", label: "About us" },
+  { id: "home", label: "Home" },
+  { id: "drives", label: "Walk-ins" },
+  { id: "blog", label: "Blog" },
+  { id: "contact", label: "Contact" },
 ];
 
 const heroH1 = {
@@ -48,9 +40,9 @@ export function SiteNav({ page, go, onLaunch }) {
   const signedIn = !!readSession()?.orgId;
   return (
     <div className="chrome-wrap" style={{ position: "sticky", top: 0, zIndex: 50, background: "#fff", borderBottom: `1px solid ${k.line}`, padding: "0 26px" }}>
-      <div className="chrome-inner" style={{ maxWidth: 1140, margin: "0 auto", padding: "14px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <Link to="/" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginRight: 4, textDecoration: "none" }}><Wordmark size={20} /></Link>
-        <button className="nav-burger" type="button" aria-label="Menu" onClick={() => setMenu((m) => !m)} style={{ ...iconBtn, padding: 8, display: "none", alignItems: "center" }}>
+      <div className="chrome-inner" style={{ maxWidth: 1140, margin: "0 auto", padding: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "nowrap" }}>
+        <Link to="/" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginRight: 8, textDecoration: "none" }}><Wordmark size={18} /></Link>
+        <button className="nav-burger" type="button" aria-label="Menu" onClick={() => setMenu((m) => !m)} style={{ ...iconBtn, color: k.ink, padding: 8, display: "none", alignItems: "center" }}>
           {menu ? <X size={22} /> : <Menu size={22} />}
         </button>
         <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: 26, flexWrap: "wrap" }}>
@@ -61,7 +53,7 @@ export function SiteNav({ page, go, onLaunch }) {
                 type="button"
                 onClick={() => setOpen(open === i ? null : i)}
                 onMouseEnter={() => setOpen(i)}
-                style={{ ...navBtn, color: open === i ? k.ink : k.ink2, display: "flex", alignItems: "center", gap: 5 }}>
+                style={{ ...navBtn, color: "#fff", display: "flex", alignItems: "center", gap: 5 }}>
                 {n.label} <ChevronDown size={15} style={{ transform: open === i ? "rotate(180deg)" : "none", transition: "transform .18s" }} />
               </button>
               <DropPanel
@@ -86,19 +78,16 @@ export function SiteNav({ page, go, onLaunch }) {
               </DropPanel>
             </div>
           ) : (
-            <Link key={n.id} to={pathFor(n.id)} className="navitem" style={{ ...navBtn, textDecoration: "none", color: page === n.id ? k.ink : k.ink2, fontWeight: page === n.id ? 600 : 500 }}>{n.label}</Link>
+            <Link key={n.id} to={pathFor(n.id)} className="navitem" style={{ ...navBtn, textDecoration: "none", color: page === n.id ? k.coral : k.ink2, fontWeight: page === n.id ? 700 : 500 }}>{n.label}</Link>
           ))}
         </div>
-        <div className="nav-ctas" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {/* Three audiences, three destinations. "Sign in" and "I'm hiring" both
-              landed on /login when signed out, which is what made this ambiguous. */}
-          <Link to="/app/join" style={{ ...textLink, textDecoration: "none" }}>Candidate check-in</Link>
+        <div className="nav-ctas" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "nowrap" }}>
           {signedIn ? (
-            <button onClick={() => onLaunch("employer")} style={solidSm}>Go to console <ArrowRight size={15} /></button>
+            <button onClick={() => onLaunch("employer")} style={solidSm}>Open console</button>
           ) : (
             <>
-              <Link to="/login" style={{ ...outlineSm, textDecoration: "none" }}>Sign in</Link>
-              <Link to="/signup" style={{ ...solidSm, textDecoration: "none" }}>Start free <ArrowRight size={15} /></Link>
+              <Link to="/login" style={{ ...navBtn, color: k.ink, textDecoration: "none" }}>Sign in</Link>
+              <Link to="/signup" style={{ ...solidSm, textDecoration: "none" }}>Register</Link>
             </>
           )}
         </div>
@@ -113,11 +102,10 @@ export function SiteNav({ page, go, onLaunch }) {
               <button onClick={() => { setMenu(false); onLaunch("employer"); }} style={{ ...solid, justifyContent: "center", width: "100%" }}>Go to console</button>
             ) : (
               <>
-                <Link to="/signup" onClick={() => setMenu(false)} style={{ ...solid, justifyContent: "center", width: "100%", textDecoration: "none" }}>Start free</Link>
+                <Link to="/signup" onClick={() => setMenu(false)} style={{ ...solid, justifyContent: "center", width: "100%", textDecoration: "none" }}>Register</Link>
                 <Link to="/login" onClick={() => setMenu(false)} style={{ ...outline, justifyContent: "center", width: "100%", textDecoration: "none" }}>Sign in</Link>
               </>
             )}
-            <Link to="/app/join" onClick={() => setMenu(false)} style={{ ...outline, justifyContent: "center", width: "100%", textDecoration: "none" }}>Candidate check-in</Link>
           </div>
         </div>
       )}
@@ -125,44 +113,43 @@ export function SiteNav({ page, go, onLaunch }) {
   );
 }
 
+const FOOT_CITIES = ["Hyderabad", "Bengaluru", "Mumbai", "Pune", "Chennai", "Delhi", "Kolkata", "Ahmedabad"];
+
 export function SiteFooter() {
-  const cols = [
-    ["Company", [["services", "Products"], ...(!HIDE_PRICING ? [["pricing", "Pricing"]] : []), ["contact", "Contact us"]]],
-    ["Legal", [["privacy", "Privacy"], ["terms", "Terms of use"]]],
-    ["See it", [["demo", "Watch a walk-in"]]],
-  ];
+  const colTitle = { fontSize: 15, fontWeight: 700, margin: "0 0 14px", color: k.ink };
+  const colLink = { color: k.ink2, fontSize: 14, fontFamily: bdy, textDecoration: "none", lineHeight: 1.9 };
   return (
-    <footer style={{ background: "#fff", borderTop: `1px solid ${k.line}`, marginTop: 0 }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "56px 26px 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr) 1.1fr", gap: 30 }} className="g3">
-          {cols.map(([title, links]) => (
-            <div key={title}>
-              {title === "Legal"
-                ? <Link to="/legal" style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700, marginBottom: 16, display: "block", color: k.ink, textDecoration: "none" }}>Legal</Link>
-                : <div style={{ fontFamily: dsp, fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{title}</div>}
-              <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-                {links.map(([target, label]) => (
-                  <Link key={target} to={pathFor(target)} style={{ color: k.ink2, fontSize: 14.5, fontFamily: bdy, textDecoration: "none" }}>{label}</Link>
-                ))}
-              </div>
-            </div>
-          ))}
+    <footer style={{ background: k.cream2, borderTop: `1px solid ${k.line}`, marginTop: 0 }}>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "48px 26px 0" }}>
+        <div className="portal-foot">
           <div>
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-              {[Linkedin, Mail, Phone].map((I, i) => (
-                <div key={i} style={{ width: 38, height: 38, borderRadius: "50%", background: k.cream2, border: `1px solid ${k.line}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <I size={17} color={k.ink} />
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize: 14.5, color: k.ink2, lineHeight: 1.7 }}>
-              Gachibowli<br />Hyderabad, Telangana 500032
-            </div>
-            <div style={{ fontSize: 14.5, color: k.ink2, marginTop: 14 }}>hello@tokenhire.app</div>
+            <div style={colTitle}>Walk-ins by city</div>
+            {FOOT_CITIES.map((city) => (
+              <div key={city}><Link to={`/walk-ins?city=${encodeURIComponent(city)}`} style={colLink}>{city}</Link></div>
+            ))}
+          </div>
+          <div>
+            <div style={colTitle}>For companies</div>
+            <div><Link to="/login" style={colLink}>Sign in</Link></div>
+            <div><Link to="/walk-ins/list" style={colLink}>Create a drive</Link></div>
+            <div><Link to="/for-companies#pilot" style={colLink}>Contact</Link></div>
+          </div>
+          <div>
+            <div style={colTitle}>For candidates</div>
+            <div><Link to="/walk-ins" style={colLink}>Browse walk-ins</Link></div>
+            <div><Link to="/app/join" style={colLink}>Check in</Link></div>
+            <div><Link to="/guides" style={colLink}>Guides</Link></div>
+            <div><Link to="/how-it-works" style={colLink}>How it works</Link></div>
+          </div>
+          <div>
+            <div style={colTitle}>Legal</div>
+            <div><Link to="/privacy" style={colLink}>Privacy</Link></div>
+            <div><Link to="/terms" style={colLink}>Terms of use</Link></div>
+            <div style={{ ...colLink, display: "block", marginTop: 10 }}>hello@tokenhire.app</div>
           </div>
         </div>
-        <div style={{ borderTop: `1px solid ${k.line}`, marginTop: 44, padding: "22px 0 30px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <span style={{ fontSize: 13.5, color: k.mid }}>Copyright 2026 ©. All rights reserved.</span>
+        <div style={{ borderTop: `1px solid ${k.line}`, marginTop: 36, padding: "18px 0 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 13, color: k.mid }}>© 2026 TokenHire</span>
           <Wordmark size={15} />
         </div>
       </div>
@@ -172,64 +159,12 @@ export function SiteFooter() {
 
 export { WalkInDemo } from "./WalkInDemo.jsx";
 
-function SplitHero() {
-  const ref = useRef(null);
-  const [playing, setPlaying] = useState(true);
-  const toggle = () => {
-    const v = ref.current;
-    if (!v) return;
-    if (v.paused) { v.play(); setPlaying(true); }
-    else { v.pause(); setPlaying(false); }
-  };
-  return (
-    <div style={{ maxWidth: 1040, margin: "0 auto", padding: "0 26px" }}>
-      <div style={{
-        position: "relative", borderRadius: 24, overflow: "hidden",
-        background: "#111318", boxShadow: "0 32px 64px -28px rgba(17,19,24,.45)",
-      }}>
-        <video
-          ref={ref}
-          src="/demo/walk-in.mp4?v=3"
-          poster="/demo/stills/01-hall.png"
-          autoPlay
-          muted
-          loop
-          playsInline
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          style={{ width: "100%", display: "block", aspectRatio: "16 / 9", objectFit: "cover", background: "#111318" }}
-        />
-        <div style={{
-          position: "absolute", left: 0, right: 0, bottom: 0,
-          padding: "16px 18px",
-          background: "linear-gradient(180deg, transparent, rgba(17,19,24,.55))",
-          display: "flex", alignItems: "center", gap: 10,
-        }}>
-          <button onClick={toggle} aria-label={playing ? "Pause" : "Play"} style={{
-            width: 36, height: 36, borderRadius: "50%", border: "none",
-            background: "#fff", color: k.ink, display: "inline-flex",
-            alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
-          }}>
-            {playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" style={{ marginLeft: 2 }} />}
-          </button>
-          <Link to="/watch" style={{
-            color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none",
-            display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto",
-          }}>
-            Product walk-through <ArrowRight size={14} />
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PlanCards({ onChoose, go, cycle = "month" }) {
+function PlanCards({ onChoose, go }) {
   const byId = Object.fromEntries(PLANS.map((p) => [p.id, p]));
   return (
     <div className="plans" style={{ display: "grid", gap: 12, alignItems: "stretch" }}>
       {PUBLIC_PLANS.map((p) => {
-        const cost = planPrice(p, cycle);
+        const cost = planPrice(p);
         return (
         <div key={p.id} style={{
           border: `1px solid ${p.best ? k.coral : k.line}`,
@@ -238,21 +173,24 @@ function PlanCards({ onChoose, go, cycle = "month" }) {
           background: p.best ? k.coralDim : "#fff",
           color: k.ink,
           position: "relative",
-          display: "flex",
-          flexDirection: "column",
+        display: "grid",
+          gridTemplateRows: "auto 52px 36px 42px auto 1fr",
+          alignItems: "start",
         }}>
-          {p.best && (
-            <div style={{ position: "absolute", top: 16, right: 16, fontFamily: typ, fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: k.coral }}>MOST USED</div>
-          )}
-          <div style={{ fontSize: 13, fontWeight: 600, color: k.mid, marginBottom: 18 }}>{p.name}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-            <span style={{ fontFamily: dsp, fontSize: 32, fontWeight: 700, letterSpacing: -1.2, lineHeight: 1 }}>{cost.label}</span>
+          <div style={{ fontSize: 13, fontWeight: 600, color: k.mid, marginBottom: 14, paddingRight: p.best ? 84 : 0 }}>
+            {p.name}
+            {p.best && (
+              <span style={{ position: "absolute", top: 16, right: 16, fontFamily: typ, fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: k.coral }}>{p.ribbon || "MOST POPULAR"}</span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, minHeight: 52, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: dsp, fontSize: 26, fontWeight: 700, letterSpacing: -1.2, lineHeight: 1 }}>{cost.label}</span>
             <span style={{ fontSize: 13, color: k.mid }}>{cost.unit}</span>
           </div>
-          {cost.billed ? <div style={{ fontSize: 12, color: k.faint, marginBottom: 8 }}>{cost.billed}</div> : null}
-          <div style={{ fontSize: 13, color: k.ink2, marginBottom: 22, minHeight: 20 }}>{p.blurb}</div>
-          <button onClick={() => (p.talk && go ? go("contact") : onChoose(p))} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11, marginBottom: 22 }}>{p.cta}</button>
-          <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 7 }}>
+          <div style={{ fontSize: 12, color: k.faint, minHeight: 18, lineHeight: "18px" }}>{cost.billed || "\u00a0"}</div>
+          <div style={{ fontSize: 13, color: k.ink2, minHeight: 42, lineHeight: 1.4 }}>{p.blurb}</div>
+          <button onClick={() => (p.talk && go ? go("contact") : onChoose(p))} style={{ ...(p.best ? solid : outline), width: "100%", justifyContent: "center", padding: 11, margin: "18px 0 22px", boxSizing: "border-box", minHeight: 44 }}>{p.cta}</button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {p.builds && (
               <div style={{ fontSize: 12.5, color: k.mid, marginBottom: 2 }}>
                 {byId[p.builds]?.name}, plus
@@ -327,72 +265,125 @@ function PlanTable() {
   );
 }
 
-export function Home({ go, onLaunch }) {
+const HOME_STEPS = [
+  ["01", "Scan once, take a token", "The lobby display shows a code, and one scan puts the person on the list. Their phone shows how many people are ahead, who is being called, and which room to go to, and it alerts them when it is their turn."],
+  ["02", "Every recruiter uses that list", "Recruiters call the next token, send the person to a room, and mark the result. They share one list, so the same person is not called twice and nobody is skipped."],
+  ["03", "The resume opens with them", "People add their name, phone number, experience, and a resume. When a recruiter calls the token, that file is already open, and they write the interview on the same page. The public screen shows the token and a shortened name. The phone number and the resume stay with the recruiters."],
+  ["04", "The day ends as a file", "When you close, you download a file with names, contact details, notes, and what each round decided. Workday, Greenhouse, Lever, Darwinbox, and Keka can import it. The offer still goes out from the system you already use."],
+];
+
+const HOME_FOR = [
+  ["A company", "Post the date, the city, and what people should bring. Set the rooms, have your recruiters call from the list, and download a report you can export to your ATS."],
+  ["An agency", "Run the walk-in under your name for a client. The client is a label on the file, and other agencies cannot see your list or the resumes."],
+  ["Someone at the venue", "Open walk-ins are on one public list. Scan the screen, take a token, and wait on your phone until you are called."],
+];
+
+export function Home({ go, onLaunch, drives = [] }) {
+  const nav = useNavigate();
+  const [q, setQ] = useState("");
+  const listed = drives.filter((d) => d.visibility !== "private" && !d.listingPending && !driveEnded(d));
+  const latest = mixByRole(listed).slice(0, 6);
+  function search(e) {
+    e.preventDefault();
+    const query = q.trim();
+    nav(query ? `/walk-ins?q=${encodeURIComponent(query)}` : "/walk-ins");
+  }
   return (
     <>
-      <div style={{ background: k.cream2, padding: "56px 0 0", boxSizing: "border-box", borderBottom: `1px solid ${k.line}` }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 26px 40px", textAlign: "center" }}>
-          <h1 style={{ fontFamily: dsp, fontSize: "clamp(20px, 2.4vw, 24px)", lineHeight: 1.35, letterSpacing: -0.2, margin: "0 auto 10px", color: k.ink, fontWeight: 600, maxWidth: 480 }}>
-            Walk-in hiring with a full candidate file, not a paper list.
+      <section style={{ background: k.cream2, borderBottom: `1px solid ${k.line}` }}>
+        <div style={{ maxWidth: 1140, margin: "0 auto", padding: "48px 26px 28px" }}>
+          <h1 className="one-line" style={{ fontFamily: dsp, fontWeight: 750, letterSpacing: -1.2, fontSize: "clamp(28px, 3.4vw, 40px)", margin: "0 0 18px", color: k.ink }}>
+            Find a walk{"\u2011"}in. Or run one.
           </h1>
-          <p style={{ fontSize: 15, color: k.mid, lineHeight: 1.55, margin: "0 auto 28px", maxWidth: 500 }}>
-            Candidates upload a resume and their details when they join. You run one queue on the day, and leave with digital copies ready to send to your ATS — not a register of who showed up.
-          </p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-            <button onClick={() => onLaunch("employer")} style={solid}>Set up a walk-in <ArrowRight size={16} /></button>
-            <Link to="/watch" style={{ ...outline, textDecoration: "none" }}><Play size={14} fill="currentColor" /> Watch a walk-in</Link>
+          <form onSubmit={search} style={{ display: "flex", gap: 8, maxWidth: 640 }}>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Role, company, or city"
+              aria-label="Search walk-ins"
+              style={{ ...input, fontSize: 15, padding: "12px 14px" }}
+            />
+            <button type="submit" style={{ ...solid, padding: "0 18px" }} aria-label="Search"><Search size={18} /></button>
+          </form>
+        </div>
+        <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 26px 36px" }}>
+          <div className="portal-split">
+            <div style={{ ...box, padding: "28px 26px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: k.coral, marginBottom: 10 }}>LOOKING FOR A WALK-IN</div>
+              <h2 className="one-line" style={{ fontFamily: dsp, fontSize: "clamp(22px, 2.2vw, 28px)", fontWeight: 750, letterSpacing: -0.5, margin: "0 0 12px", lineHeight: 1.15, color: k.ink }}>Browse the list, then scan.</h2>
+              <p style={{ fontSize: 15.5, lineHeight: 1.55, margin: "0 0 20px", color: k.ink2 }}>One list for the day. Your phone shows the token, how many people are ahead, and which room to walk to.</p>
+              <button type="button" onClick={() => go("drives")} style={solid}>Browse walk-ins</button>
+            </div>
+            <div style={{ ...box, padding: "28px 26px", background: k.band, color: "#fff", borderColor: k.band }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: "rgba(255,255,255,.7)", marginBottom: 10 }}>COMPANIES</div>
+              <h2 className="one-line" style={{ fontFamily: dsp, fontSize: "clamp(22px, 2.2vw, 28px)", fontWeight: 750, letterSpacing: -0.5, margin: "0 0 12px", lineHeight: 1.15 }}>Post the walk-in. Call from one list.</h2>
+              <p style={{ fontSize: 15.5, lineHeight: 1.55, margin: "0 0 20px", color: "rgba(255,255,255,.82)" }}>Create the account and the drive first. The scan on the lobby display turns on after the walk-in is paid.</p>
+              <button type="button" onClick={() => onLaunch("employer")} style={solid}>Create a drive</button>
+            </div>
           </div>
         </div>
-        <div style={{ padding: "0 0 48px" }}>
-          <SplitHero />
-        </div>
-      </div>
+      </section>
 
-      <div style={{ background: k.cream2, padding: "72px 0 80px" }}>
-        <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 26px" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: k.mid, marginBottom: 16 }}>Who this is for</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 14 }} className="g2">
+      <section style={{ background: "#fff" }}>
+        <div style={{ maxWidth: 1140, margin: "0 auto", padding: "48px 26px 20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 16 }}>
+            <h2 style={{ fontFamily: dsp, fontSize: 28, fontWeight: 750, letterSpacing: -0.5, margin: 0 }}>Latest walk-ins</h2>
+            <button type="button" onClick={() => go("drives")} style={{ ...textLink, fontSize: 14, color: k.coral }}>View all</button>
+          </div>
+          {latest.length ? (
+            <div className="portal-jobs">
+              {latest.map((d) => (
+                <Link key={d.id} to={`/walk-ins?q=${encodeURIComponent(d.role || "")}`} style={{ ...box, padding: "16px 16px 14px", textDecoration: "none", color: "inherit" }}>
+                  <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 16, letterSpacing: -0.2, color: k.ink }}>{d.role}</div>
+                  <div style={{ fontSize: 13.5, color: k.ink2, marginTop: 4 }}>{d.company}</div>
+                  <div style={{ fontSize: 13, color: k.mid, marginTop: 6 }}>{d.city}</div>
+                  {driveOpenToday(d) && <span style={{ display: "inline-block", marginTop: 10, background: k.coralDim, color: k.coral, fontSize: 12, fontWeight: 700, borderRadius: 4, padding: "3px 8px" }}>Open today</span>}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: k.mid, margin: 0 }}>No walk-ins are open right now.</p>
+          )}
+        </div>
+      </section>
+
+      <section style={{ background: k.cream2, borderTop: `1px solid ${k.line}`, padding: "48px 26px 64px" }}>
+        <div style={{ maxWidth: 1140, margin: "0 auto" }}>
+          <h2 style={{ fontFamily: dsp, fontSize: 28, fontWeight: 750, letterSpacing: -0.5, margin: "0 0 18px", color: k.ink }}>How it works</h2>
+          <div className="how-grid">
             {[
-              ["bpo", "BPO & customer support", "Voice and non-voice drives of a few hundred. One queue, so six recruiters are not working six lists."],
-              ["retail", "Retail & delivery", "The same walk-in in every store. Head office sees today’s numbers, not last Monday’s spreadsheet."],
-              ["campus", "Campus hiring", "A full batch through in one morning. Students get a time. The placement cell gets a report."],
-              ["agency", "Staffing agencies", "Your hall, your name, your clients. They never see each other’s books."],
-            ].map(([id, h, d]) => (
-              <button key={id} onClick={() => go(`sol:${id}`)} className="quiet-tile" style={{
-                background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, padding: "26px 24px 22px",
-                textAlign: "left", cursor: "pointer", fontFamily: bdy,
-              }}>
-                <div style={{ fontFamily: dsp, fontSize: 18, fontWeight: 650, letterSpacing: -0.3 }}>{h}</div>
-                <div style={{ fontSize: 14.5, color: k.ink2, lineHeight: 1.55, marginTop: 8 }}>{d}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: k.coral, marginTop: 16 }}>See how it runs →</div>
-              </button>
+              ["1", "Post the walk-in", "A company account posts the role, the city, the dates, and what to carry."],
+              ["2", "People scan once", "They find it on the list, come to the venue, and take a token from the screen."],
+              ["3", "Call from one list", "The resume opens with the person. At the end of the day, download a report you can export to your ATS."],
+            ].map(([n, h, d]) => (
+              <div key={n} style={{ ...box, padding: "20px 18px" }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: k.coralDim, color: k.coral, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 13, marginBottom: 12 }}>{n}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: k.ink }}>{h}</div>
+                <div style={{ fontSize: 14, color: k.ink2, lineHeight: 1.5, marginTop: 6 }}>{d}</div>
+              </div>
             ))}
           </div>
         </div>
-      </div>
-
-      <div style={{ background: k.cream2, padding: "0 0 48px" }}>
-        <CtaBand onLaunch={onLaunch} variant="home" flush />
-      </div>
+      </section>
     </>
   );
 }
 
 const CTA_COPY = {
   home: { head: ["Set up tomorrow’s walk-in."], sub: "Registration, the queue, the rooms, and a candidate file you can send to your ATS — ready before people arrive.", btn: "Set up a walk-in" },
-  products: { head: ["See the product on a real walk-in."], sub: "Check-in, the shared queue, interview rooms, resumes, and the ATS extract.", btn: "Start free" },
-  about: { head: ["Talk to us about a walk-in"], sub: "Tell us the hall, the volume, and how you hand files to HR today.", btn: "Contact" },
+  products: { head: ["See the product on a real walk-in."], sub: "Check-in, the shared queue, interview rooms, resumes, and the ATS extract.", btn: "Run a drive" },
+  about: { head: ["Talk to us about a walk-in"], sub: "Tell us the site, the volume, and how you hand files to HR today.", btn: "Contact" },
   solution: { head: ["Set up your next walk-in"], sub: "You can be live in a few minutes. Candidates bring their own resume and details.", btn: "Set up a walk-in" },
 };
 export function CtaBand({ onLaunch, variant = "home", onContact, flush }) {
   const c = CTA_COPY[variant] || CTA_COPY.home;
   return (
-    <div style={{ maxWidth: 1140, margin: flush ? "0 auto" : "70px auto 0", padding: "0 26px" }}>
-      <div style={{ ...box, borderRadius: 20, padding: "48px 36px", textAlign: "center", background: "#fff" }}>
-        <h2 style={{ fontFamily: dsp, fontSize: "clamp(26px,3.4vw,38px)", fontWeight: 600, letterSpacing: -1, margin: "0 0 10px", color: k.ink }}>
+    <div style={{ maxWidth: 860, margin: flush ? "0 auto" : "70px auto 0", padding: "0 26px" }}>
+      <div style={{ padding: "48px 8px", textAlign: "center", borderTop: `1px solid ${k.line}` }}>
+        <h2 style={{ fontFamily: dsp, fontSize: "clamp(26px,3.4vw,38px)", fontWeight: 650, letterSpacing: -1, margin: "0 0 10px", color: k.ink }}>
           {c.head[0]}{c.head[1] ? <b style={{ fontWeight: 700 }}>{c.head[1]}</b> : null}
         </h2>
-        {c.sub ? <p style={{ fontSize: 16, color: k.mid, margin: "0 auto 26px", maxWidth: 400, lineHeight: 1.5 }}>{c.sub}</p> : <div style={{ height: 18 }} />}
+        {c.sub ? <p style={{ fontSize: 16, color: k.mid, margin: "0 auto 26px", maxWidth: 720, lineHeight: 1.5 }}>{c.sub}</p> : <div style={{ height: 18 }} />}
         <button onClick={() => (variant === "about" && onContact ? onContact() : onLaunch("employer"))} style={solid}>{c.btn} <ArrowRight size={16} /></button>
       </div>
     </div>
@@ -452,42 +443,41 @@ function LiveBoard() {
 }
 
 /* --- About --- */
-export function AboutPage({ go, onLaunch }) {
-  const principles = [
-    [ShieldCheck, "The waiting room stays private", "The wall shows a token and a masked name. Full name, phone, and resume stay with signed-in recruiters."],
-    [FileText, "We keep what HR actually needs", "Name, phone, email, experience, LinkedIn, and the resume file. Aadhaar is optional, stored only as a one-way hash — never the number."],
-    [HeartHandshake, "Built for walk-in days, not as another ATS", "We run the hall and hand you a file. Offers and joining stay in the system you already use."],
-  ];
+export function AboutPage() {
   return (
-    <>
-      <PageHero bottom={64}>
-        <h1 style={{ ...heroH1, margin: "0 0 16px" }}>People should not wait all day without knowing when they will be seen.</h1>
-        <p style={{ ...heroP, fontSize: 17, maxWidth: 480 }}>That is why TokenHire exists — and why Monday should start with files, not a paper register.</p>
-      </PageHero>
-
-      <div style={{ maxWidth: 600, margin: "0 auto", padding: "70px 26px 0" }}>
-        <p style={{ fontSize: 18, color: k.ink, lineHeight: 1.7, margin: "0 0 18px", fontWeight: 500 }}>
-          A thousand people can pass through a walk-in in a weekend. By Monday, most teams have a paper register and a guess.
-        </p>
-        <p style={{ fontSize: 16, color: k.ink2, lineHeight: 1.7, margin: 0 }}>
-          Candidates register with a resume and their details. They scan the waiting-room screen to join one queue. At the end of the day you export the files to your ATS.
-        </p>
-      </div>
-
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "60px 26px 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }} className="g3">
-          {principles.map(([I, t2, d]) => (
-            <div key={t2}>
-              <I size={22} color={k.coral} />
-              <div style={{ fontFamily: dsp, fontSize: 18, fontWeight: 700, margin: "14px 0 8px" }}>{t2}</div>
-              <div style={{ fontSize: 14.5, color: k.ink2, lineHeight: 1.65 }}>{d}</div>
-            </div>
-          ))}
+    <article>
+      <section style={{ background: k.cream2, borderBottom: `1px solid ${k.line}` }}>
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "88px 32px 72px" }}>
+          <h1 className="one-line" style={{
+            fontFamily: dsp, fontWeight: 700, letterSpacing: -1.4, lineHeight: 1.05,
+            fontSize: "clamp(32px, 3.4vw, 44px)", margin: "0 0 22px", color: k.ink,
+          }}>
+            We build the list for walk{"\u2011"}in day.
+          </h1>
+          <p className="one-line" style={{ fontSize: 20, lineHeight: 1.5, color: k.ink2, margin: 0 }}>
+            A hiring team uses it when a room fills up and a few recruiters have to see everyone.
+          </p>
         </div>
-      </div>
-
-      <CtaBand onLaunch={onLaunch} variant="about" onContact={() => go("contact")} />
-    </>
+      </section>
+      <section style={{ background: "#fff" }}>
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "64px 32px 28px" }}>
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: k.ink, margin: "0 0 18px", maxWidth: 740 }}>
+            A lot of roles in India are still filled by walk-in. People show up, wait, and talk to a recruiter. The list for that day is usually a notebook, or a different list in every recruiter’s hand. We replace that with one list.
+          </p>
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: k.ink, margin: "0 0 18px", maxWidth: 740 }}>
+            Someone scans the screen at the venue and takes a token. Every recruiter calls from that list. The resume they brought opens with them, and the interview is written on the same page. The screen in the room shows a token, not a phone number. When the day ends, the company downloads the file — names, contact details, notes, and what each round decided.
+          </p>
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: k.ink, margin: 0, maxWidth: 740 }}>
+            A company uses TokenHire for its own hiring. An agency uses it for a client’s hiring, under the agency’s name. We do not decide who gets the job. The people in the room do.
+          </p>
+        </div>
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: "48px 32px 80px" }}>
+          <div style={{ paddingTop: 22, borderTop: `1px solid ${k.line}`, maxWidth: 740 }}>
+            <a href="mailto:hello@tokenhire.app" style={{ fontSize: 16, fontWeight: 650, color: k.ink, textDecoration: "none" }}>hello@tokenhire.app</a>
+          </div>
+        </div>
+      </section>
+    </article>
   );
 }
 
@@ -495,11 +485,11 @@ export function AboutPage({ go, onLaunch }) {
 export function Services({ go, onLaunch }) {
   const blocks = [
     { h: "Candidates upload a resume and their details", d: "Name, phone, email, experience, and a PDF or Word file. Recruiters open the file from the queue — they do not collect printouts at the door.", art: <ArtReport /> },
-    { h: "Scan the waiting-room screen to join", d: "One scan issues a token and puts them in line. No second code to type, no paper slip to lose.", art: <ArtCode /> },
+    { h: "Scan the lobby display to join", d: "One scan issues a token and puts them in line. No second code to type, no paper slip to lose.", art: <ArtCode /> },
     { h: "Every recruiter works from the same queue", d: "Call, pass, and room assignment happen on one list, so the same person is not called twice.", art: <ArtQueue /> },
-    { h: "WhatsApp when they are about 15 minutes away", d: "One message: be near the waiting area. We do not spam them when they are called or decided.", art: <ArtNudge /> },
+    { h: "A live token page on their phone", d: "After check-in they keep one page open. It shows who is being served, how many are ahead, and which room to walk to. Sound and vibration when it is their turn.", art: <ArtNudge /> },
     { h: "The public screen hides full names", d: "The wall shows a token and a masked name. Phone, resume, and the real name stay with signed-in recruiters.", art: <ArtMasked /> },
-    { h: "Export the full file to your ATS", d: "At close of day you send contact details, the resume, and round outcomes. Offers stay in your ATS. This is not a headcount of who attended.", art: <ArtPace /> },
+    { h: "Export the full file to your ATS", d: "At close of day you download a file Workday, Greenhouse, Lever, Darwinbox, or Keka can import — contact details, the resume notes, and round outcomes. Offers stay in that system.", art: <ArtPace /> },
   ];
 
   return (
@@ -537,7 +527,7 @@ function ArtCode() {
         <div style={{ width: 92, height: 92, borderRadius: 12, background: k.cream2, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
           <QrCode size={48} color={k.ink} />
         </div>
-        <div style={{ fontFamily: typ, fontSize: 10.5, color: k.coral, fontWeight: 700, letterSpacing: 1 }}>ON THE WAITING-ROOM SCREEN</div>
+        <div style={{ fontFamily: typ, fontSize: 10.5, color: k.coral, fontWeight: 700, letterSpacing: 1 }}>ON THE LOBBY DISPLAY</div>
         <div style={{ fontFamily: typ, fontSize: 10.5, color: k.mid, marginTop: 6 }}>REFRESHES IN 45s</div>
       </div>
     </ArtFrame>
@@ -574,7 +564,7 @@ function ArtQueue() {
 function ArtMasked() {
   return (
     <ArtFrame>
-      <div style={{ fontSize: 10.5, color: k.mid, fontWeight: 700, letterSpacing: .6, marginBottom: 10, textTransform: "uppercase" }}>Waiting screen</div>
+      <div style={{ fontSize: 10.5, color: k.mid, fontWeight: 700, letterSpacing: .6, marginBottom: 10, textTransform: "uppercase" }}>Lobby display</div>
       {[["W-014", "R···l"], ["W-015", "P···a"], ["W-016", "M···d"]].map(([tok, nm], i) => (
         <div key={tok} style={{ display: "flex", alignItems: "center", padding: "9px 0", borderTop: i ? `1px solid ${k.line}` : "none" }}>
           <TokenChip token={tok} name={nm} size={28} muted />
@@ -586,15 +576,13 @@ function ArtMasked() {
 function ArtNudge() {
   return (
     <ArtFrame>
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-        <div style={{ width: 26, height: 26, borderRadius: "50%", background: k.tealDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Send size={12} color={k.teal} />
-        </div>
-        <div style={{ background: k.cream2, borderRadius: 10, padding: "10px 13px", fontSize: 12.5, color: k.ink2, lineHeight: 1.5 }}>
-          Hi Rahul, you're up in about 15 minutes — number W-014. Please be near the waiting area.
-        </div>
+      <div style={{ fontFamily: typ, fontSize: 10.5, letterSpacing: 1.4, fontWeight: 700, color: k.mid, marginBottom: 8 }}>TOKEN 038</div>
+      <div style={{ fontFamily: dsp, fontSize: 28, fontWeight: 800, letterSpacing: -1, lineHeight: 1, marginBottom: 10 }}>038</div>
+      <div style={{ fontSize: 12.5, color: k.mid }}>Current token: <b style={{ fontFamily: typ, color: k.ink }}>037</b></div>
+      <div style={{ marginTop: 12, background: k.coralDim, borderRadius: 10, padding: "12px 14px" }}>
+        <div style={{ fontFamily: dsp, fontSize: 16, fontWeight: 800, color: k.coral }}>You’re next</div>
+        <div style={{ fontSize: 12.5, color: k.ink2, marginTop: 4 }}>Please proceed to Room 2</div>
       </div>
-      <div style={{ textAlign: "right", fontSize: 10.5, color: k.faint, marginTop: 8 }}>WhatsApp · now</div>
     </ArtFrame>
   );
 }
@@ -651,7 +639,7 @@ const SOLUTIONS = {
     pains: [
       ["Every store does it differently.", "One registration flow. Numbers you can actually compare."],
       ["Head office is flying blind.", "Live counts today — not a spreadsheet next Monday."],
-      ["Walk-ins clash with the shop floor.", "They wait outside and get one WhatsApp when it is nearly their turn."],
+      ["Walk-ins clash with the shop floor.", "They wait outside and watch the token page — or the lobby display — until it is their turn."],
     ],
     stat: ["40+", "store drives running the same week"],
   },
@@ -668,12 +656,12 @@ const SOLUTIONS = {
   },
   agency: {
     eyebrow: "Staffing agencies",
-    head: ["You hire for the client. ", "The hall and the files stay yours."],
+    head: ["You hire for the client. ", "The walk-in and the files stay yours."],
     sub: "Candidates join your walk-in, under your name. Rival agencies never see your books — or the resumes.",
     pains: [
       ["Your space. Not a shared list.", "Only your drives. Clients are tags, not extra logins."],
-      ["The hall shows your name.", "Your mark on every screen. The client is a label on the extract."],
-      ["One login. Many halls.", "Tag the drive. The candidate files and ATS extract follow that tag."],
+      ["The walk-in shows your name.", "Your mark on every screen. The client is a label on the extract."],
+      ["One login. Many sites.", "Tag the drive. The candidate files and ATS extract follow that tag."],
     ],
     stat: ["1", "agency login, many clients and cities"],
   },
@@ -723,128 +711,208 @@ export function SolutionPage({ id, go, onLaunch }) {
   );
 }
 
-/* --- Upcoming drives (public) --- */
+/* --- Walk-ins across India (public) --- */
+function Combo({ label, value, onChange, options, total, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const ready = value.trim().length >= 2;
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 6, position: "relative", minWidth: 0 }}>
+      <span style={{ fontSize: 12, fontWeight: 650, color: k.mid }}>{label}</span>
+      <input
+        value={value}
+        placeholder={placeholder}
+        aria-label={label}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 160)}
+        style={{ ...input, fontSize: 14.5, background: "#fff" }}
+      />
+      {open && value.trim() && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30, background: "#fff", border: `1px solid ${k.line}`, borderRadius: 12, marginTop: 4, boxShadow: "0 16px 36px -18px rgba(11,16,32,.4)", overflow: "auto", maxHeight: 240 }}>
+          {!ready && <div style={{ padding: "10px 12px", fontSize: 13, color: k.mid }}>Type at least 2 letters</div>}
+          {ready && options.map((o) => (
+            <button
+              key={o}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onChange(o); setOpen(false); }}
+              style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", border: "none", background: "transparent", fontFamily: bdy, fontSize: 14, cursor: "pointer", color: k.ink }}
+            >{o}</button>
+          ))}
+          {ready && !options.length && <div style={{ padding: "10px 12px", fontSize: 13, color: k.mid }}>No matches</div>}
+          {ready && total > options.length && <div style={{ padding: "8px 12px", fontSize: 12, color: k.faint }}>{total} matches. Keep typing.</div>}
+        </div>
+      )}
+    </label>
+  );
+}
+
+function mixByRole(list) {
+  const groups = new Map();
+  for (const d of list) {
+    const key = d.role || "";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(d);
+  }
+  const buckets = [...groups.values()].map((bucket, i) => {
+    const shift = bucket.length ? i % bucket.length : 0;
+    return shift ? bucket.slice(shift).concat(bucket.slice(0, shift)) : bucket;
+  });
+  const out = [];
+  for (let i = 0; out.length < list.length; i++) {
+    let added = false;
+    for (const bucket of buckets) {
+      if (bucket[i]) { out.push(bucket[i]); added = true; }
+    }
+    if (!added) break;
+  }
+  return out;
+}
+
+const PAGE = 24;
+
 export function PublicDrives({ drives, onLaunch }) {
-  const listed = drives.filter((d) => d.visibility !== "private");
-  const [city, setCity] = useState("");
+  const [params, setParams] = useSearchParams();
+  const listed = drives.filter((d) => d.visibility !== "private" && !d.listingPending && !driveEnded(d));
+  const [q, setQ] = useState(params.get("q") || "");
+  const [city, setCity] = useState(params.get("city") || "");
+  useEffect(() => {
+    setQ(params.get("q") || "");
+    setCity(params.get("city") || "");
+  }, [params]);
   const [company, setCompany] = useState("");
-  const [status, setStatus] = useState("All");
-  const [role, setRole] = useState("All roles");
+  const [when, setWhen] = useState("all");
   const [exp, setExp] = useState("");
   const [openId, setOpenId] = useState(null);
-  const roles = ["All roles", ...Array.from(new Set(listed.map((d) => d.role))).sort((a, b) => a.localeCompare(b))];
-  const companies = Array.from(new Set(listed.map((d) => listingHost(d)).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  const [limit, setLimit] = useState(PAGE);
 
+  const companies = useMemo(() => Array.from(new Set(listed.map((d) => d.company || listingHost(d)).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [drives]);
+  const driveCities = useMemo(() => Array.from(new Set(listed.map((d) => d.city).filter(Boolean))), [drives]);
+  const cityHits = city.trim().length >= 2 ? Array.from(new Set([...citiesMatching(city), ...driveCities.filter((c) => cityQueryHits(c, city))])) : [];
+  const companyHits = company.trim().length >= 2 ? companies.filter((c) => c.toLowerCase().includes(company.trim().toLowerCase())) : [];
+
+  const query = q.trim().toLowerCase();
+  const companyQ = company.trim().toLowerCase();
   const visible = listed
-    .filter((d) => d.status !== "closed")
-    .filter((d) => !city || d.city === city)
-    .filter((d) => !company || listingHost(d) === company)
-    .filter((d) => status === "All" || d.status === status)
-    .filter((d) => role === "All roles" || d.role === role)
+    .filter((d) => !city.trim() || d.city === city || cityQueryHits(d.city, city))
+    .filter((d) => companyQ.length < 2 || (d.company || listingHost(d) || "").toLowerCase().includes(companyQ))
+    .filter((d) => when === "all" || (when === "today" ? driveOpenToday(d) : driveWindow(d).start > todayStr()))
     .filter((d) => !exp || !(d.expNeeded || []).length || d.expNeeded.includes(exp))
-    .sort((a, b) => {
-      const byCo = listingHost(a).localeCompare(listingHost(b));
-      return byCo || a.date.localeCompare(b.date);
-    });
+    .filter((d) => {
+      if (!query) return true;
+      const blob = [d.role, d.company, d.venue, d.branch, listingHost(d), listingPlace(d)].filter(Boolean).join(" ").toLowerCase();
+      return blob.includes(query) || cityQueryHits(d.city, query);
+    })
+    .sort((a, b) => Number(driveOpenToday(b)) - Number(driveOpenToday(a)) || driveWindow(a).start.localeCompare(driveWindow(b).start));
+  const mixed = mixByRole(visible);
 
-  const liveCount = listed.filter((d) => d.status === "live").length;
-  const upcomingCount = listed.filter((d) => d.status === "upcoming").length;
+  const liveCount = listed.filter((d) => driveOpenToday(d)).length;
+  const upcomingCount = listed.filter((d) => driveWindow(d).start > todayStr()).length;
+  const filtering = !!(query || city.trim() || company.trim() || when !== "all" || exp);
+  const page = mixed.slice(0, limit);
+  const cityCounts = useMemo(() => {
+    const map = new Map();
+    listed.forEach((d) => { if (d.city) map.set(d.city, (map.get(d.city) || 0) + 1); });
+    return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [listed]);
+
+  function pickCity(name) {
+    setCity(name);
+    setLimit(PAGE);
+    const next = new URLSearchParams(params);
+    if (q.trim()) next.set("q", q.trim()); else next.delete("q");
+    if (name) next.set("city", name); else next.delete("city");
+    setParams(next, { replace: true });
+  }
+  function clearFilters() {
+    setQ("");
+    setCity("");
+    setCompany("");
+    setWhen("all");
+    setExp("");
+    setLimit(PAGE);
+    setParams({}, { replace: true });
+  }
+
+  const sideLink = (on, label, count, click) => (
+    <button type="button" onClick={click} style={{ display: "flex", justifyContent: "space-between", width: "100%", background: "none", border: "none", padding: "7px 0", cursor: "pointer", fontFamily: bdy, fontSize: 14, color: on ? k.coral : k.ink2, fontWeight: on ? 700 : 500, textAlign: "left" }}>
+      <span>{label}</span>{count != null && <span style={{ color: k.faint }}>{count}</span>}
+    </button>
+  );
 
   return (
     <>
       <div style={{ background: k.cream2, borderBottom: `1px solid ${k.line}` }}>
-        <div style={{ maxWidth: 780, margin: "0 auto", padding: "56px 26px 36px", textAlign: "center" }}>
-          <h1 style={{ ...heroH1, fontSize: "clamp(34px,4.8vw,54px)" }}>Walk-in drives you can join</h1>
-          <p style={{ ...heroP, margin: "0 auto 26px", maxWidth: 480 }}>Register with your details and resume, then scan the waiting-room screen when you arrive. You have to be there to join the queue.</p>
-          <button onClick={() => onLaunch("candidate")} style={solid}>Check in as a candidate <ArrowRight size={16} /></button>
-        </div>
-        <div style={{ maxWidth: 1140, margin: "0 auto", padding: "0 26px 46px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }} className="g3">
-            <QuickStat n={liveCount} label="drives open today" />
-            <QuickStat n={upcomingCount} label="drives coming up" />
-            <QuickStat n={new Set(listed.map((d) => d.city).filter(Boolean)).size} label="cities represented" />
+        <div style={{ maxWidth: 1140, margin: "0 auto", padding: "28px 26px 24px" }}>
+          <div className="walkin-head">
+            <h1 className="one-line" style={{ fontFamily: dsp, fontWeight: 750, letterSpacing: -0.8, fontSize: "clamp(28px, 3vw, 36px)", margin: 0, color: k.ink }}>
+              {liveCount} open today · {upcomingCount} coming up
+            </h1>
+            <div className="walkin-head-actions">
+              <Link to="/walk-ins/list" style={{ ...outline, textDecoration: "none" }}>Create a drive</Link>
+              <button onClick={() => onLaunch("candidate")} style={solid}>Check in</button>
+            </div>
           </div>
+          <form onSubmit={(e) => e.preventDefault()} style={{ display: "flex", gap: 8, marginTop: 16, maxWidth: 560 }}>
+            <input value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} placeholder="Role, company, or city" aria-label="Search walk-ins" style={{ ...input, fontSize: 15 }} />
+            <span style={{ ...solid, padding: "0 16px" }}><Search size={18} /></span>
+          </form>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "50px 26px 20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 34 }} className="g2">
-          <div>
-            <div style={{ marginBottom: 26 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>City</div>
-              <CitySelect value={city} onChange={setCity} allowAll />
-            </div>
-            <div style={{ marginBottom: 26 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Company</div>
-              <Select
-                value={company}
-                onChange={setCompany}
-                searchable
-                placeholder="All companies"
-                aria-label="Filter by company"
-                options={[{ value: "", label: "All companies" }, ...companies.map((c) => ({ value: c, label: c }))]}
-              />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 26 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Status</div>
-              {["All", "live", "upcoming"].map((s) => (
-                <button key={s} onClick={() => setStatus(s)} style={{
-                  textAlign: "left", padding: "10px 14px", borderRadius: R.pill, border: "none", cursor: "pointer", fontFamily: bdy, fontSize: 14,
-                  background: status === s ? k.coralDim : "transparent", color: status === s ? k.coral : k.ink2, fontWeight: status === s ? 600 : 500,
-                }}>{s === "All" ? "All" : s === "live" ? "Open today" : "Upcoming"}</button>
-              ))}
-            </div>
-            <div style={{ marginBottom: 26 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Experience</div>
-              <Select
-                value={exp}
-                onChange={setExp}
-                placeholder="All levels"
-                options={[{ value: "", label: "All levels" }, ...EXP_BANDS.map((b) => ({ value: b, label: b }))]}
-              />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: .6, textTransform: "uppercase", marginBottom: 8 }}>Role</div>
-              <Select
-                value={role}
-                onChange={setRole}
-                options={roles.map((r) => ({ value: r, label: r }))}
-                style={{ fontSize: 13.5 }}
-              />
-            </div>
-          </div>
+      <div style={{ maxWidth: 1140, margin: "0 auto", padding: "22px 26px 56px" }}>
+        <div className="portal-board">
+          <aside style={{ background: k.cream2, borderRadius: 12, padding: "16px 16px 8px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>City</div>
+            {sideLink(!city, "All cities", listed.length, () => pickCity(""))}
+            {cityCounts.slice(0, 12).map(([name, count]) => (
+              <div key={name}>{sideLink(city === name, name, count, () => pickCity(name))}</div>
+            ))}
+            <div style={{ fontSize: 13, fontWeight: 700, margin: "14px 0 6px" }}>Experience</div>
+            {sideLink(!exp, "Any", null, () => { setExp(""); setLimit(PAGE); })}
+            {EXP_BANDS.map((b) => <div key={b}>{sideLink(exp === b, b, null, () => { setExp(exp === b ? "" : b); setLimit(PAGE); })}</div>)}
+            <div style={{ fontSize: 13, fontWeight: 700, margin: "14px 0 6px" }}>When</div>
+            {[["all", "Any day"], ["today", "Today"], ["soon", "Coming up"]].map(([id, label]) => (
+              <div key={id}>{sideLink(when === id, label, null, () => { setWhen(id); setLimit(PAGE); })}</div>
+            ))}
+            {filtering && <button type="button" onClick={clearFilters} style={{ ...textLink, margin: "10px 0 12px", color: k.coral }}>Clear filters</button>}
+          </aside>
 
           <div>
-            {!visible.length ? <Blank text="No walk-ins match that filter right now." /> : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {visible.map((d) => {
+            <div style={{ fontSize: 13.5, color: k.mid, marginBottom: 12 }}>
+              Showing {page.length ? `1–${page.length}` : "0"} of {visible.length}
+              {city.trim() ? ` in ${city.trim()}` : ""}
+            </div>
+            {!visible.length ? (
+              <div style={{ padding: "48px 8px", textAlign: "center" }}>
+                <div style={{ fontFamily: dsp, fontSize: 22, fontWeight: 700, marginBottom: 8 }}>No walk-ins match that.</div>
+                <button type="button" onClick={clearFilters} style={outline}>Clear filters</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {page.map((d) => {
                   const open = openId === d.id;
+                  const host = d.company || listingHost(d);
                   return (
-                  <div key={d.id} style={{ background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, padding: "22px 26px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }} className="driverow2">
-                    <div style={{ flex: 1, minWidth: 220 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                        <div style={{ fontFamily: dsp, fontWeight: 700, fontSize: 18 }}>{d.role}</div>
-                        <StatusPill status={d.status} />
+                    <div key={d.id} style={{ background: "#fff", border: `1px solid ${k.line}`, borderRadius: 14, padding: "16px 18px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontFamily: dsp, fontWeight: 750, fontSize: 18, letterSpacing: -0.2 }}>{d.role}</div>
+                          <div style={{ fontSize: 14, color: k.ink2, marginTop: 3 }}>{host}</div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+                            {driveOpenToday(d) && <span style={{ background: k.coralDim, color: k.coral, fontSize: 12, fontWeight: 700, borderRadius: 4, padding: "3px 8px" }}>Open today</span>}
+                            <span style={{ fontSize: 13, color: k.mid }}>{listingPlace(d)} · {walkWhen(d)}</span>
+                          </div>
+                          {d.jd && <p style={{ fontSize: 13.5, color: k.ink2, lineHeight: 1.5, margin: "10px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{d.jd}</p>}
+                        </div>
+                        <button onClick={() => setOpenId(open ? null : d.id)} style={{ ...outlineSm, flexShrink: 0 }}>{open ? "Hide" : "View details"}</button>
                       </div>
-                      <div style={{ fontSize: 14, color: k.mid }}>{listingHost(d)} · {listingPlace(d)}</div>
-                      <div style={{ display: "flex", gap: 14, marginTop: 10, fontSize: 12.5, color: k.ink2, flexWrap: "wrap" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><ListChecks size={13} color={k.faint} />{(d.rounds || DEFAULT_ROUNDS).length} rounds</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Users2 size={13} color={k.faint} />{d.candidates.length} checked in so far</span>
-                      </div>
+                      {open && <DrivePosting d={d} />}
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: d.status === "live" ? k.coral : k.gold, marginBottom: 4 }}>{d.status === "live" ? "Open today" : fmtDate(d.date)}</div>
-                      <div style={{ fontSize: 12, color: k.ink2, fontWeight: 600 }}>{expLabel(d.expNeeded)}</div>
-                      <button onClick={() => setOpenId(open ? null : d.id)} style={{ ...textLink, marginTop: 8, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        {open ? "Hide details" : "Job details"} <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : "none" }} />
-                      </button>
-                    </div>
-                    </div>
-                    {open && <DrivePosting d={d} />}
-                  </div>
                   );
                 })}
+                {mixed.length > page.length && (
+                  <button type="button" onClick={() => setLimit((n) => n + PAGE)} style={{ ...outline, alignSelf: "center", marginTop: 8 }}>Show more</button>
+                )}
               </div>
             )}
           </div>
@@ -854,12 +922,17 @@ export function PublicDrives({ drives, onLaunch }) {
   );
 }
 
+function walkWhen(d) {
+  const { start, end } = driveWindow(d);
+  if (start && end && end !== start) return `${fmtDate(start)} – ${fmtDate(end)}`;
+  return fmtDate(start);
+}
 function expLabel(bands) {
   if (!bands || !bands.length) return "All experience levels";
   return bands.join(" · ");
 }
 function DrivePosting({ d, flush }) {
-  const docs = d.docs || [];
+  const docs = docsOf(d.docs);
   return (
     <div style={{ marginTop: flush ? 0 : 18, paddingTop: flush ? 0 : 18, borderTop: flush ? "none" : `1px solid ${k.line}`, display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 22 }} className="g2">
       <div>
@@ -881,46 +954,27 @@ function DrivePosting({ d, flush }) {
     </div>
   );
 }
-function QuickStat({ n, label }) {
-  return (
-    <div style={{ background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.card, padding: "20px 22px", textAlign: "center" }}>
-      <div style={{ fontFamily: dsp, fontSize: 34, fontWeight: 700, color: k.ink, letterSpacing: -1 }}>{n}</div>
-      <div style={{ fontSize: 13, color: k.mid, marginTop: 4 }}>{label}</div>
-    </div>
-  );
-}
 
 /* --- Pricing --- */
 export function PricingPage({ onLaunch, go }) {
-  const [cycle, setCycle] = useState("month");
   return (
     <>
-      <PageHero>
-        <h1 style={heroH1}>A plan for the hall.</h1>
-        <p style={{ ...heroP, margin: "0 auto 22px" }}>
-          You pay for seats and halls — not a pile of unused tokens. GST extra.
-        </p>
-        <div style={{ display: "inline-flex", padding: 4, borderRadius: 999, background: "#fff", border: `1px solid ${k.line}`, gap: 4 }}>
-          {[["month", "Monthly"], ["year", "Yearly · 2 months free"]].map(([id, lab]) => (
-            <button key={id} type="button" onClick={() => setCycle(id)} style={{
-              border: "none", borderRadius: 999, padding: "8px 16px", cursor: "pointer", fontFamily: bdy, fontSize: 13.5, fontWeight: 600,
-              background: cycle === id ? k.ink : "transparent", color: cycle === id ? "#fff" : k.mid,
-            }}>{lab}</button>
-          ))}
-        </div>
+      <PageHero maxWidth={640}>
+        <h1 style={heroH1}>Simple pricing for hiring teams</h1>
+        <p style={{ ...heroP, margin: "0 auto 8px" }}>Pay once for a drive, or pay monthly if you run drives regularly.</p>
+        <p style={{ ...heroP, margin: "0 auto", fontSize: 14 }}>No per-candidate charges. GST extra.</p>
       </PageHero>
 
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 26px 0" }}>
-        <PlanCards onChoose={() => onLaunch("employer")} go={go} cycle={cycle} />
+        <PlanCards onChoose={() => onLaunch("employer")} go={go} />
       </div>
 
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "56px 26px 0" }}>
-        <PlanTable />
-      </div>
-
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "36px 26px 80px", textAlign: "center" }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 26px 80px", textAlign: "center" }}>
+        <p style={{ fontSize: 13.5, color: k.mid, lineHeight: 1.55, margin: "0 0 12px" }}>
+          Live token page and lobby display are included.
+        </p>
         <button type="button" onClick={() => go("contact")} style={{ ...textLink, fontSize: 14 }}>
-          Need more halls or SSO? Talk to us
+          Recruitment agency or high volume? Talk to us
         </button>
       </div>
     </>
@@ -933,11 +987,11 @@ const LEGAL = {
     title: "Privacy Policy",
     updated: "Last updated: August 2026",
     sections: [
-      ["What we collect", "From candidates: name, phone number, email, experience level, LinkedIn URL, and resume file. Aadhaar is optional and used only to stop the same person re-registering to a drive under a different phone number — we run it through a one-way cryptographic hash before it ever reaches our database, so the number itself is never stored, only the last 4 digits and the hash. From hosts: work email, company name, and the drives they create."],
-      ["Why we collect it", "To run the walk-in queue you signed up for: issuing your token, estimating your wait, letting a recruiter see your profile, and sending one WhatsApp nudge about 15 minutes before your turn. We do not text you when you are called, selected, or rejected — that status lives on your phone in the app."],
-      ["Who can see it", "Only recruiters signed in to the specific drive you joined. On the public waiting-room screen, everyone else sees a token and a masked name — never your phone number, resume, or full name."],
+      ["What we collect", "From candidates: name, phone number, email, and resume file. From hosts: work email, company name, and the drives they create."],
+      ["Why we collect it", "To run the walk-in queue you signed up for: issuing your token, estimating your wait, letting a recruiter see your profile, and showing your turn on a live token page. Status when you are called, selected, or rejected lives on that page — we do not send a paid message for every queue movement."],
+      ["Who can see it", "Only recruiters signed in to the specific drive you joined. On the public lobby display, everyone else sees a token and a masked name — never your phone number, resume, or full name."],
       ["How long we keep it", "Candidate profiles stay in your account so you can join future drives without re-entering everything. You can ask us to delete your data at any time by writing to hello@tokenhire.app."],
-      ["Where it's stored", "Resumes and identity-verification results are stored encrypted. Every resume download by a recruiter is logged."],
+      ["Where it's stored", "Resumes are stored encrypted. Every resume download by a recruiter is logged."],
       ["Your rights", "Under India's Digital Personal Data Protection Act, you can request a copy of your data, ask us to correct it, or ask us to delete it. Write to hello@tokenhire.app and we'll respond within a reasonable time."],
     ],
   },
@@ -948,7 +1002,8 @@ const LEGAL = {
       ["What TokenHire is", "A queue and check-in system for walk-in hiring drives. We are not a staffing agency, a recruiter, or a party to any employment decision — we provide the software; the hiring company makes the calls."],
       ["Accounts", "A company account belongs to the business that creates it. Anyone invited to that account can see and manage every drive under it. It's the company's responsibility to manage who has access."],
       ["Candidate use", "Creating a candidate profile is free and always will be. You're responsible for the accuracy of what you submit — a false experience claim or fabricated verification status can get an application rejected by the hiring company, not by us."],
-      ["Fair use of check-in codes", "Joining a queue requires the live code shown on the waiting-room screen, which refreshes every 45 seconds, or a one-time pass issued by front desk. HOST codes are for recruiters only. Sharing or forwarding a check-in code so that someone who is not at the venue can join the queue is a violation of these terms and may result in account suspension."],
+      ["Fair use of check-in codes", "Joining a queue requires the live code shown on the lobby display, which refreshes every 45 seconds, or a one-time pass issued by front desk. HOST codes are for recruiters only. Sharing or forwarding a check-in code so that someone who is not at the venue can join the queue is a violation of these terms and may result in account suspension."],
+      ["Fair use", "Paid plans do not advertise a candidate cap. TokenHire may apply reasonable usage limits for unusually large events so the live queue stays reliable for everyone on the day."],
       ["No guarantee of hiring outcomes", "TokenHire manages the queue and the record-keeping. We don't guarantee interviews, offers, or job placement — those decisions rest entirely with the hiring company running the drive."],
       ["Changes", "We may update these terms as the product changes. Material changes will be reflected here with an updated date."],
     ],
@@ -1005,8 +1060,7 @@ export function Contact() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 40 }} className="g2">
         <div>
           <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 20 }}><Mail size={17} color={k.teal} style={{ marginTop: 2 }} /><div><div style={{ fontSize: 13, fontWeight: 600 }}>Email</div><div style={{ fontSize: 13.5, color: k.mid, fontFamily: typ }}>hello@tokenhire.app</div></div></div>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 20 }}><Phone size={17} color={k.teal} style={{ marginTop: 2 }} /><div><div style={{ fontSize: 13, fontWeight: 600 }}>Phone</div><div style={{ fontSize: 13.5, color: k.mid, fontFamily: typ }}>+91 90000 00000</div></div></div>
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}><MapPin size={17} color={k.teal} style={{ marginTop: 2 }} /><div><div style={{ fontSize: 13, fontWeight: 600 }}>Based in</div><div style={{ fontSize: 13.5, color: k.mid }}>Hyderabad, India</div></div></div>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}><Phone size={17} color={k.teal} style={{ marginTop: 2 }} /><div><div style={{ fontSize: 13, fontWeight: 600 }}>Phone</div><div style={{ fontSize: 13.5, color: k.mid, fontFamily: typ }}>+91 90000 00000</div></div></div>
         </div>
         <div style={{ ...box, padding: 26 }}>
           {sent ? (

@@ -1,14 +1,15 @@
 export const k = {
-  cream: "#FFFFFF", cream2: "#F6F5F2", ink: "#111318", ink2: "#3D4252", mid: "#6B7080", faint: "#9AA0AE",
-  line: "#E6E4DF", coral: "#2C6BF5", coralDim: "#EEF3FF", teal: "#2A2F3A", tealDim: "#F3F4F6",
-  gold: "#8A6200", goldDim: "#F8F1DE", red: "#B3261E", redDim: "#FBEAE8",
-  band: "#111318", bandSoft: "#F6F5F2",
+  cream: "#FFFFFF", cream2: "#F6F5F1", ink: "#0B1020", ink2: "#394056", mid: "#626A80", faint: "#8C93A6",
+  line: "#E7E7EA", coral: "#2F5BFF", coralDim: "#EDF1FF", teal: "#1F2537", tealDim: "#F2F3F6",
+  gold: "#8A5A00", goldDim: "#FEF3DC", red: "#C62F35", redDim: "#FDECEC",
+  green: "#16A34A", greenDim: "#E8F7EE", lime: "#C6F432", warn: "#F59E0B",
+  band: "#0B1020", bandSoft: "#F6F5F1",
 };
-export const R = { pill: 999, card: 14, inner: 12 };
+export const R = { pill: 999, card: 16, inner: 12 };
 const STACK = "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
-export const dsp = STACK;
+export const dsp = "'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
 export const bdy = STACK;
-export const typ = "'Roboto Mono', monospace";
+export const typ = "'JetBrains Mono', ui-monospace, monospace";
 
 export const box = { background: "#fff", border: `1px solid ${k.line}`, borderRadius: R.inner, boxShadow: "0 1px 0 rgba(17,19,24,.03)" };
 export const input = { padding: "11px 14px", borderRadius: 10, border: `1px solid ${k.line}`, background: "#fff", color: k.ink, fontSize: 13.5, outline: "none", fontFamily: bdy, width: "100%" };

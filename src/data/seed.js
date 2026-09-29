@@ -1,16 +1,20 @@
-import { DEFAULT_ROOMS, DEFAULT_ROUNDS, DOC_OPTIONS, EXP_BANDS, MIN, QUALIFICATIONS, code, inNudgeWindow, newGate, newHost, nudgeText, todayStr } from "../lib/helpers.js";
+import { windowAround } from "../lib/status.js";
+import { DEFAULT_ROOMS, DEFAULT_ROUNDS, DOC_OPTIONS, EXP_BANDS, MIN, QUALIFICATIONS, code, inNudgeWindow, newGate, newHost, todayStr } from "../lib/helpers.js";
+
+const liveNow = () => windowAround(Date.now(), -150, 600);
 
 export function seedDrive() {
   const t0 = Date.now();
   const mk = (n, name, phone, exp, state, opts = {}) => ({
     id: `W-${String(n).padStart(3, "0")}`, token: `W-${String(n).padStart(3, "0")}`,
-    name, phone, email: opts.email || "", exp, linkedin: opts.linkedin || "",
+    name, phone, email: opts.email || `${name.split(" ")[0].toLowerCase()}@gmail.com`, exp, linkedin: opts.linkedin || "",
     resume: opts.resume ?? `${name.split(" ")[0].toLowerCase()}_cv.pdf`,
     state, at: t0 - (40 - n) * 3 * MIN, pinged: true,
     calledAt: opts.calledAt ?? null, decidedAt: opts.decidedAt ?? null,
     expBand: opts.expBand ?? (exp === "Fresher" ? "Fresher" : parseFloat(exp) >= 5 ? "5+ yrs" : parseFloat(exp) >= 3 ? "3–5 yrs" : parseFloat(exp) >= 1 ? "1–3 yrs" : "0–1 yr"),
     roundIdx: opts.roundIdx ?? (["selected", "rejected", "onhold"].includes(state) ? 2 : ["interviewing"].includes(state) ? 1 : 0),
     roundAssigned: opts.roundAssigned ?? (["calling", "interviewing", "selected", "rejected", "onhold"].includes(state)),
+    room: opts.room ?? null,
     notes: opts.notes ?? {},
   });
   const done = (n, name, ph, exp, state, callMin, dur, o = {}) => mk(n, name, ph, exp, state, { ...o, calledAt: t0 - callMin * MIN, decidedAt: t0 - (callMin - dur) * MIN });
@@ -25,8 +29,8 @@ export function seedDrive() {
     done(8, "Ananya Rao", "9959001122", "2 years", "selected", 46, 9, { email: "ananya.rao@gmail.com", linkedin: "https://linkedin.com/in/ananyarao" }),
     done(9, "Karthik Subramanian", "9701778899", "5 years", "selected", 35, 11, { email: "karthik.s@gmail.com" }),
     mk(10, "Deepika Shetty", "9846223344", "1 year", "absent", { resume: null }),
-    mk(11, "Kavya Menon", "9700556611", "3 years", "interviewing", { calledAt: t0 - 6 * MIN, email: "kavya.m@gmail.com", roundIdx: 0 }),
-    mk(12, "Lakshmi Prasad", "9963118822", "Fresher", "calling", { calledAt: t0 - 1 * MIN }),
+    mk(11, "Kavya Menon", "9700556611", "3 years", "interviewing", { calledAt: t0 - 6 * MIN, email: "kavya.m@gmail.com", roundIdx: 0, room: { id: "rm1", name: "Room 1", interviewer: "Priya", roundId: "r1" } }),
+    mk(12, "Lakshmi Prasad", "9963118822", "Fresher", "calling", { calledAt: t0 - 1 * MIN, room: { id: "rm2", name: "Room 2", interviewer: "Arun", roundId: "r2" } }),
     mk(13, "Sandeep Kumar", "9885774411", "2 years", "wait", { email: "sandeep.k@gmail.com" }),
     mk(14, "Zoya Khan", "9701009988", "4 years", "wait", { email: "zoya.khan@gmail.com", linkedin: "https://linkedin.com/in/zoyakhan" }),
     mk(15, "Ravi Teja", "9848337766", "Fresher", "wait", { resume: null }),
@@ -36,16 +40,13 @@ export function seedDrive() {
   ];
   const waiters = candidates.filter((c) => c.state === "wait").sort((a, b) => a.at - b.at);
   waiters.forEach((c, i) => { const etaMin = i * 8; c.pinged = inNudgeWindow(etaMin) || etaMin < 10; });
-  const msgs = [
-    { id: 1, at: t0 - 3 * MIN, ch: "WhatsApp", to: "9848337766", name: "Ravi Teja", text: nudgeText({ name: "Ravi Teja", token: "W-015" }) },
-    { id: 2, at: t0 - 32 * MIN, ch: "WhatsApp", to: "9700556611", name: "Kavya Menon", text: nudgeText({ name: "Kavya Menon", token: "W-011" }) },
-  ];
-  return { id: "d_demo", orgId: "org_sagility", host: "HOST-4KQ7ZM", gate: "GATE-9M2K7P", desk: code(6), visibility: "public", status: "live", city: "Hyderabad", date: todayStr(), company: "Sagility India", role: "Customer Support Executive", venue: "Gachibowli campus, Gate 1",
+  const msgs = [];
+  return { id: "d_demo", orgId: "org_sagility", host: "HOST-4KQ7ZM", gate: "GATE-9M2K7P", desk: code(6), visibility: "public", status: "live", city: "Hyderabad", ...liveNow(), company: "Sagility India", role: "Customer Support Executive", venue: "HITEC City campus, Gate 1",
     jd: "Inbound customer support for a US healthcare client. Rotational shifts including weekends. Voice process — clear spoken English required. Training stipend for the first two weeks.",
     expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
-    docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)", "Educational certificates"],
+    docs: ["Updated resume (print + PDF)",  "PAN card", "Passport-size photographs (2)", "Educational certificates"],
     candidates, msgs, seq: 18, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })), brand: { name: "Sagility", color: "#C41E3A", logo: "bars" }, rooms: DEFAULT_ROOMS.map((r) => ({ ...r })),
-    clientId: "", clientName: "", branchId: "br_sag_gachi", branch: "Gachibowli campus" };
+    clientId: "", clientName: "", branchId: "br_sag_hitec", branch: "HITEC City campus" };
 }
 
 export function seedOrgs() {
@@ -71,7 +72,7 @@ export function seedOrgs() {
     ] },
     { id: "org_sagility", name: "Sagility India", short: "Sagility", kind: "captive", logo: "bars", color: "#C41E3A", wash: "#F9E8EB", email: "hr@sagility.com", password: "demo1234", plan: "event",
       clients: [],
-      branches: [{ id: "br_sag_gachi", name: "Gachibowli campus", city: "Hyderabad" }],
+      branches: [{ id: "br_sag_hitec", name: "HITEC City campus", city: "Hyderabad" }],
       members: [
       { email: "hr@sagility.com", role: "recruiter" },
       { email: "priya.hr@sagility.com", role: "recruiter" },
@@ -119,22 +120,22 @@ export function seedOrgs() {
         { id: "br_wipro_ecity", name: "Electronic City", city: "Bengaluru" },
       ],
       members: [{ email: "hr@wipro.com", role: "recruiter" }, { email: "desk@wipro.com", role: "frontdesk" }] },
-    { id: "org_plan_trial", name: "Trial Hall Co", short: "Trial", kind: "captive", logo: "letter", color: "#2C6BF5", wash: "#EEF3FE",
+    { id: "org_plan_trial", name: "Trial Demo Co", short: "Trial", kind: "captive", logo: "letter", color: "#2C6BF5", wash: "#EEF3FE",
       email: "trial@tokenhire.demo", password: "demo1234", plan: "trial",
-      clients: [], branches: [{ id: "br_trial_hyd", name: "Gachibowli", city: "Hyderabad" }],
+      clients: [], branches: [{ id: "br_trial_hyd", name: "HITEC City", city: "Hyderabad" }],
       members: [{ email: "trial@tokenhire.demo", role: "recruiter", name: "Trial recruiter" }] },
     { id: "org_plan_single", name: "One Drive Foods", short: "One Drive", kind: "captive", logo: "tile", color: "#0F8A6B", wash: "#E6F5F0",
       email: "single@tokenhire.demo", password: "demo1234", plan: "single",
-      clients: [], branches: [{ id: "br_single_hyd", name: "Madhapur hall", city: "Hyderabad" }],
+      clients: [], branches: [{ id: "br_single_hyd", name: "Madhapur office", city: "Hyderabad" }],
       members: [
         { email: "single@tokenhire.demo", role: "recruiter", name: "Drive lead" },
         { email: "desk@single.demo", role: "frontdesk", name: "Door" },
       ] },
-    { id: "org_plan_monthly", name: "Monthly Halls", short: "Monthly", kind: "captive", logo: "bars", color: "#163A7A", wash: "#E8EEF7",
+    { id: "org_plan_monthly", name: "Monthly Demo Co", short: "Monthly", kind: "captive", logo: "bars", color: "#163A7A", wash: "#E8EEF7",
       email: "monthly@tokenhire.demo", password: "demo1234", plan: "pack5", billingCycle: "month",
       clients: [],
       branches: [
-        { id: "br_mo_hyd", name: "Gachibowli", city: "Hyderabad" },
+        { id: "br_mo_hyd", name: "HITEC City", city: "Hyderabad" },
         { id: "br_mo_blr", name: "Whitefield", city: "Bengaluru" },
       ],
       members: [
@@ -246,20 +247,10 @@ export function seedMegaDrive() {
     c.pinged = inNudgeWindow(etaMin) || etaMin < 10;
   });
   candidates.filter((c) => !["wait"].includes(c.state)).forEach((c) => { c.pinged = true; });
-  const msgs = [
-    ...waitSorted.filter((_, i) => inNudgeWindow(i * 12)).map((c) => ({
-      id: `m_nudge_${c.id}`, at: t0 - 2 * MIN, ch: "WhatsApp", to: c.phone, name: c.name, text: nudgeText(c),
-    })),
-    ...candidates.filter((c) => c.state === "calling").map((c, i) => ({
-      id: `m_nudge_call_${c.id}`, at: t0 - (18 + i) * MIN, ch: "WhatsApp", to: c.phone, name: c.name, text: nudgeText(c),
-    })),
-    ...candidates.filter((c) => c.state === "interviewing").slice(0, 2).map((c, i) => ({
-      id: `m_nudge_int_${c.id}`, at: t0 - (28 + i * 4) * MIN, ch: "WhatsApp", to: c.phone, name: c.name, text: nudgeText(c),
-    })),
-  ];
+  const msgs = [];
   return {
     id: "d_vistaar_50", orgId: "org_vistaar", host: "HOST-DEMO50", gate: "GATE-VISTA1", desk: code(6),
-    visibility: "public", status: "live", city: "Hyderabad", date: todayStr(),
+    visibility: "public", status: "live", city: "Hyderabad", ...liveNow(),
     company: "Vistaar Services", role: "Voice Process Associate", venue: "HITEC City, Tower B, Ground floor",
     jd: "US and UK voice process. Rotational shifts. Graduate preferred. Three rounds today — HR screening, ops, manager. Offers are not made on the floor; selected names go to HR for ATS.",
     expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
@@ -296,89 +287,91 @@ export function blankSeed(extra) {
 }
 export function seedExtraDrives() {
   return [
-    blankSeed({ id: "d_blr1", orgId: "org_quess", status: "live", city: "Bengaluru", date: todayStr(), company: "Quess Corp", role: "Warehouse Associate", venue: "Whitefield Hub, Gate 2",
+    blankSeed({ id: "d_blr1", orgId: "org_quess", status: "live", city: "Bengaluru", ...liveNow(), company: "Quess Corp", role: "Warehouse Associate", venue: "Whitefield Hub, Gate 2",
       jd: "Last-mile and inbound for Amazon warehouse. Own two-wheeler helpful. Daily payouts. Reporting 7am.",
       expNeeded: ["Fresher", "0–1 yr"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Bank passbook or cancelled cheque"],
+      docs: ["Updated resume (print + PDF)",  "PAN card"],
       candidates: demoWaiters(3), seq: 3, msgs: [],
       brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_amazon", clientName: "Amazon warehouse", branchId: "br_q_wfd", branch: "Whitefield Hub" }),
-    blankSeed({ id: "d_q_hdfc", orgId: "org_quess", status: "live", city: "Hyderabad", date: todayStr(), company: "Quess Corp", role: "Relationship Officer", venue: "HITEC City, Tower 3, Level 2",
+    blankSeed({ id: "d_q_hdfc", orgId: "org_quess", status: "live", city: "Hyderabad", ...liveNow(), company: "Quess Corp", role: "Relationship Officer", venue: "HITEC City, Tower 3, Level 2",
       jd: "Walk-in for HDFC sales. Field + branch. Telugu and English. Quess hires you; you work on the HDFC book.",
       expNeeded: ["0–1 yr", "1–3 yrs", "3–5 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)"],
+      docs: ["Updated resume (print + PDF)",  "PAN card", "Passport-size photographs (2)"],
       brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_hdfc", clientName: "HDFC sales", branchId: "br_q_hitec", branch: "Hyderabad HITEC" }),
     blankSeed({ id: "d_q_voice", orgId: "org_quess", city: "Pune", date: todayStr(1), company: "Quess Corp", role: "Voice Process Associate", venue: "Hinjawadi Phase 1, Block C",
       jd: "Captive voice process staffed by Quess. Rotational shifts. Clear spoken English.",
       expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "Educational certificates"],
+      docs: ["Updated resume (print + PDF)",  "Educational certificates"],
       brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_voice", clientName: "Voice process – captive", branchId: "br_q_pune", branch: "Pune Hinjawadi" }),
     blankSeed({ id: "d_q_bench", orgId: "org_quess", city: "Bengaluru", date: todayStr(3), company: "Quess Corp", role: "Associate (bench)", venue: "Whitefield Hub, Training floor",
       jd: "Quess associate bench — hired onto Quess payroll, deployed to client sites as they open. Not a client walk-in.",
       expNeeded: ["Fresher", "0–1 yr"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"],
+      docs: ["Updated resume (print + PDF)",  "PAN card"],
       brand: { name: "Quess", color: "#0F8A6B", logo: "bars" }, clientId: "cl_bench", clientName: "Associate bench", branchId: "br_q_wfd", branch: "Whitefield Hub" }),
     blankSeed({ id: "d_vistaar_bfsi", orgId: "org_vistaar", city: "Hyderabad", date: todayStr(2), company: "Vistaar Services", role: "Collections Officer", venue: "HITEC City, Tower B",
       jd: "Field collections for a retail BFSI client. Vistaar payroll. Telugu and English.",
       expNeeded: ["0–1 yr", "1–3 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"],
+      docs: ["Updated resume (print + PDF)",  "PAN card"],
       brand: { name: "Vistaar", color: "#163A7A", logo: "diamond" }, clientId: "cl_vistaar_bfsi", clientName: "Retail BFSI", branchId: "br_vistaar_hitec", branch: "Hyderabad HITEC" }),
     blankSeed({ id: "d_blr2", orgId: "org_teamlease", city: "Bengaluru", date: todayStr(4), company: "TeamLease", role: "Sales Associate", venue: "Koramangala Office",
       jd: "In-store sales for a consumer-electronics brand. Target-based incentives. Kannada or Tamil plus English.",
       expNeeded: ["0–1 yr", "1–3 yrs", "3–5 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)", "Experience / relieving letters"],
+      docs: ["Updated resume (print + PDF)",  "PAN card", "Passport-size photographs (2)", "Experience / relieving letters"],
       brand: { name: "TeamLease", color: "#E85D04", logo: "split" }, clientId: "cl_tl_ce", clientName: "Consumer electronics retail", branchId: "br_tl_kora", branch: "Koramangala Office" }),
-    blankSeed({ id: "d_hyd2", orgId: "org_genpact", status: "live", city: "Hyderabad", date: todayStr(), company: "Genpact", role: "Voice Process Associate", venue: "Uppal campus",
+    blankSeed({ id: "d_hyd2", orgId: "org_genpact", status: "live", city: "Hyderabad", ...liveNow(), company: "Genpact", role: "Voice Process Associate", venue: "Uppal campus",
       jd: "UK voice process. Night shift. Graduate preferred. Walk-in includes an aptitude test and a 10-minute mock call.",
       expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "Educational certificates", "Passport-size photographs (2)"],
+      docs: ["Updated resume (print + PDF)",  "Educational certificates", "Passport-size photographs (2)"],
       brand: { name: "Genpact", color: "#B7791F", logo: "tile" }, clientId: "", clientName: "", branchId: "br_gen_uppal", branch: "Uppal campus" }),
     blankSeed({ id: "d_mum1", orgId: "org_zonal", city: "Mumbai", date: todayStr(6), company: "Zonal Retail Pvt Ltd", role: "Store Associate", venue: "Andheri East",
       jd: "Floor staff for a new grocery format. Weekend roster. Hindi and Marathi useful. Immediate joining.",
       expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Passport-size photographs (2)"],
+      docs: ["Updated resume (print + PDF)",  "PAN card", "Passport-size photographs (2)"],
       brand: { name: "Zonal", color: "#D6336C", logo: "letter" }, clientId: "", clientName: "", branchId: "br_zonal_andheri", branch: "Andheri East" }),
-    blankSeed({ id: "d_wipro_live", orgId: "org_wipro", status: "live", city: "Pune", date: todayStr(), company: "Wipro", role: "Technical Support Associate", venue: "Hinjawadi Phase 2, Block 8",
+    blankSeed({ id: "d_wipro_live", orgId: "org_wipro", status: "live", city: "Pune", ...liveNow(), company: "Wipro", role: "Technical Support Associate", venue: "Hinjawadi Phase 2, Block 8",
       jd: "IT helpdesk for internal Wipro accounts. Day shift. Own hiring — not a staffing client walk-in.",
       expNeeded: ["Fresher", "0–1 yr", "1–3 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card", "Educational certificates"],
+      docs: ["Updated resume (print + PDF)",  "PAN card", "Educational certificates"],
       brand: { name: "Wipro", color: "#341C8A", logo: "ring" }, clientId: "", clientName: "", branchId: "br_wipro_hinja", branch: "Hinjawadi Phase 2" }),
     blankSeed({ id: "d_pun1", orgId: "org_wipro", visibility: "private", status: "closed", city: "Pune", date: todayStr(-3), company: "Wipro", role: "Document Validation", venue: "Hinjawadi Phase 2",
       jd: "Back-office document QC. Day shift.",
       expNeeded: ["1–3 yrs", "3–5 yrs"],
-      docs: ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"],
+      docs: ["Updated resume (print + PDF)",  "PAN card"],
       brand: { name: "Wipro", color: "#341C8A", logo: "ring" }, clientId: "", clientName: "", branchId: "br_wipro_hinja", branch: "Hinjawadi Phase 2" }),
   ];
 }
 
+export { seedBoardDrives, boardOrgs } from "./board.js";
+
 export function seedPlanDemoDrives() {
-  const docs = ["Updated resume (print + PDF)", "Aadhaar (original + photocopy)", "PAN card"];
+  const docs = ["Updated resume (print + PDF)",  "PAN card"];
   const trialRooms = [{ ...DEFAULT_ROOMS[0] }];
   return [
-    blankSeed({ id: "d_plan_trial", orgId: "org_plan_trial", status: "live", city: "Hyderabad", date: todayStr(), company: "Trial Hall Co", role: "Customer Support", venue: "Gachibowli",
-      jd: "Trial plan — 1 drive, 30 people, no WhatsApp, no reports, one room.",
+    blankSeed({ id: "d_plan_trial", orgId: "org_plan_trial", status: "live", city: "Hyderabad", ...liveNow(), company: "Trial Demo Co", role: "Customer Support", venue: "HITEC City",
+      jd: "Trial plan — 1 drive, 10 people, live token page, lobby display.",
       expNeeded: ["Fresher"], docs, brand: { name: "Trial", color: "#2C6BF5", logo: "letter" },
-      rooms: trialRooms, clientId: "", clientName: "", branchId: "br_trial_hyd", branch: "Gachibowli" }),
-    blankSeed({ id: "d_plan_single", orgId: "org_plan_single", status: "live", city: "Hyderabad", date: todayStr(), company: "One Drive Foods", role: "Store Associate", venue: "Madhapur hall",
-      jd: "Single-drive plan — full product, one hall, 300 people. You cannot create a second drive.",
+      rooms: trialRooms, clientId: "", clientName: "", branchId: "br_trial_hyd", branch: "HITEC City" }),
+    blankSeed({ id: "d_plan_single", orgId: "org_plan_single", status: "live", city: "Hyderabad", ...liveNow(), company: "One Drive Foods", role: "Store Associate", venue: "Madhapur office",
+      jd: "Single-drive plan — full product, one venue, 300 people. You cannot create a second drive.",
       expNeeded: ["Fresher", "0–1 yr"], docs, brand: { name: "One Drive", color: "#0F8A6B", logo: "tile" },
-      clientId: "", clientName: "", branchId: "br_single_hyd", branch: "Madhapur hall" }),
-    blankSeed({ id: "d_plan_mo1", orgId: "org_plan_monthly", status: "live", city: "Hyderabad", date: todayStr(), company: "Monthly Halls", role: "Voice Associate", venue: "Gachibowli",
+      clientId: "", clientName: "", branchId: "br_single_hyd", branch: "Madhapur office" }),
+    blankSeed({ id: "d_plan_mo1", orgId: "org_plan_monthly", status: "live", city: "Hyderabad", ...liveNow(), company: "Monthly Demo Co", role: "Voice Associate", venue: "HITEC City",
       jd: "Monthly plan — 5 drives this month. This is 1 of 5.",
       expNeeded: ["Fresher"], docs, brand: { name: "Monthly", color: "#163A7A", logo: "bars" },
-      clientId: "", clientName: "", branchId: "br_mo_hyd", branch: "Gachibowli" }),
-    blankSeed({ id: "d_plan_mo2", orgId: "org_plan_monthly", status: "live", city: "Bengaluru", date: todayStr(), company: "Monthly Halls", role: "Warehouse Associate", venue: "Whitefield",
+      clientId: "", clientName: "", branchId: "br_mo_hyd", branch: "HITEC City" }),
+    blankSeed({ id: "d_plan_mo2", orgId: "org_plan_monthly", status: "live", city: "Bengaluru", ...liveNow(), company: "Monthly Demo Co", role: "Warehouse Associate", venue: "Whitefield",
       jd: "Monthly plan — this is 2 of 5 this month.",
       expNeeded: ["Fresher"], docs, brand: { name: "Monthly", color: "#163A7A", logo: "bars" },
       clientId: "", clientName: "", branchId: "br_mo_blr", branch: "Whitefield" }),
-    blankSeed({ id: "d_plan_p10", orgId: "org_plan_pack10", status: "live", city: "Pune", date: todayStr(), company: "Weekly Halls", role: "Tech Support", venue: "Hinjawadi",
+    blankSeed({ id: "d_plan_p10", orgId: "org_plan_pack10", status: "live", city: "Pune", ...liveNow(), company: "Weekly Halls", role: "Tech Support", venue: "Hinjawadi",
       jd: "10 drives / month pack.",
       expNeeded: ["Fresher", "0–1 yr"], docs, brand: { name: "Weekly", color: "#B7791F", logo: "split" },
       clientId: "", clientName: "", branchId: "br_w10_pune", branch: "Hinjawadi" }),
-    blankSeed({ id: "d_plan_p25", orgId: "org_plan_pack25", status: "live", city: "Mumbai", date: todayStr(), company: "Busy Month Staffing", role: "Relationship Officer", venue: "Andheri East",
+    blankSeed({ id: "d_plan_p25", orgId: "org_plan_pack25", status: "live", city: "Mumbai", ...liveNow(), company: "Busy Month Staffing", role: "Relationship Officer", venue: "Andheri East",
       jd: "25-drive pack with staffing clients.",
       expNeeded: ["0–1 yr", "1–3 yrs"], docs, brand: { name: "Busy Month", color: "#E85D04", logo: "diamond" },
       clientId: "cl_bm_bank", clientName: "Private bank – sales", branchId: "br_bm_mum", branch: "Andheri East" }),
-    blankSeed({ id: "d_plan_ent", orgId: "org_plan_ent", status: "live", city: "Bengaluru", date: todayStr(), company: "Enterprise Staffing", role: "Warehouse Associate", venue: "Whitefield Hub",
+    blankSeed({ id: "d_plan_ent", orgId: "org_plan_ent", status: "live", city: "Bengaluru", ...liveNow(), company: "Enterprise Staffing", role: "Warehouse Associate", venue: "Whitefield Hub",
       jd: "Enterprise — unconstrained drives, clients, tiny TokenHire mark.",
       expNeeded: ["Fresher"], docs, brand: { name: "Enterprise", color: "#341C8A", logo: "ring" },
       clientId: "cl_ent_wh", clientName: "Warehouse", branchId: "br_ent_blr", branch: "Whitefield Hub" }),

@@ -22,7 +22,7 @@ export function AuthShell({ title, sub, children, backTo = "/" }) {
 
 export const demoHint = (
   <div style={{ fontSize: 12, color: k.faint, lineHeight: 1.55, marginTop: 12 }}>
-    Demo password <b style={{ fontFamily: "'Roboto Mono', monospace" }}>demo1234</b>
+    Demo password <b style={{ fontFamily: "'JetBrains Mono', monospace" }}>demo1234</b>
     <br />
     {HIDE_PRICING
       ? <>demo@vistaar.com · desk@vistaar.com</>

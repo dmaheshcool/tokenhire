@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Mail, Linkedin, Check, ShieldCheck, FileText, User, Download, BadgeCheck, Phone, MessageCircle, Search, QrCode } from "lucide-react";
-import { bdy, dsp, typ, k, R, box, input, solid, solidTeal, solidSm, outline, outlineSm, ghostSm, iconBtn } from "../../theme.js";
-import { HallBrand, TokenChip, TokenTile } from "../../components/brand.jsx";
-import { Blank, CitySelect, Field, Pill, SectionLabel, StatusPill, TopBar, fmtDate } from "../../components/ui.jsx";
+import { ArrowLeft, ArrowRight, ShieldCheck, FileText, BadgeCheck } from "lucide-react";
+import { bdy, dsp, typ, k, box, input, solidTeal, outlineSm, ghostSm, iconBtn } from "../../theme.js";
+import { HallBrand, TokenChip, tokenDigits } from "../../components/brand.jsx";
+import { Blank, Field, Pill, SectionLabel, TopBar } from "../../components/ui.jsx";
 import { DrivePosting } from "../../components/DrivePosting.jsx";
 import { KeepTokenLink } from "../../components/KeepTokenLink.jsx";
+import { useQueueAlert } from "../../hooks/useQueueAlert.js";
 import { rememberTicket, readTickets } from "../../lib/api.js";
 import { gateCodeFrom, startQrScan } from "../../lib/scanner.js";
-import { DEFAULT_ROUNDS, DEMO_OTP, EXP_BANDS, QUALIFICATIONS, boundToday, code, dupOf, hallChrome, hashAadhaar, inARound, isTerminal, listingHost, liveDesk, livePass, listingPlace, mask, planLimits, roundLabel, tat, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
+import { DEFAULT_ROUNDS, boundToday, code, driveStatus, currentServingToken, dupOf, hallChrome, inARound, isTerminal, joinBlockedReason, listingHost, liveDesk, livePass, listingPlace, queueAhead, resumeName, readResumeFile, roomName, roundLabel, scanEnabled, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
 
 export function Candidate({ store, back }) {
   const nav = useNavigate();
@@ -21,7 +22,16 @@ export function Candidate({ store, back }) {
   const [params, setParams] = useSearchParams();
   const scannedGate = params.get("g");
   const scannedDesk = params.get("d");
+  const wantedDrive = params.get("drive");
+  const [remote, setRemote] = useState(false);
   const autoRef = useRef(false);
+
+  function markArrived(driveId, candId) {
+    setDrives((prev) => prev.map((x) => x.id !== driveId ? x : {
+      ...x,
+      candidates: x.candidates.map((c) => (c.id === candId && !c.checkedIn ? { ...c, checkedIn: true, arrivedAt: Date.now() } : c)),
+    }));
+  }
 
   function bindDevice(driveId) {
     setProfile((p) => ({ ...p, bound: { ...(p.bound || {}), [driveId]: todayStr() } }));
@@ -51,12 +61,21 @@ export function Candidate({ store, back }) {
     const live = drives.find((x) => x.id === drive.id) || drive;
     const already = dupOf(live, profile);
     const hostOrg = orgs.find((o) => o.id === live.orgId);
-    const cap = planLimits(hostOrg).candidates;
-    const full = !already && live.candidates.length >= cap;
-    setJoinErr(full ? `This walk-in is full (${cap} candidates on this plan).` : "");
+    const blocked = !already && !scanEnabled(hostOrg)
+      ? "This walk-in is not taking scans yet."
+      : (!already ? joinBlockedReason(hostOrg, live.candidates.length) : "");
+    setJoinErr(blocked);
+    if (via === "remote") {
+      if (already) { showDupSlip(live, already); return; }
+      setMatched(live);
+      setProven(true);
+      setRemote(true);
+      return;
+    }
+    setRemote(false);
     if (via === "desk" || via === "pass") {
       if (via === "pass") consumePass(live.id);
-      if (already) { showDupSlip(live, already); return; }
+      if (already) { markArrived(live.id, already.id); showDupSlip(live, already); return; }
       setMatched(live);
       setProven(true);
       return;
@@ -71,7 +90,7 @@ export function Candidate({ store, back }) {
   // one confirm tap. Waits for a profile and for drives to hydrate before deciding.
   useEffect(() => {
     if (autoRef.current || !profile || !scannedGate) return;
-    const live = drives.filter((d) => d.status === "live");
+    const live = drives.filter((d) => driveStatus(d) === "live");
     const byDesk = scannedDesk ? live.find((d) => liveDesk(d) === bare6(scannedDesk)) : null;
     const byGate = live.find((d) => bare6(d.gate) === bare6(scannedGate));
     const hit = byDesk || byGate;
@@ -83,18 +102,31 @@ export function Candidate({ store, back }) {
     setParams({}, { replace: true });
   }, [drives, profile, scannedGate, scannedDesk]);
 
+  // "Get my token" on a listing lands here as ?drive=<id>. That books a place before
+  // the person reaches the venue; the lobby scan later marks them as arrived.
+  useEffect(() => {
+    if (autoRef.current || !profile || !wantedDrive) return;
+    const hit = drives.find((d) => d.id === wantedDrive);
+    if (!hit) return;
+    autoRef.current = true;
+    setParams({}, { replace: true });
+    if (driveStatus(hit) !== "live") { setJoinErr("This walk-in is not giving out tokens right now."); setTab("join"); return; }
+    setTab("join");
+    handleMatch(hit, "remote");
+  }, [drives, profile, wantedDrive]);
+
   function tryProve(codeStr) {
     if (!matched) return "No walk-in selected.";
     const live = drives.find((x) => x.id === matched.id) || matched;
     const raw = (codeStr || "").trim().toUpperCase();
     if (raw.startsWith("HOST") || raw.startsWith("GATE")) {
-      return "Scan the waiting-room screen, or type the code shown on it.";
+      return "Scan the lobby display, or type the code shown on it.";
     }
     const kind = venueProofOf(live, codeStr);
     if (!kind) return "Expired or wrong code. Check the screen, or ask the desk.";
     if (kind === "pass") consumePass(live.id);
     const already = dupOf(live, profile);
-    if (already) { showDupSlip(live, already); return ""; }
+    if (already) { markArrived(live.id, already.id); showDupSlip(live, already); return ""; }
     setProven(true);
     return "";
   }
@@ -105,19 +137,21 @@ export function Candidate({ store, back }) {
     const dup = dupOf(live, profile);
     if (dup) { showDupSlip(live, dup); return; }
     const hostOrg = orgs.find((o) => o.id === live.orgId);
-    const cap = planLimits(hostOrg).candidates;
-    if (live.candidates.length >= cap) {
-      setJoinErr(`This walk-in is full (${cap} candidates on this plan).`);
+    const blocked = !scanEnabled(hostOrg) ? "This walk-in is not taking scans yet." : joinBlockedReason(hostOrg, live.candidates.length);
+    if (blocked) {
+      setJoinErr(blocked);
       return;
     }
     setJoinErr("");
     const seq = live.seq + 1, token = `W-${String(seq).padStart(3, "0")}`;
-    const cand = { id: token, token, claim: code(6), name: profile.name, phone: profile.phone, whatsapp: profile.whatsapp || profile.phone, email: profile.email, exp: profile.exp, linkedin: profile.linkedin, resume: profile.resume, expBand: profile.expBand || "Fresher", qual: profile.qual || "", room: null, aadhaarHash: profile.aadhaarHash || null, aadhaarLast4: profile.aadhaarLast4 || null, state: "wait", at: Date.now(), pinged: false, calledAt: null, decidedAt: null, roundIdx: 0, roundAssigned: false, notes: {} };
+    const now = Date.now();
+    const cand = { id: token, token, claim: code(6), name: profile.name, phone: profile.phone, email: profile.email, resume: profile.resume, room: null, state: "wait", at: now, pinged: false, calledAt: null, decidedAt: null, roundIdx: 0, roundAssigned: false, notes: {}, checkedIn: !remote, arrivedAt: remote ? null : now };
     setDrives((prev) => prev.map((x) => x.id === live.id ? { ...x, seq, candidates: [...x.candidates, cand] } : x));
     profile.applications.push(live.id);
     bindDevice(live.id);
     setMatched(null);
     setProven(false);
+    setRemote(false);
     openTicket(live, cand);
   }
 
@@ -125,11 +159,11 @@ export function Candidate({ store, back }) {
 
   return (
     <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
-      <TopBar back={back} title="Your walk-in" accent={k.teal} tabs={profile ? [["profile", "My profile"], ["join", "Join a walk-in"], ["history", "My applications"]] : null} tab={tab} setTab={setTab} />
+      <TopBar back={back} title="Your token" accent={k.teal} tabs={profile ? [["profile", "My profile"], ["join", "Get my token"], ["history", "My applications"]] : null} tab={tab} setTab={setTab} />
       <div className="pagepad" style={{ maxWidth: 720, margin: "0 auto", padding: 26 }}>
         {!profile ? <BuildProfile onDone={setProfile} />
           : result ? <Slip r={result} drives={drives} onAgain={resetJoin} />
-            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={() => join(matched)} joinErr={joinErr} />
+            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={() => join(matched)} joinErr={joinErr} remote={remote} />
               : tab === "profile" ? <MyProfile p={profile} setP={setProfile} />
                 : tab === "join" ? <JoinDrive drives={drives} left={left} onMatch={handleMatch} />
                   : <History p={profile} drives={drives} />}
@@ -138,12 +172,13 @@ export function Candidate({ store, back }) {
   );
 }
 
-export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr }) {
+export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, remote }) {
   const [deskIn, setDeskIn] = useState("");
   const [proveErr, setProveErr] = useState("");
-  function uploadResume(e) {
+  async function uploadResume(e) {
     const file = e.target.files?.[0];
-    if (file) setP({ ...p, resume: file.name });
+    if (!file) return;
+    setP({ ...p, resume: await readResumeFile(file) });
   }
   function submitProof() {
     const err = onProve(deskIn);
@@ -164,10 +199,10 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
       {joinErr && <div style={{ fontSize: 13.5, color: k.red, margin: "0 0 16px", lineHeight: 1.5 }}>{joinErr}</div>}
       {!proven && !joinErr && (
         <div style={{ ...box, padding: 18, marginBottom: 18 }}>
-          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Code on the screen</div>
+          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Code on the lobby display</div>
           <div style={{ display: "flex", gap: 9 }}>
             <input value={deskIn} onChange={(e) => { setDeskIn(e.target.value.toUpperCase()); setProveErr(""); }} onKeyDown={(e) => e.key === "Enter" && submitProof()} placeholder="DESK-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={11} />
-            <button onClick={submitProof} style={solidTeal}>Check in</button>
+            <button onClick={submitProof} style={solidTeal}>Get my token</button>
           </div>
           {proveErr ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 10, lineHeight: 1.5 }}>{proveErr}</div>
             : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9 }}>Rotates in {left}s. Desk can issue a pass.</div>}
@@ -178,19 +213,17 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
         <>
           <div style={{ ...box, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, background: k.tealDim }}>
             <ShieldCheck size={16} color={k.teal} />
-            <div style={{ fontSize: 12.5, color: k.teal, fontWeight: 600 }}>You're in.</div>
+            <div style={{ fontSize: 12.5, color: k.teal, fontWeight: 600 }}>{remote ? "You’ll get a token number and see how many people are ahead of you. Scan the lobby display when you arrive." : "You’re at the venue."}</div>
           </div>
           <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
             <div style={{ padding: "10px 16px", borderBottom: `2px solid ${k.ink}`, fontFamily: typ, fontSize: 10.5, letterSpacing: 1.2, color: k.ink2 }}>THIS IS WHAT WE'LL SEND</div>
             <DataRow label="Name" value={p.name} />
             <DataRow label="Phone" value={p.phone} mono />
             <DataRow label="Email" value={p.email || "—"} />
-            <DataRow label="Experience" value={p.exp || "—"} />
-            <DataRow label="LinkedIn" value={p.linkedin || "Not provided"} link={p.linkedin} />
-            <DataRow label="Resume" value={p.resume || "Not attached"} tone={p.resume ? "teal" : "gold"}
+            <DataRow label="Resume" value={resumeName(p.resume) || "Not attached"} tone={p.resume ? "teal" : "gold"}
               action={p.resume ? (
                 <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 13, color: k.teal, fontWeight: 600 }}>{p.resume}</span>
+                  <span style={{ fontSize: 13, color: k.teal, fontWeight: 600 }}>{resumeName(p.resume)}</span>
                   <label style={{ fontSize: 12, color: k.mid, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>
                     Replace<input type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} onChange={uploadResume} />
                   </label>
@@ -202,7 +235,7 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
               )} last />
           </div>
           {joinErr && <div style={{ fontSize: 13, color: k.red, margin: "0 0 10px", textAlign: "center" }}>{joinErr}</div>}
-          <button onClick={onConfirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Confirm & join queue <ArrowRight size={15} /></>}</button>
+          <button onClick={onConfirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Get my token <ArrowRight size={15} /></>}</button>
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Save the token page. That’s your place in line.</div>
         </>
       )}
@@ -210,204 +243,77 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
   );
 }
 
-export function OtpChannel({ icon: I, title, dest, code, verified, onVerified }) {
-  const [sent, setSent] = useState(false);
-  const [val, setVal] = useState("");
-  const [err, setErr] = useState("");
-  if (verified) {
-    return (
-      <div style={{ ...box, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
-        <I size={18} color={k.teal} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
-          <div style={{ fontSize: 12, color: k.mid, fontFamily: typ, marginTop: 2 }}>{dest}</div>
-        </div>
-        <Pill tone="teal">Verified</Pill>
-      </div>
-    );
-  }
-  return (
-    <div style={{ ...box, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: sent ? 12 : 0 }}>
-        <I size={18} color={k.coral} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
-          <div style={{ fontSize: 12, color: k.mid, marginTop: 2 }}>{dest}</div>
-        </div>
-        {!sent && <button type="button" onClick={() => { setSent(true); setErr(""); }} style={ghostSm}>Send OTP</button>}
-      </div>
-      {sent && (
-        <>
-          <div style={{ fontSize: 12, color: k.ink2, lineHeight: 1.5, marginBottom: 8 }}>
-            Code sent. In this demo, enter <b style={{ fontFamily: typ }}>{code}</b>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={val} onChange={(e) => { setVal(e.target.value.replace(/\D/g, "").slice(0, 6)); setErr(""); }} placeholder="6-digit OTP" inputMode="numeric" style={{ ...input, fontFamily: typ, letterSpacing: 3, flex: 1 }} />
-            <button type="button" onClick={() => { if (val === code) onVerified(); else setErr("That code doesn't match."); }} style={solidTeal}>Verify</button>
-          </div>
-          {err && <div style={{ fontSize: 12, color: k.red, marginTop: 8 }}>{err}</div>}
-        </>
-      )}
-    </div>
-  );
-}
-
 export function BuildProfile({ onDone }) {
-  const [step, setStep] = useState("details");
-  const [f, setF] = useState({ name: "", phone: "", email: "", whatsapp: "", exp: "", expBand: "", linkedin: "", aadhaar: "", qual: "", consent: false });
-  const [ok, setOk] = useState({ sms: false, wa: false, email: false });
-  const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({ name: "", phone: "", email: "", resume: null });
   const fillSample = () => onDone({
-    name: "Ananya Rao", phone: "9959001122", email: "ananya.rao@gmail.com", whatsapp: "9959001122",
-    exp: "1–3 yrs", expBand: "1–3 yrs", linkedin: "https://linkedin.com/in/ananyarao", qual: "Graduate", consent: true,
-    verified: { phone: true, whatsapp: true, email: true },
-    aadhaarHash: null, aadhaarLast4: null, id: `c_${Date.now()}`, resume: null, applications: [], bound: {},
+    name: "Ananya Rao", phone: "9959001122", email: "ananya.rao@gmail.com",
+    id: `c_${Date.now()}`, resume: { name: "ananya_rao.pdf" }, applications: [], bound: {},
   });
 
-  function goVerify(e) {
+  async function attachResume(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const resume = await readResumeFile(file);
+    setF((p) => ({ ...p, resume }));
+  }
+
+  function submit(e) {
     e.preventDefault();
     if (!f.name.trim() || f.phone.trim().length !== 10) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return;
-    setF((p) => ({ ...p, whatsapp: p.whatsapp || p.phone }));
-    setStep("verify");
-  }
-
-  async function submit(e) {
-    e.preventDefault();
-    if (!f.consent) return;
-    if (f.aadhaar && f.aadhaar.length !== 12) return;
-    setBusy(true);
-    const aadhaarHash = f.aadhaar ? await hashAadhaar(f.aadhaar) : null;
-    const aadhaarLast4 = f.aadhaar ? f.aadhaar.slice(-4) : null;
-    const { aadhaar, ...rest } = f;
     onDone({
-      ...rest, whatsapp: rest.whatsapp || rest.phone, aadhaarHash, aadhaarLast4,
-      verified: { phone: true, whatsapp: true, email: true },
-      id: `c_${Date.now()}`, resume: null, applications: [], bound: {},
+      name: f.name.trim(), phone: f.phone, email: f.email.trim(), resume: f.resume,
+      id: `c_${Date.now()}`, applications: [], bound: {},
     });
   }
-
-  const allVerified = ok.sms && ok.wa && ok.email;
 
   return (
     <div style={{ maxWidth: 460 }}>
       <h1 style={{ fontFamily: dsp, fontSize: 24, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Create your profile</h1>
-      <p style={{ fontSize: 14, color: k.mid, margin: "0 0 18px", lineHeight: 1.55 }}>
-        {step === "details" && "Phone, WhatsApp and email."}
-        {step === "verify" && "Three one-time codes."}
-        {step === "about" && "Experience and documents."}
-      </p>
-      <button type="button" onClick={fillSample} style={{ ...ghostSm, marginBottom: 16 }}>Fill sample data — skip OTP, just to look around</button>
-
-      {step === "details" && (
-        <form onSubmit={goVerify} style={{ ...box, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
-          <Field label="Full name"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={input} required /></Field>
-          <Field label="Mobile number">
-            <input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} style={input} placeholder="10 digits" inputMode="numeric" required />
-          </Field>
-          <Field label="WhatsApp number (if different)">
-            <input value={f.whatsapp} onChange={(e) => setF({ ...f, whatsapp: e.target.value.replace(/\D/g, "").slice(0, 10) })} style={input} placeholder="Same as mobile unless you change it" inputMode="numeric" />
-          </Field>
-          <Field label="Email"><input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} style={input} required /></Field>
-          <button type="submit" style={{ ...solidTeal, justifyContent: "center", padding: 12, fontSize: 14.5, marginTop: 4 }}>Send verification codes <ArrowRight size={15} /></button>
-        </form>
-      )}
-
-      {step === "verify" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <OtpChannel key={`sms-${f.phone}`} icon={Phone} title="SMS to your phone" dest={f.phone} code={DEMO_OTP.sms} verified={ok.sms} onVerified={() => setOk({ ...ok, sms: true })} />
-          <OtpChannel key={`wa-${f.whatsapp || f.phone}`} icon={MessageCircle} title="WhatsApp OTP" dest={f.whatsapp || f.phone} code={DEMO_OTP.wa} verified={ok.wa} onVerified={() => setOk({ ...ok, wa: true })} />
-          <OtpChannel key={`em-${f.email}`} icon={Mail} title="Email OTP" dest={f.email} code={DEMO_OTP.email} verified={ok.email} onVerified={() => setOk({ ...ok, email: true })} />
-          <button type="button" disabled={!allVerified} onClick={() => setStep("about")} style={{ ...solidTeal, justifyContent: "center", padding: 12, fontSize: 14.5, marginTop: 6, opacity: allVerified ? 1 : .45 }}>
-            Continue {allVerified ? "" : "— verify all three first"}
-          </button>
-          <button type="button" onClick={() => { setStep("details"); setOk({ sms: false, wa: false, email: false }); }} style={{ ...ghostSm, alignSelf: "flex-start" }}>Change number or email</button>
-        </div>
-      )}
-
-      {step === "about" && (
-        <form onSubmit={submit} style={{ ...box, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
-          <Field label="Aadhaar number (optional)">
-            <input
-              value={f.aadhaar}
-              onChange={(e) => setF({ ...f, aadhaar: e.target.value.replace(/\D/g, "").slice(0, 12) })}
-              style={{ ...input, fontFamily: typ, letterSpacing: 1.5 }}
-              placeholder="12 digits"
-              inputMode="numeric"
-            />
-            <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6, lineHeight: 1.5 }}>
-              Optional. Stops a second check-in under another phone.
-            </div>
-          </Field>
-          <Field label="Experience">
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {EXP_BANDS.map((b) => (
-                <button type="button" key={b} onClick={() => setF({ ...f, expBand: b, exp: b })} style={{
-                  padding: "8px 14px", borderRadius: R.pill, cursor: "pointer", fontFamily: bdy, fontSize: 13,
-                  border: `1.5px solid ${f.expBand === b ? k.coral : k.line}`,
-                  background: f.expBand === b ? k.coralDim : "#fff", color: f.expBand === b ? k.coral : k.ink2, fontWeight: f.expBand === b ? 600 : 500,
-                }}>{b}</button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Highest qualification">
-            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-              {QUALIFICATIONS.map((q) => (
-                <button type="button" key={q} onClick={() => setF({ ...f, qual: q })} style={{
-                  padding: "8px 14px", borderRadius: R.pill, cursor: "pointer", fontFamily: bdy, fontSize: 13,
-                  border: `1.5px solid ${f.qual === q ? k.coral : k.line}`,
-                  background: f.qual === q ? k.coralDim : "#fff", color: f.qual === q ? k.coral : k.ink2, fontWeight: f.qual === q ? 600 : 500,
-                }}>{q}</button>
-              ))}
-            </div>
-          </Field>
-          <Field label="LinkedIn (optional)"><input value={f.linkedin} onChange={(e) => setF({ ...f, linkedin: e.target.value })} style={input} /></Field>
-          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", padding: "12px 14px", background: k.cream2, borderRadius: 10 }}>
-            <input type="checkbox" checked={f.consent} onChange={(e) => setF({ ...f, consent: e.target.checked })} style={{ marginTop: 2, width: 16, height: 16, accentColor: k.coral, cursor: "pointer" }} />
-            <span style={{ fontSize: 12.5, color: k.ink2, lineHeight: 1.55 }}>I agree to share these details with the company running this walk-in, and to receive one WhatsApp message about 15 minutes before my turn. No other texts.</span>
+      <p style={{ fontSize: 14, color: k.mid, margin: "0 0 18px", lineHeight: 1.55 }}>Name, mobile, email, and a resume. That’s all.</p>
+      <button type="button" onClick={fillSample} style={{ ...ghostSm, marginBottom: 16 }}>Fill sample data</button>
+      <form onSubmit={submit} style={{ ...box, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+        <Field label="Full name"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} style={input} required /></Field>
+        <Field label="Mobile number">
+          <input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} style={input} placeholder="10 digits" inputMode="numeric" required />
+        </Field>
+        <Field label="Email"><input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} style={input} required /></Field>
+        <Field label="Resume">
+          <label style={{ ...ghostSm, cursor: "pointer", alignSelf: "flex-start" }}>
+            {f.resume ? "Replace file" : "Upload PDF or Word"}
+            <input type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} onChange={attachResume} />
           </label>
-          <button type="submit" disabled={busy || !f.consent} style={{ ...solidTeal, justifyContent: "center", padding: 12, fontSize: 14.5, marginTop: 4, opacity: busy || !f.consent ? .7 : 1 }}>{busy ? "Securing your details…" : "Create profile"}</button>
-        </form>
-      )}
+          {f.resume ? <div style={{ fontSize: 12.5, color: k.teal, fontWeight: 600, marginTop: 8 }}>{resumeName(f.resume)}</div> : null}
+        </Field>
+        <button type="submit" style={{ ...solidTeal, justifyContent: "center", padding: 12, fontSize: 14.5, marginTop: 4 }}>Create profile</button>
+      </form>
     </div>
   );
 }
 
 export function MyProfile({ p, setP }) {
-  const done = [p.resume].filter(Boolean).length;
-  const v = p.verified || {};
+  async function attachResume(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setP({ ...p, resume: await readResumeFile(file) });
+  }
   return (
     <div style={{ maxWidth: 560 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
         <div><h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 3px" }}>{p.name}</h1><div style={{ fontSize: 13, color: k.mid, fontFamily: typ }}>{p.phone}{p.email ? ` · ${p.email}` : ""}</div></div>
-        <Pill tone={done === 1 ? "teal" : "gold"}>{done}/1 COMPLETE</Pill>
+        <Pill tone={p.resume ? "teal" : "gold"}>{p.resume ? "Resume on file" : "Add a resume"}</Pill>
       </div>
-      <SectionLabel>Verified contacts</SectionLabel>
+      <SectionLabel>Contact</SectionLabel>
       <div style={{ ...box, overflow: "hidden", marginBottom: 24 }}>
-        {[
-          ["Phone (SMS)", p.phone, v.phone],
-          ["WhatsApp", p.whatsapp || p.phone, v.whatsapp],
-          ["Email", p.email, v.email],
-        ].map(([label, dest, yes], i, arr) => (
-          <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: i === arr.length - 1 ? "none" : `1px solid ${k.line}` }}>
-            <div>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</div>
-              <div style={{ fontSize: 12, color: k.mid, fontFamily: typ, marginTop: 2 }}>{dest || "—"}</div>
-            </div>
-            <Pill tone={yes ? "teal" : "gold"}>{yes ? "Verified" : "Needed"}</Pill>
-          </div>
-        ))}
+        <DataRow label="Mobile" value={p.phone} mono />
+        <DataRow label="Email" value={p.email || "—"} last />
       </div>
-      <SectionLabel>Documents</SectionLabel>
-      <div style={{ ...box, overflow: "hidden", marginBottom: 24 }}>
-        <DocRow icon={FileText} title="Resume" sub={p.resume ? p.resume : "Recruiters download this instead of you carrying printouts"} done={!!p.resume} last
-          action={p.resume ? <label style={ghostSm}>Replace<input type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && setP({ ...p, resume: e.target.files[0].name })} /></label>
-            : <label style={{ ...solidTeal, padding: "7px 13px", fontSize: 12.5, cursor: "pointer" }}>Upload<input type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && setP({ ...p, resume: e.target.files[0].name })} /></label>} />
-      </div>
-      <div style={{ ...box, padding: 16, borderLeft: `3px solid ${k.teal}`, fontSize: 13, color: k.ink2, lineHeight: 1.6 }}>
-        {p.aadhaarLast4
-          ? <>Aadhaar on file: <b style={{ fontFamily: typ }}>XXXX XXXX {p.aadhaarLast4}</b> — only a one-way hash and these last 4 digits are stored, never the full number.</>
-          : "No Aadhaar on file. It's optional — only used to stop the same person re-registering to a drive under a different phone number."}
+      <SectionLabel>Resume</SectionLabel>
+      <div style={{ ...box, overflow: "hidden" }}>
+        <DocRow icon={FileText} title="Resume" sub={resumeName(p.resume) || "Recruiters see this when they call you"} done={!!p.resume} last
+          action={p.resume
+            ? <label style={ghostSm}>Replace<input type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} onChange={attachResume} /></label>
+            : <label style={{ ...solidTeal, padding: "7px 13px", fontSize: 12.5, cursor: "pointer" }}>Upload<input type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} onChange={attachResume} /></label>} />
       </div>
     </div>
   );
@@ -454,12 +360,12 @@ export function JoinDrive({ drives, left, onMatch }) {
     setErr("");
     const raw = codeStr.trim().toUpperCase();
     if (raw.startsWith("HOST")) {
-      setErr("That is a staff code. Scan the waiting-room screen instead.");
+      setErr("That is a Desk PIN. Scan the lobby display instead.");
       return;
     }
     const kind = raw.startsWith("PASS") ? "pass" : raw.startsWith("DESK") ? "desk" : raw.startsWith("GATE") ? "gate" : null;
     const v = bare6(raw);
-    const live = drives.filter((d) => d.status === "live");
+    const live = drives.filter((d) => driveStatus(d) === "live");
     const byGate = live.find((d) => bare6(d.gate) === v);
     const byDesk = live.find((d) => liveDesk(d) === v);
     const byPass = live.find((d) => livePass(d)?.code === v);
@@ -478,7 +384,7 @@ export function JoinDrive({ drives, left, onMatch }) {
     if (kind === "gate") {
       if (v.length < 6) { setErr("Enter the full code."); return; }
       if (byGate) { onMatch(byGate, "gate"); return; }
-      const later = drives.find((d) => d.status === "upcoming" && bare6(d.gate) === v);
+      const later = drives.find((d) => driveStatus(d) === "scheduled" && bare6(d.gate) === v);
       if (later) { setErr("This walk-in has not opened yet."); return; }
       setErr("No walk-in matches that code.");
       return;
@@ -487,7 +393,7 @@ export function JoinDrive({ drives, left, onMatch }) {
     if (v.length < 6) { setErr("Enter the full code from the screen."); return; }
     if (byGate) { onMatch(byGate, "gate"); return; }
     if (byDesk) { onMatch(byDesk, "desk"); return; }
-    const later = drives.find((d) => d.status === "upcoming" && bare6(d.gate) === v);
+    const later = drives.find((d) => driveStatus(d) === "scheduled" && bare6(d.gate) === v);
     if (later) { setErr("This walk-in has not opened yet."); return; }
     setErr("No walk-in matches that code.");
   }
@@ -505,7 +411,7 @@ export function JoinDrive({ drives, left, onMatch }) {
         // A screen QR carries the live desk code as well, so presence is already proven
         // and there is nothing left to ask for.
         if (found.desk) {
-          const byDesk = drives.find((d) => d.status === "live" && liveDesk(d) === found.desk);
+          const byDesk = drives.find((d) => driveStatus(d) === "live" && liveDesk(d) === found.desk);
           if (byDesk) { onMatch(byDesk, "desk"); return; }
         }
         setEntered(`GATE-${found.gate}`);
@@ -532,8 +438,8 @@ export function JoinDrive({ drives, left, onMatch }) {
 
   return (
     <div style={{ maxWidth: 520 }}>
-      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Join a walk-in</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the waiting-room screen. That’s it.</p>
+      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Get my token</h1>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the lobby display at the venue, or pick a walk-in from the list.</p>
       {!!tickets.length && (
         <div style={{ ...box, padding: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Your tokens</div>
@@ -546,7 +452,7 @@ export function JoinDrive({ drives, left, onMatch }) {
       )}
 
       <div style={{ ...box, padding: 20, marginBottom: 14 }}>
-        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Scan the waiting-room screen</div>
+        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Scan the lobby display</div>
         {/* iOS will not start playback on a hidden element, so keep it mounted while starting. */}
         <div style={{ position: "relative", borderRadius: 6, overflow: "hidden", background: "#000", display: scan === "scanning" || scan === "starting" ? "block" : "none" }}>
           <video ref={videoRef} muted playsInline style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "cover" }} />
@@ -603,60 +509,99 @@ export function Slip({ r, onAgain, drives, keep }) {
   const rounds = live?.rounds || r.drive.rounds || DEFAULT_ROUNDS;
   const cand = (live?.candidates || []).find((c) => c.token === r.token || c.id === r.token) || r.cand || { state: "wait", roundIdx: 0 };
   const isDup = r.dup;
-  const waiting = (live?.candidates || r.drive.candidates || []).filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
-  const pos = cand.state === "wait" ? waiting.findIndex((x) => x.id === cand.id) + 1 : r.pos;
-  const eta = cand.state === "wait" && pos > 0 ? (pos - 1) * (live ? tat(live) : r.avgTat || 8) : r.eta;
+  const pool = live?.candidates || r.drive.candidates || [];
+  const waiting = pool.filter((x) => x.state === "wait").sort((a, b) => a.at - b.at);
+  const ahead = queueAhead(pool, cand);
+  const current = currentServingToken(pool, cand);
+  const goRoom = roomName(cand.room);
+  const round = roundLabel(rounds, cand);
+  const { armed, arm } = useQueueAlert({ state: cand.state, ahead });
+  const next = cand.state === "wait" && ahead === 0;
+  const proceed = cand.state === "calling";
+
   return (
     <div style={{ maxWidth: 440 }}>
-      <div style={{ border: `1px solid ${k.line}`, borderRadius: 14, overflow: "hidden", background: "#fff", boxShadow: "0 14px 34px -24px rgba(27,24,21,.35)" }}>
-        <div style={{ background: isDup ? k.gold : k.ink, color: "#fff", padding: "9px 18px", fontFamily: typ, fontSize: 11, letterSpacing: 1.4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>{isDup ? "ALREADY CHECKED IN" : "ADMISSION SLIP"}</span>
+      <div style={{
+        border: `1px solid ${proceed ? k.coral : k.line}`,
+        borderRadius: 14,
+        overflow: "hidden",
+        background: proceed ? k.coral : "#fff",
+        color: proceed ? "#fff" : k.ink,
+        boxShadow: "0 14px 34px -24px rgba(27,24,21,.35)",
+        transition: "background .25s ease, border-color .25s ease",
+      }}>
+        <div style={{
+          background: proceed ? "rgba(0,0,0,.18)" : (isDup ? k.gold : k.ink),
+          color: "#fff", padding: "9px 18px", fontFamily: typ, fontSize: 11, letterSpacing: 1.4,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <span>{proceed ? "PLEASE PROCEED" : isDup ? "ALREADY CHECKED IN" : "YOUR TOKEN"}</span>
           <span style={{ fontSize: 9.5, opacity: .75, letterSpacing: .5 }}>{hallChrome(r.drive)}</span>
         </div>
         <div style={{ padding: "24px 22px 22px" }}>
-          {isDup && r.sameAadhaarDiffPhone && (
-            <div style={{ background: k.goldDim, borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: k.gold, marginBottom: 16, lineHeight: 1.5 }}>
-              This matches an Aadhaar number already checked in to this drive under a different phone number. Showing that existing check-in below.
-            </div>
-          )}
-          <div style={{ fontSize: 12, color: k.mid }}>{hallChrome(r.drive)} · {r.drive.role}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "14px 0 20px" }}>
-            <TokenTile token={r.token} size={64} />
-            <div style={{ minWidth: 0 }}>
-              {cand.name && <div style={{ fontWeight: 700, fontSize: 18, lineHeight: 1.2 }}>{cand.name}</div>}
-              <div style={{ fontSize: 12, color: k.mid, marginTop: cand.name ? 3 : 0 }}>Walk-in number {r.token}</div>
-            </div>
-          </div>
+          <div style={{ fontFamily: typ, fontSize: 12, letterSpacing: 1.6, fontWeight: 700, color: proceed ? "rgba(255,255,255,.8)" : k.mid, marginBottom: 6 }}>TOKEN {tokenDigits(r.token)}</div>
+          <div style={{ fontFamily: dsp, fontSize: proceed ? 42 : 36, fontWeight: 800, letterSpacing: -1.4, lineHeight: 1, marginBottom: 6 }}>{tokenDigits(r.token)}</div>
+          {cand.name && <div style={{ fontSize: 15, fontWeight: 600, opacity: proceed ? .9 : 1, marginBottom: 18 }}>{cand.name}</div>}
 
-          {cand.state === "wait" ? (
-            <div style={{ textAlign: "center", background: k.coralDim, borderRadius: 14, padding: "22px 16px", marginBottom: 22 }}>
-              <div style={{ fontFamily: dsp, fontSize: 46, fontWeight: 800, color: k.coral, letterSpacing: -1.5, lineHeight: 1 }}>{Math.max(0, (pos || 1) - 1)}</div>
-              <div style={{ fontSize: 13.5, color: k.ink2, fontWeight: 600, marginTop: 4 }}>
-                {(pos || 1) - 1 === 0 ? "You're next" : `people ahead of you`}
-              </div>
-              <div style={{ fontSize: 12, color: k.mid, marginTop: 6 }}>~{eta ?? r.eta} min estimated · updates as the queue moves</div>
-              {inARound(cand) && <div style={{ fontSize: 12, fontWeight: 700, color: k.coral, marginTop: 8 }}>{roundLabel(rounds, cand)}</div>}
+          {proceed ? (
+            <div>
+              <div style={{ fontFamily: dsp, fontSize: 22, fontWeight: 800, lineHeight: 1.2, marginBottom: 14 }}>Please proceed</div>
+              {goRoom ? <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>{goRoom}</div> : null}
+              {round ? <div style={{ fontSize: 15, marginTop: 6, opacity: .9 }}>{round}</div> : null}
+            </div>
+          ) : cand.state === "wait" ? (
+            <div style={{ textAlign: "center", background: next ? k.coralDim : k.cream2, borderRadius: 14, padding: "22px 16px", marginBottom: 8 }}>
+              {current ? (
+                <div style={{ fontSize: 13, color: k.mid, marginBottom: 10 }}>Current token: <b style={{ fontFamily: typ, color: k.ink }}>{tokenDigits(current)}</b></div>
+              ) : null}
+              {next ? (
+                <>
+                  <div style={{ fontFamily: dsp, fontSize: 28, fontWeight: 800, color: k.coral, letterSpacing: -0.8, lineHeight: 1.1 }}>You’re next</div>
+                  <div style={{ fontSize: 14, color: k.ink2, fontWeight: 600, marginTop: 10 }}>{goRoom ? `Please proceed to ${goRoom}` : "Please stay nearby"}</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontFamily: dsp, fontSize: 46, fontWeight: 800, color: k.coral, letterSpacing: -1.5, lineHeight: 1 }}>{ahead}</div>
+                  <div style={{ fontSize: 13.5, color: k.ink2, fontWeight: 600, marginTop: 4 }}>{ahead === 1 ? "candidate ahead of you" : "candidates ahead of you"}</div>
+                  <div style={{ fontSize: 13, color: k.teal, fontWeight: 700, marginTop: 10 }}>Please stay nearby</div>
+                </>
+              )}
+              {inARound(cand) && <div style={{ fontSize: 12, fontWeight: 700, color: k.coral, marginTop: 10 }}>{round}</div>}
             </div>
           ) : (
-            <div style={{ marginBottom: 22 }}>
+            <div style={{ marginBottom: 8 }}>
               <QueueStatusPill state={cand.state} />
               <div style={{ fontSize: 13, color: k.ink2, marginTop: 10, lineHeight: 1.6 }}>{QUEUE_STATE_COPY[cand.state] || "Check back on the desk screen for the latest."}</div>
-              {["calling", "interviewing"].includes(cand.state) && (
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: k.coral, marginTop: 8 }}>{roundLabel(rounds, cand)}</div>
+              {["calling", "interviewing"].includes(cand.state) && round && (
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: k.coral, marginTop: 8 }}>{round}</div>
               )}
-              {cand.room && ["calling", "interviewing"].includes(cand.state) && (
+              {goRoom && ["calling", "interviewing"].includes(cand.state) && (
                 <div style={{ background: k.coralDim, borderRadius: 12, padding: "14px 16px", marginTop: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: k.coral, letterSpacing: .7, textTransform: "uppercase", marginBottom: 5 }}>Go to</div>
-                  <div style={{ fontFamily: dsp, fontSize: 22, fontWeight: 800, color: k.ink }}>{cand.room.name}</div>
-                  <div style={{ fontSize: 13, color: k.ink2, marginTop: 2 }}>Interviewer: {cand.room.interviewer}</div>
+                  <div style={{ fontFamily: dsp, fontSize: 22, fontWeight: 800, color: k.ink }}>{goRoom}</div>
+                  {cand.room?.interviewer ? <div style={{ fontSize: 13, color: k.ink2, marginTop: 2 }}>Interviewer: {cand.room.interviewer}</div> : null}
                 </div>
               )}
             </div>
           )}
 
-          <RoundTracker rounds={rounds} cand={cand} />
+          <div style={{ fontSize: 12.5, color: proceed ? "rgba(255,255,255,.85)" : k.ink2, lineHeight: 1.55, marginTop: 16 }}>
+            Keep this page open to receive live turn updates.
+          </div>
+          <button type="button" onClick={arm} style={{
+            ...outlineSm, marginTop: 10,
+            borderColor: proceed ? "rgba(255,255,255,.55)" : k.line,
+            color: proceed ? "#fff" : k.ink,
+            background: proceed ? "rgba(255,255,255,.12)" : "#fff",
+          }}>
+            {armed ? "Sound and vibration on" : "Turn on sound and vibration"}
+          </button>
 
-          <div style={{ fontSize: 11.5, color: k.faint, marginTop: 18, paddingTop: 14, borderTop: `1px solid ${k.line}`, lineHeight: 1.5 }}>
+          <div style={{ marginTop: 18 }}>
+            <RoundTracker rounds={rounds} cand={cand} />
+          </div>
+
+          <div style={{ fontSize: 11.5, color: proceed ? "rgba(255,255,255,.55)" : k.faint, marginTop: 18, paddingTop: 14, borderTop: `1px solid ${proceed ? "rgba(255,255,255,.2)" : k.line}`, lineHeight: 1.5 }}>
             {isDup ? `${waiting.length} still waiting` : "Your place is held."}
           </div>
         </div>

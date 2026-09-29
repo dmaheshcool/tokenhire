@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import { typ, k } from "../theme.js";
-import { listingPlace } from "../lib/helpers.js";
+import { docsOf, listingPlace } from "../lib/helpers.js";
 import { Pill, fmtDate } from "./ui.jsx";
 
 export function expLabel(bands) {
@@ -8,7 +8,7 @@ export function expLabel(bands) {
   return bands.join(" · ");
 }
 export function DrivePosting({ d, flush }) {
-  const docs = d.docs || [];
+  const docs = docsOf(d.docs);
   return (
     <div style={{ marginTop: flush ? 0 : 18, paddingTop: flush ? 0 : 18, borderTop: flush ? "none" : `1px solid ${k.line}`, display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 22 }} className="g2">
       <div>

@@ -1,14 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ROTATE, code, memberEmail, memberRole } from "../lib/helpers.js";
-import { seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../data/seed.js";
+import { ROTATE, code, memberEmail, memberRole, scrubDrive } from "../lib/helpers.js";
+import { boardOrgs, seedBoardDrives, seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../data/seed.js";
 import { api, readSavedProfile, readSession, writeSavedProfile, writeSession } from "../lib/api.js";
 
 const StoreContext = createContext(null);
 
 function localSeed() {
   return {
-    orgs: seedOrgs(),
-    drives: [seedMegaDrive(), seedDrive(), ...seedExtraDrives(), ...seedPlanDemoDrives()],
+    orgs: [...seedOrgs(), ...boardOrgs()],
+    drives: [seedMegaDrive(), seedDrive(), ...seedExtraDrives(), ...seedPlanDemoDrives(), ...seedBoardDrives()],
   };
 }
 
@@ -41,7 +41,7 @@ export function StoreProvider({ children }) {
         if (cancelled) return;
         if (!snap?.orgs) return;
         setOrgsState(snap.orgs);
-        setDrivesState(snap.drives);
+        setDrivesState((snap.drives || []).map(scrubDrive));
         setLeft(snap.deskLeft || ROTATE);
         versionRef.current = snap.version || 0;
         setApiOk(true);
@@ -85,7 +85,7 @@ export function StoreProvider({ children }) {
         if ((snap.version || 0) > versionRef.current) {
           versionRef.current = snap.version;
           setOrgsState(snap.orgs);
-          setDrivesState(snap.drives);
+          setDrivesState((snap.drives || []).map(scrubDrive));
         }
       } catch { /* keep local */ }
     }, 2000);
@@ -140,7 +140,7 @@ export function StoreProvider({ children }) {
     try {
       const r = await api.signup({ companyName, email, password, kind });
       writeSession({ token: r.token, orgId: r.orgId, role: r.role, email: r.email });
-      const org = { ...r.org, password, plan: "trial", billingCycle: r.org?.billingCycle || "month" };
+      const org = { ...r.org, password, plan: "single", billingCycle: r.org?.billingCycle || "drive" };
       setOrgs((p) => [...p.filter((o) => o.id !== org.id), org]);
       signInLocal(r.orgId, r.role, r.email);
       return { ok: true, verify: true };
@@ -157,7 +157,7 @@ export function StoreProvider({ children }) {
       const org = {
         id, name, short: name.split(" ")[0], kind, color: agency ? "#0F8A6B" : "#341C8A",
         logo: agency ? "bars" : "ring", wash: agency ? "#E6F5F0" : "#EEE8F8",
-        email: email.trim(), password, plan: "trial", billingCycle: "month", verified: false,
+        email: email.trim(), password, plan: "single", billingCycle: "drive", verified: false,
         members: [{ email: email.trim(), role: "recruiter" }],
         clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
         branches: [],

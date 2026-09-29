@@ -1,42 +1,43 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, MonitorSmartphone, ListChecks, Send, PieChart, ArrowRight, Plus, ArrowLeft, Mail, ShieldCheck, FileText, Building2, Download, Users2, Building, HeartHandshake, Globe, Lock, Palette, MoreHorizontal, Search, Linkedin, Check } from "lucide-react";
+import { LayoutGrid, MonitorSmartphone, ListChecks, PieChart, ArrowRight, Plus, ArrowLeft, ShieldCheck, Building2, Download, Users2, Building, HeartHandshake, Globe, Lock, Palette, MoreHorizontal, Search, Linkedin, Check } from "lucide-react";
 import { bdy, dsp, typ, k, R, box, input, solid, solidSm, outline, outlineSm, ghostSm, iconBtn, link, cell, textLink } from "../../theme.js";
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { HallBrand, OrgLogo, TokenChip, TokenTile, Wordmark } from "../../components/brand.jsx";
-import { Blank, Btn, CitySelect, DropPanel, Field, Head, Pill, Select, StatusPill, TopBar, fmtDate } from "../../components/ui.jsx";
+import { Blank, Btn, CitySelect, DocPicker, DropPanel, Field, Head, Pill, Select, StatusPill, TopBar, fmtDate } from "../../components/ui.jsx";
 import { useNarrow } from "../../hooks/useNarrow.js";
 import {
   BRAND_COLORS, CITIES, DEFAULT_ROOMS, DEFAULT_ROUNDS, DOC_OPTIONS, EXP_BANDS, LOGO_PRESETS, PASS_TTL,
-  bare6, clientOf, code, driveCapCopy, driveSlotsLeft, hallChrome, hallLogo, hallName, inARound, inNudgeWindow,
+  bare6, clientOf, code, driveCapCopy, driveSlotsLeft, hallChrome, hallLogo, hallName, inARound,
   isAgencyOrg, isTerminal, listingPlace, livePass, memberEmail, memberName, memberRole, newGate, newHost, newPass,
-  nudgeText, occupantOf, orgColor, orgCities, passLabel, planLimits, planOf, recruitersOf, roundLabel, siteOf, tat, todayStr, downloadFile,
+  occupantOf, orgColor, orgCities, passLabel, planLimits, planOf, recruitersOf, roundLabel, scanEnabled, siteOf, tat, todayStr, downloadFile,
   gateUrl, mask, pc, roomsForRound, roomRoundLabel, roundIndexOfRoom, roundOutcomeOf, waitingRoundIdx, bindRoomsToRounds,
+  atSeatCap, roomName, resumeName, resumeDataUrl, isPdfResume,
 } from "../../lib/helpers.js";
 import { HIDE_PRICING } from "../../lib/flags.js";
+import { ATS_TARGETS, downloadAts } from "../../lib/ats.js";
 import QrCode from "../../components/QrCode.jsx";
 import DriveSetup from "./DriveSetup.jsx";
 
-const TABS = [["today", "Today", LayoutGrid], ["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone], ["queue", "All candidates", Users2], ["rounds", "Rounds", Building2], ["rooms", "Rooms", Building], ["branding", "Branding", ShieldCheck], ["msgs", "Messages", Send], ["result", "Reports", PieChart]];
-const DESK_TABS = [["live", "Live queue", ListChecks], ["screen", "Waiting screen", MonitorSmartphone]];
+const TABS = [["today", "Today", LayoutGrid], ["live", "Live queue", ListChecks], ["screen", "Lobby display", MonitorSmartphone], ["queue", "All candidates", Users2], ["rounds", "Rounds", Building2], ["rooms", "Rooms", Building], ["branding", "Branding", ShieldCheck], ["result", "Reports", PieChart]];
+const DESK_TABS = [["live", "Live queue", ListChecks], ["screen", "Lobby display", MonitorSmartphone]];
 export function staffTabs(org) {
   const lim = planLimits(org);
   return TABS.filter(([id]) => {
     if (id === "result" && lim.reports === false) return false;
     if (id === "rooms" && lim.rooms === false) return false;
-    if (id === "msgs" && lim.notify === false) return false;
     return true;
   });
 }
 const PRIMARY_TAB_IDS = new Set(["today", "live", "queue", "screen"]);
 
-export function AppTabs({ tabs, tab, setTab, accent, msgCount, layout }) {
+export function AppTabs({ tabs, tab, setTab, accent, layout }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const primary = tabs.filter(([id]) => PRIMARY_TAB_IDS.has(id));
   const extra = tabs.filter(([id]) => !PRIMARY_TAB_IDS.has(id));
   const extraOn = extra.some(([id]) => id === tab);
   function pick(id) { setTab(id); setMoreOpen(false); }
-  const short = (lab) => (lab === "Live queue" ? "Live" : lab === "Waiting screen" ? "TV" : lab === "All candidates" ? "Queue" : lab);
+  const short = (lab) => (lab === "Live queue" ? "Live" : lab === "Lobby display" ? "TV" : lab === "All candidates" ? "Queue" : lab);
 
   if (layout === "side") {
     return (
@@ -52,7 +53,6 @@ export function AppTabs({ tabs, tab, setTab, accent, msgCount, layout }) {
             }}>
               <I size={16} />
               <span style={{ flex: 1 }}>{lab}</span>
-              {tid === "msgs" && msgCount > 0 && <Pill tone="grey">{msgCount}</Pill>}
             </button>
           );
         })}
@@ -68,7 +68,7 @@ export function AppTabs({ tabs, tab, setTab, accent, msgCount, layout }) {
             <div style={{ width: 36, height: 4, borderRadius: 4, background: k.line, margin: "4px auto 14px" }} />
             {extra.map(([tid, lab, I]) => (
               <button key={tid} type="button" onClick={() => pick(tid)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 12px", border: "none", background: tab === tid ? k.cream2 : "none", borderRadius: 12, fontFamily: bdy, fontSize: 16, fontWeight: 600, color: k.ink, cursor: "pointer" }}>
-                <I size={18} color={accent} /> {lab}{tid === "msgs" && msgCount > 0 ? ` (${msgCount})` : ""}
+                <I size={18} color={accent} /> {lab}
               </button>
             ))}
           </div>
@@ -107,22 +107,23 @@ export function AppTabs({ tabs, tab, setTab, accent, msgCount, layout }) {
 
 export function Employer({ store, back, initialDriveId }) {
   const nav = useNavigate();
-  const { drives, setDrives, left, beat, orgs, setOrgs, activeOrgId, staffRole, signOut } = store;
+  const { drives, setDrives, left, orgs, setOrgs, activeOrgId, staffRole, signOut } = store;
   const phone = useNarrow();
   const desk = staffRole === "frontdesk";
   const tabs = desk ? DESK_TABS : staffTabs(orgs.find((o) => o.id === activeOrgId) || orgs[0]);
   const [id, setId] = useState(initialDriveId || null);
   const [tab, setTab] = useState(desk ? "live" : "today");
   const [findQ, setFindQ] = useState("");
+  const [focusCid, setFocusCid] = useState(null);
   useEffect(() => { if (initialDriveId) setId(initialDriveId); }, [initialDriveId]);
   function openDrive(did) {
     setId(did);
     setTab(desk ? "live" : "today");
-    nav(`/app/hiring/${did}`);
+    nav(`/app/drives/${did}`);
   }
   function closeDrive() {
     setId(null);
-    nav("/app/hiring");
+    nav("/app/drives");
   }
   useEffect(() => {
     const ids = tabs.map(([tid]) => tid);
@@ -130,7 +131,6 @@ export function Employer({ store, back, initialDriveId }) {
   }, [desk, activeOrgId, tab]);
   const drive = drives.find((d) => d.id === id && (!activeOrgId || d.orgId === activeOrgId));
   const upd = useCallback((did, fn) => setDrives((p) => p.map((d) => (d.id === did ? fn(d) : d))), [setDrives]);
-  const say = useCallback((did, ch, to, name, text) => upd(did, (d) => ({ ...d, msgs: [{ id: Math.random(), at: Date.now(), ch, to, name, text }, ...d.msgs] })), [upd]);
 
   // Call a recruiter for the round they are already on. Pass is what leaves the round.
   function callTo(cid, roomId) {
@@ -149,6 +149,8 @@ export function Employer({ store, back, initialDriveId }) {
       roundAssigned: true,
       roundIdx: idx,
     } : x)) }));
+    setFocusCid(cid);
+    setTab("live");
   }
 
   // Send someone to the back of the line without losing them (they stepped out, missed the call)
@@ -239,23 +241,6 @@ export function Employer({ store, back, initialDriveId }) {
     setOrgs((p) => p.map((o) => (o.id === org.id ? { ...o, short: brand.name || o.short, color: brand.color || o.color, logo: brand.logo || o.logo, wash: o.wash } : o)));
   }
 
-  useEffect(() => {
-    if (!drive) return;
-    const o = orgs.find((x) => x.id === drive.orgId);
-    if (!o || planLimits(o).notify === false || planLimits(o).wa <= 0) return;
-    const wait = drive.candidates.filter((x) => x.state === "wait").sort((a, b) => ((a.roundIdx || 0) - (b.roundIdx || 0)) || (a.at - b.at));
-    const t = tat(drive);
-    wait.forEach((c) => {
-      const peers = wait.filter((x) => (x.roundIdx || 0) === (c.roundIdx || 0));
-      const etaMin = Math.max(0, peers.findIndex((x) => x.id === c.id)) * t;
-      if (inNudgeWindow(etaMin) && !c.pinged) {
-        upd(drive.id, (d) => ({ ...d, candidates: d.candidates.map((x) => x.id === c.id ? { ...x, pinged: true } : x) }));
-        say(drive.id, "WhatsApp", c.whatsapp || c.phone, c.name, nudgeText(c));
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [beat, drive?.candidates.length]);
-
   const org = orgs.find((o) => o.id === activeOrgId);
   if (!org) return null;
 
@@ -271,7 +256,6 @@ export function Employer({ store, back, initialDriveId }) {
       const br = (org.branches || []).find((b) => b.id === f.branchId);
       const agency = isAgencyOrg(org) && planLimits(org).clients;
       const clientName = agency ? (client?.name || f.clientName || "") : "";
-      const lim = planLimits(org);
       setDrives((p) => [...p, {
         id: nid, orgId: org.id, host: newHost(), gate: newGate(), desk: code(6), visibility: f.visibility || "public",
         company: org.name, role: f.role, venue: f.venue, city: f.city, date: f.date, endDate: f.endDate, status: f.status,
@@ -279,12 +263,12 @@ export function Employer({ store, back, initialDriveId }) {
         clientId: f.clientId || "", clientName, branchId: f.branchId || "", branch: br?.name || f.branch || "",
         candidates: [], msgs: [], seq: 0, rounds: DEFAULT_ROUNDS.map((r) => ({ ...r })),
         brand: { name: org.short || org.name, color: org.color || BRAND_COLORS[0].hex, logo: org.logo || "letter" },
-        rooms: lim.rooms === false ? [{ ...DEFAULT_ROOMS[0] }] : DEFAULT_ROOMS.map((r) => ({ ...r })),
+        rooms: DEFAULT_ROOMS.map((r) => ({ ...r })),
         // The rounds and rooms above are only placeholders until the host walks the
         // setup steps, which is where the real panel and room assignments come from.
         setupDone: false,
       }]);
-      setId(nid); setTab("today"); nav(`/app/hiring/${nid}`);
+      setId(nid); setTab("today"); nav(`/app/drives/${nid}`);
     }}
     back={back} />;
 
@@ -296,7 +280,7 @@ export function Employer({ store, back, initialDriveId }) {
         <div className="pagepad" style={{ padding: 26 }}>
           <DriveSetup
             drive={drive}
-            maxRooms={planLimits(org).rooms === false ? 1 : planLimits(org).tvsPerSite * 4}
+            maxRooms={48}
             onCancel={closeDrive}
             onDone={({ rounds, rooms }) => upd(drive.id, (d) => ({ ...d, rounds, rooms, setupDone: true }))}
           />
@@ -327,13 +311,12 @@ export function Employer({ store, back, initialDriveId }) {
   const panel = (
     <>
       {tab === "today" && !desk && <Today s={s} wait={wait} active={active} setTab={setTab} drive={drive} lim={planLimits(org)} callTo={callTo} onFind={(c) => { setFindQ(c.token); setTab("queue"); }} />}
-      {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} deskMode={desk} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
-      {tab === "screen" && <Screen driveId={drive.id} gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} rounds={drive.rounds} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} />}
+      {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} deskMode={desk} saveNote={saveNote} focusCid={focusCid} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
+      {tab === "screen" && (scanEnabled(org) ? <Screen driveId={drive.id} gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} rounds={drive.rounds} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} /> : <ScanOff onPay={HIDE_PRICING ? null : () => nav("/app/billing")} />)}
       {tab === "queue" && !desk && <Queue rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} initialQ={findQ} />}
       {tab === "rounds" && !desk && <RoundsTab rounds={drive.rounds} setRounds={setRounds} />}
       {tab === "rooms" && !desk && <RoomsTab rooms={drive.rooms || []} setRooms={setRooms} org={org} setOrgs={setOrgs} drive={drive} />}
       {tab === "branding" && !desk && <BrandingTab brand={drive.brand || { name: org.short || org.name, color: org.color, logo: org.logo }} setBrand={setBrand} drive={drive} org={org} />}
-      {tab === "msgs" && !desk && <Msgs msgs={drive.msgs} />}
       {tab === "result" && !desk && <Result s={s} drive={drive} />}
     </>
   );
@@ -352,7 +335,7 @@ export function Employer({ store, back, initialDriveId }) {
               <div style={{ fontSize: 12, color: k.mid, marginTop: 2 }}>{drive.role}</div>
             </div>
           </div>
-          <AppTabs tabs={tabs} tab={tab} setTab={setTab} accent={face.color} msgCount={drive.msgs.length} layout="side" />
+          <AppTabs tabs={tabs} tab={tab} setTab={setTab} accent={face.color} layout="side" />
         </aside>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "14px 22px", background: "#fff", borderBottom: `1px solid ${k.line}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -408,7 +391,7 @@ export function Employer({ store, back, initialDriveId }) {
         </div>
       )}
       <div style={{ padding: "16px 14px 96px" }}>{panel}</div>
-      <AppTabs tabs={tabs} tab={tab} setTab={setTab} accent={face.color} msgCount={drive.msgs.length} layout="bottom" />
+      <AppTabs tabs={tabs} tab={tab} setTab={setTab} accent={face.color} layout="bottom" />
     </div>
   );
 }
@@ -443,7 +426,7 @@ export function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
     setOrgs((p) => [...p, {
       id, name, short: name.split(" ")[0], kind, color: agency ? "#0F8A6B" : "#341C8A",
       logo: agency ? "bars" : "ring", wash: agency ? "#E6F5F0" : "#EEE8F8",
-      email: email.trim(), password, plan: "trial", billingCycle: "month",
+      email: email.trim(), password, plan: "single", billingCycle: "drive",
       members: [{ email: email.trim(), role: "recruiter" }],
       clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
       branches: [],
@@ -473,7 +456,7 @@ export function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
               Password for every demo: <b style={{ fontFamily: typ }}>demo1234</b><br />
               {HIDE_PRICING
                 ? <>Recruiter: <b style={{ fontFamily: typ }}>demo@vistaar.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.</>
-                : <>Plans — <b style={{ fontFamily: typ }}>trial@tokenhire.demo</b> (Free) · <b style={{ fontFamily: typ }}>single@tokenhire.demo</b> (Basic) · <b style={{ fontFamily: typ }}>monthly@tokenhire.demo</b> (Pro) · <b style={{ fontFamily: typ }}>pack10@tokenhire.demo</b> (Platinum) · <b style={{ fontFamily: typ }}>enterprise@tokenhire.demo</b><br />
+                : <>Plans — <b style={{ fontFamily: typ }}>single@tokenhire.demo</b> (Single Drive) · <b style={{ fontFamily: typ }}>monthly@tokenhire.demo</b> (Pro) · <b style={{ fontFamily: typ }}>enterprise@tokenhire.demo</b> (Enterprise) · <b style={{ fontFamily: typ }}>demo@vistaar.com</b><br />
               Agency floor: <b style={{ fontFamily: typ }}>demo@vistaar.com</b> / <b style={{ fontFamily: typ }}>hr@quesscorp.com</b>. Campus: <b style={{ fontFamily: typ }}>hr@wipro.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.</>}
             </div>
           </form>
@@ -558,9 +541,9 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             {!desk && (
               <>
-                <button onClick={() => nav("/org/sites")} style={ghostSm}>{agency && planLimits(org).clients ? "Clients" : "Sites"}</button>
-                <button onClick={() => nav("/org/team")} style={ghostSm}>Team</button>
-                {!HIDE_PRICING && <button onClick={() => nav("/org/billing")} style={ghostSm}>Plan</button>}
+                <button onClick={() => nav("/app/venues")} style={ghostSm}>{agency && planLimits(org).clients ? "Clients" : "Sites"}</button>
+                <button onClick={() => nav("/app/team")} style={ghostSm}>Team</button>
+                {!HIDE_PRICING && <button onClick={() => nav("/app/billing")} style={ghostSm}>Plan</button>}
               </>
             )}
             <button onClick={onSignOut} style={ghostSm}>Sign out</button>
@@ -618,7 +601,7 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
             </div>
             {!desk && create && slots <= 0 && <div style={{ ...box, padding: 14, marginBottom: 14, fontSize: 13.5, color: k.ink2, lineHeight: 1.5 }}>{driveCapCopy(org)} Contact us if you need more.</div>}
             <div style={{ display: "flex", gap: 9, marginBottom: 18 }}>
-              <input value={host} onChange={(e) => { setHost(e.target.value.toUpperCase()); setHostErr(""); }} onKeyDown={(e) => e.key === "Enter" && openByHost()} placeholder="Staff code" style={{ ...input, fontFamily: typ, letterSpacing: 1.5, flex: 1 }} />
+              <input value={host} onChange={(e) => { setHost(e.target.value.toUpperCase()); setHostErr(""); }} onKeyDown={(e) => e.key === "Enter" && openByHost()} placeholder="Desk PIN" style={{ ...input, fontFamily: typ, letterSpacing: 1.5, flex: 1 }} />
               <button onClick={openByHost} style={outline}>Open</button>
             </div>
             {hostErr && <div style={{ fontSize: 12.5, color: k.red, margin: "-8px 0 14px" }}>{hostErr}</div>}
@@ -708,19 +691,8 @@ export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrg
               </div>
 
               <div>
-                <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Required documents</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {DOC_OPTIONS.map((doc) => {
-                    const on = f.docs.includes(doc);
-                    return (
-                      <label key={doc} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13, color: k.ink2, cursor: "pointer" }}>
-                        <input type="checkbox" checked={on} onChange={() => setF({ ...f, docs: on ? f.docs.filter((x) => x !== doc) : [...f.docs, doc] })} style={{ marginTop: 2 }} />
-                        {doc}
-                      </label>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize: 11.5, color: k.faint, marginTop: 6 }}>Shown on the public listing.</div>
+                <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>What candidates should carry</div>
+                <DocPicker docs={f.docs} onChange={(docs) => setF({ ...f, docs })} />
               </div>
 
               <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginTop: 4 }}>Check-in</div>
@@ -855,11 +827,11 @@ export function BrandPanel({ org, setOrgs, setDrives, onClose, embedded }) {
   const card = (
       <div style={{ background: embedded ? "transparent" : "#fff", borderRadius: embedded ? 0 : 18, padding: embedded ? 0 : 28, maxWidth: 460, width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>Location brand</div>
+          <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>Lobby display brand</div>
           {!embedded && <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>}
         </div>
         <p style={{ fontSize: 13, color: k.mid, margin: "0 0 16px", lineHeight: 1.5 }}>
-          TV, slip, and check-in.
+          Shown on the lobby display and on candidate tokens.
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
           <OrgLogo name={name} color={color} logo={logo} size={48} />
@@ -884,7 +856,7 @@ export function BrandPanel({ org, setOrgs, setDrives, onClose, embedded }) {
             }} />
           ))}
         </div>
-        <button onClick={save} style={{ ...solid, background: color, width: "100%", justifyContent: "center" }}>Apply to this space</button>
+        <button onClick={save} style={{ ...solid, background: color, width: "100%", justifyContent: "center" }}>Save brand</button>
       </div>
   );
   if (embedded) return card;
@@ -906,7 +878,7 @@ export function TeamPanel({ org, setOrgs, onClose, embedded }) {
   function invite() {
     const v = email.trim();
     if (!v || members.some((m) => memberEmail(m).toLowerCase() === v.toLowerCase())) return;
-    if (members.length >= planLimits(org).seats) return;
+    if (atSeatCap(org)) return;
     commit([...members, { email: v, role }]);
     setEmail("");
   }
@@ -918,7 +890,7 @@ export function TeamPanel({ org, setOrgs, onClose, embedded }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
             <div style={{ fontFamily: dsp, fontSize: 19, fontWeight: 700 }}>{org.name} — Team</div>
-            <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>Add recruiters, then map them to rooms on a drive. Front desk only runs the live queue and waiting screen.</div>
+            <div style={{ fontSize: 12.5, color: k.mid, marginTop: 3 }}>Add recruiters, then map them to rooms on a drive. Front desk only runs the live queue and lobby display.</div>
           </div>
           {!embedded && <button onClick={onClose} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>}
         </div>
@@ -947,10 +919,10 @@ export function TeamPanel({ org, setOrgs, onClose, embedded }) {
             options={[{ value: "recruiter", label: "Recruiter" }, { value: "frontdesk", label: "Front desk" }]}
             style={{ width: 130, padding: "11px 10px" }}
           />
-          <button onClick={invite} style={solidSm} disabled={members.length >= planLimits(org).seats}>Invite</button>
+          <button onClick={invite} style={solidSm} disabled={atSeatCap(org)}>Invite</button>
         </div>
         <div style={{ fontSize: 11, color: k.faint, marginTop: 10, lineHeight: 1.5 }}>
-          {members.length >= planLimits(org).seats
+          {atSeatCap(org)
             ? `This plan includes ${planLimits(org).seats} team seat${planLimits(org).seats === 1 ? "" : "s"}.`
             : "Front desk never sees who is in an interview room, resumes, or round decisions. Map recruiters to rooms on the drive’s Rooms tab."}
         </div>
@@ -1044,18 +1016,117 @@ function RoundPips({ rounds, cand, light }) {
   );
 }
 
-export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, decide, deskMode, issuePass }) {
+function escHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+export function ResumeView({ cand, tall = 420 }) {
+  const url = resumeDataUrl(cand?.resume);
+  const file = resumeName(cand?.resume);
+  const pdf = url && isPdfResume(cand?.resume);
+  const phone = cand?.phone || "";
+  const email = cand?.email || "";
+  const exp = cand?.expBand || cand?.exp || "";
+  const qual = cand?.qual || "";
+  const header = (
+    <div style={{ padding: "4px 2px 12px" }}>
+      <div style={{ fontFamily: typ, fontSize: 10.5, letterSpacing: 1.4, color: k.faint }}>DIGITAL RESUME</div>
+      <div style={{ fontFamily: dsp, fontSize: 22, fontWeight: 700, marginTop: 4 }}>{cand?.name}</div>
+      <div style={{ fontSize: 13.5, color: k.mid, fontFamily: typ, marginTop: 6 }}>{[phone, email].filter(Boolean).join(" · ") || "No contact on file"}</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+        {exp ? <Pill tone="coral">{exp}</Pill> : null}
+        {qual ? <Pill tone="grey">{qual}</Pill> : null}
+        {file ? <Pill tone="teal">{file}</Pill> : null}
+      </div>
+    </div>
+  );
+  if (pdf) {
+    return (
+      <div>
+        {header}
+        <iframe title={`${cand.name} resume`} src={url} style={{ width: "100%", height: tall, border: `1px solid ${k.line}`, borderRadius: 12, background: "#fff" }} />
+      </div>
+    );
+  }
+  const srcDoc = `<!doctype html><html><head><meta charset="utf-8"><style>
+    body{font-family:Inter,system-ui,sans-serif;color:#111318;margin:0;padding:28px 32px;background:#fff}
+    h1{margin:0 0 6px;font-size:26px;letter-spacing:-.4px}
+    .meta{color:#6B7080;font-size:13.5px;font-family:"JetBrains Mono",monospace}
+    .label{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:#9AA0AE;font-weight:700;margin:20px 0 6px}
+    p{margin:0;line-height:1.55;font-size:14px;color:#3D4252}
+  </style></head><body>
+    <h1>${escHtml(cand?.name)}</h1>
+    <div class="meta">${escHtml([phone, email].filter(Boolean).join(" · "))}</div>
+    ${exp ? `<div class="label">Experience</div><p>${escHtml(exp)}</p>` : ""}
+    ${qual ? `<div class="label">Education</div><p>${escHtml(qual)}</p>` : ""}
+    ${file ? `<div class="label">Resume file</div><p>${escHtml(file)}</p>` : `<div class="label">Resume file</div><p>No file uploaded at registration.</p>`}
+    <div class="label">Registered for</div>
+    <p>Walk-in interview. Contact details are from the candidate profile.</p>
+  </body></html>`;
+  return (
+    <div>
+      {header}
+      <iframe title={`${cand?.name || "candidate"} resume`} srcDoc={srcDoc} style={{ width: "100%", height: Math.max(260, tall - 80), border: `1px solid ${k.line}`, borderRadius: 12, background: "#fff" }} />
+    </div>
+  );
+}
+
+export function InterviewDesk({ cand, rounds, saveNote, move, decide, skip }) {
+  const round = (rounds || [])[cand.roundIdx || 0];
+  const noteKey = round?.id || "floor";
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1.15fr .85fr", gap: 0 }} className="g2">
+      <div style={{ padding: 18, borderRight: `1px solid ${k.line}`, background: k.cream2, minHeight: 360 }}>
+        <ResumeView cand={cand} tall={480} />
+      </div>
+      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div>
+          <TokenChip token={cand.token} name={cand.name} size={44} pulse={cand.state === "calling"} />
+          <div style={{ marginTop: 8 }}><RoundPips rounds={rounds} cand={cand} /></div>
+          <div style={{ fontSize: 12.5, color: k.ink2, marginTop: 8 }}>
+            {cand.room ? roomRoundLabel(rounds, cand.room) : "No room"}
+            {cand.room?.interviewer ? ` · ${cand.room.interviewer}` : ""}
+            {cand.calledAt && <> · <Elapsed since={cand.calledAt} /></>}
+          </div>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase", marginBottom: 8 }}>
+            Interview notes{round ? ` · ${round.name}` : ""}
+          </div>
+          <textarea
+            value={cand.notes?.[noteKey] || ""}
+            onChange={(e) => saveNote(cand.id, noteKey, e.target.value)}
+            placeholder="Write notes during the interview…"
+            rows={10}
+            style={{ ...input, resize: "vertical", fontFamily: bdy, fontSize: 13.5, minHeight: 200, flex: 1 }}
+          />
+          <div style={{ fontSize: 11, color: k.faint, marginTop: 6 }}>Private to your team. The candidate never sees this.</div>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+          {cand.state === "calling" && <Btn onClick={() => move(cand.id, "interviewing")}>Started</Btn>}
+          {cand.state === "interviewing" && <OutcomeBtns cand={cand} rounds={rounds} decide={decide} />}
+          <Btn q onClick={() => skip(cand.id)}>Skip</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, move, decide, deskMode, issuePass, saveNote, focusCid }) {
   const rooms = bindRoomsToRounds(drive.rooms || [], drive.rounds || []);
   const rounds = drive.rounds || [];
   const groups = waitersByRound(wait, rounds);
   const later = waitersByRound(wait, rounds, true);
   const [pickFor, setPickFor] = useState(null);
   const [lineRound, setLineRound] = useState("all");
+  const [deskId, setDeskId] = useState(focusCid || null);
+  useEffect(() => { if (focusCid) setDeskId(focusCid); }, [focusCid]);
   const shown = lineRound === "all" ? later : later.filter((g) => g.id === lineRound);
   const heads = later.map((g) => ({ ...g, cand: g.list[0] })).filter((g) => g.cand);
   const absent = drive.candidates.filter((x) => x.state === "absent");
   const pass = livePass(drive);
   const passLeft = pass ? Math.max(0, Math.ceil((pass.exp - Date.now()) / 1000)) : 0;
+  const deskCand = active.find((x) => x.id === deskId) || active[0];
 
   return (
     <div>
@@ -1100,37 +1171,27 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: deskMode ? "1fr" : "1fr 1.1fr", gap: 18 }} className="g2">
-        {!deskMode && (
-        <div style={{ ...box, padding: 22 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase", marginBottom: 14 }}>In interview now</div>
-          {!active.length ? <Blank text="Nobody is with a recruiter yet." /> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {active.map((x) => (
-                <div key={x.id} style={{ background: k.coralDim, borderRadius: 14, padding: "16px 18px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <TokenChip token={x.token} name={x.name} size={44} pulse={x.state === "calling"} />
-                      <div style={{ marginTop: 8 }}><RoundPips rounds={rounds} cand={x} /></div>
-                      <div style={{ fontSize: 12.5, color: k.ink2, marginTop: 8 }}>
-                        {x.room ? roomRoundLabel(rounds, x.room) : "No room"}
-                        {x.room?.interviewer ? ` · ${x.room.interviewer}` : ""}
-                        {x.calledAt && <> · <Elapsed since={x.calledAt} /></>}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      {x.state === "calling" && <Btn onClick={() => move(x.id, "interviewing")}>Started</Btn>}
-                      {x.state === "interviewing" && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
-                      <Btn q onClick={() => skip(x.id)}>Skip</Btn>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {!deskMode && (
+        <div style={{ ...box, overflow: "hidden", marginBottom: 18 }}>
+          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${k.line}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .8, textTransform: "uppercase" }}>Interview</div>
+            {active.length > 1 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {active.map((x) => (
+                  <button key={x.id} type="button" onClick={() => setDeskId(x.id)} style={{
+                    border: `1px solid ${deskCand?.id === x.id ? k.ink : k.line}`, borderRadius: 999, padding: "5px 11px", cursor: "pointer",
+                    fontFamily: bdy, fontSize: 12.5, fontWeight: 600, background: deskCand?.id === x.id ? k.ink : "#fff", color: deskCand?.id === x.id ? "#fff" : k.ink,
+                  }}>{x.token}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          {!deskCand ? <div style={{ padding: 22 }}><Blank text="Call someone to open their resume and notes." /></div>
+            : <InterviewDesk cand={deskCand} rounds={rounds} saveNote={saveNote} move={move} decide={decide} skip={skip} />}
         </div>
-        )}
+      )}
 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 18 }} className="g2">
         <div style={{ ...box, padding: 22 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: k.faint, marginBottom: 14 }}>Up next — each round</div>
           {!heads.length ? <div style={{ color: k.faint, fontSize: 13.5 }}>Queue is empty.</div> : heads.map((g, i) => (
@@ -1141,7 +1202,7 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
               <div style={{ marginTop: 8 }}><RoundPips rounds={rounds} cand={g.cand} /></div>
               {pickFor === g.cand.id ? (
                 <div style={{ marginTop: 12 }}>
-                  <RecruiterPick rooms={rooms} rounds={rounds} cand={g.cand} drive={drive} onPick={(id) => { callTo(g.cand.id, id); setPickFor(null); }} onCancel={() => setPickFor(null)} />
+                  <RecruiterPick rooms={rooms} rounds={rounds} cand={g.cand} drive={drive} onPick={(id) => { callTo(g.cand.id, id); setPickFor(null); setDeskId(g.cand.id); }} onCancel={() => setPickFor(null)} />
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -1195,7 +1256,7 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
                 )}
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
                   {pickFor === x.id ? (
-                    <RecruiterPick rooms={rooms} rounds={rounds} cand={x} drive={drive} onPick={(id) => { callTo(x.id, id); setPickFor(null); }} onCancel={() => setPickFor(null)} />
+                    <RecruiterPick rooms={rooms} rounds={rounds} cand={x} drive={drive} onPick={(id) => { callTo(x.id, id); setPickFor(null); setDeskId(x.id); }} onCancel={() => setPickFor(null)} />
                   ) : (
                     <>
                       <Btn onClick={() => setPickFor(x.id)}>Call</Btn>
@@ -1369,6 +1430,18 @@ export function TallyStat({ label, v, color }) {
   );
 }
 
+export function ScanOff({ onPay }) {
+  return (
+    <div style={{ ...box, padding: "28px 24px", maxWidth: 520 }}>
+      <div style={{ fontFamily: dsp, fontSize: 20, fontWeight: 700, letterSpacing: -0.3, marginBottom: 8 }}>The scan is off</div>
+      <p style={{ fontSize: 15, color: k.ink2, lineHeight: 1.55, margin: "0 0 18px" }}>
+        You can set up this walk-in now. People can scan the screen after the walk-in is paid.
+      </p>
+      {onPay ? <button type="button" onClick={onPay} style={solidSm}>Turn on the scan</button> : null}
+    </div>
+  );
+}
+
 export function Screen({ driveId, gate, desk, left, active, wait, eta, rounds, brand, clientName, branch, role, credit = "on" }) {
   const name = (brand?.name || "").trim() || "Walk-in";
   const accent = brand?.color || k.coral;
@@ -1379,7 +1452,7 @@ export function Screen({ driveId, gate, desk, left, active, wait, eta, rounds, b
         <HallBrand name={name} color={accent} logo={logo} sub={clientName || null} size={32} credit={credit} />
         {driveId && (
           <a href={`/tv/${encodeURIComponent(driveId)}`} target="_blank" rel="noreferrer" style={{ ...solidSm, textDecoration: "none" }}>
-            <MonitorSmartphone size={15} /> Open on the hall TV
+            <MonitorSmartphone size={15} /> Open the lobby display
           </a>
         )}
       </div>
@@ -1405,10 +1478,10 @@ export function Screen({ driveId, gate, desk, left, active, wait, eta, rounds, b
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 14, lineHeight: 1.5, textAlign: "center" }}>Names stay masked on the wall.</div>
         </div>
         <div style={{ ...box, overflow: "hidden" }}>
-          <div style={{ padding: "12px 18px", borderBottom: `2px solid ${accent}`, fontFamily: typ, fontSize: 11, letterSpacing: 1.2, color: accent, fontWeight: 700 }}>NOW CALLING</div>
+          <div style={{ padding: "12px 18px", borderBottom: `2px solid ${accent}`, fontFamily: typ, fontSize: 11, letterSpacing: 1.2, color: accent, fontWeight: 700 }}>NOW SERVING</div>
           {!active.length ? <Blank text="Nobody is being called yet." /> : active.map((x) => (
             <div key={x.id} style={{ padding: 18, display: "flex", alignItems: "center", gap: 16, background: `${accent}18`, borderBottom: `1px solid ${k.line}` }}>
-              <TokenChip token={x.token} name={mask(x.name)} size={52} color={accent} pulse />
+              <TokenChip token={x.token} name={roomName(x.room) || mask(x.name)} size={52} color={accent} pulse />
             </div>
           ))}
           {waitersByRound(wait, rounds).map((g) => (
@@ -1439,6 +1512,7 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms: rawRoo
   const [fRound, setFRound] = useState("All");
   const [fState, setFState] = useState("All");
   const [noteFor, setNoteFor] = useState(null);
+  const [resumeFor, setResumeFor] = useState(null);
   const [pickFor, setPickFor] = useState(null);
   const label = { wait: ["grey", "Waiting"], calling: ["coral", "Calling"], interviewing: ["coral", "In interview"], selected: ["teal", "Selected"], rejected: ["red", "Rejected"], onhold: ["gold", "On hold"], absent: ["grey", "Absent"] };
   const stateName = (v) => ({ All: "All", wait: "Waiting", calling: "Calling", interviewing: "In interview", selected: "Selected", rejected: "Rejected", onhold: "On hold", absent: "Absent" }[v] || v);
@@ -1511,6 +1585,7 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms: rawRoo
                   {x.state === "calling" && <><Btn onClick={() => move(x.id, "interviewing")}>Start</Btn><Btn q onClick={() => move(x.id, "absent")}>Absent</Btn></>}
                   {x.state === "interviewing" && <OutcomeBtns cand={x} rounds={rounds} decide={decide} />}
                   {x.state === "onhold" && <Btn onClick={() => move(x.id, "wait")}>Back to queue</Btn>}
+                  {x.resume && <Btn q onClick={() => setResumeFor(x)}>Resume</Btn>}
                   <Btn q onClick={() => setNoteFor(x)}>Notes{noteCount ? ` (${noteCount})` : ""}</Btn>
                 </div>
               </div>
@@ -1534,7 +1609,7 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms: rawRoo
                       <span style={{ fontFamily: typ }}>{x.phone}</span>
                       {x.linkedin && <a href={x.linkedin} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, color: k.coral, textDecoration: "none" }}><Linkedin size={11} />Profile</a>}
                     </div>
-                    {x.resume && <button onClick={() => alert(`In production: downloads ${x.name}'s resume from encrypted storage. The download is logged.`)} style={{ ...ghostSm, marginTop: 7, fontSize: 11.5, padding: "5px 10px" }}><Download size={11} />{x.resume}</button>}
+                    {x.resume && <button onClick={() => setResumeFor(x)} style={{ ...ghostSm, marginTop: 7, fontSize: 11.5, padding: "5px 10px" }}><Download size={11} />{resumeName(x.resume) || "Resume"}</button>}
                   </td>
                   <td style={cell}><Pill tone={x.expBand === "Fresher" ? "grey" : "coral"}>{x.expBand || "—"}</Pill></td>
                   <td style={cell}>
@@ -1560,6 +1635,19 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms: rawRoo
       </div>
       )}
 
+      {resumeFor && (
+        <div onClick={() => setResumeFor(null)} style={{ position: "fixed", inset: 0, background: "rgba(11,16,32,.45)", zIndex: 200, display: "flex", justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 720, maxWidth: "100%", maxHeight: "90vh", background: "#fff", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", borderBottom: `1px solid ${k.line}` }}>
+              <div style={{ fontWeight: 700 }}>{resumeFor.name}</div>
+              <button onClick={() => setResumeFor(null)} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
+            </div>
+            <div style={{ overflow: "auto", flex: 1, padding: 16 }}>
+              <ResumeView cand={rows.find((r) => r.id === resumeFor.id) || resumeFor} tall={560} />
+            </div>
+          </div>
+        </div>
+      )}
       {noteFor && <NotesPanel cand={rows.find((r) => r.id === noteFor.id) || noteFor} rounds={rounds} onClose={() => setNoteFor(null)} saveNote={saveNote} />}
     </div>
   );
@@ -1719,7 +1807,7 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
     return m ? memberName(m) : email.split("@")[0];
   };
   const add = () => {
-    if (!name.trim() || planLimits(org).rooms === false) return;
+    if (!name.trim()) return;
     const email = recruiterEmail;
     setRooms([...rooms, { id: `rm${Date.now()}`, name: name.trim(), interviewer: email ? pickName(email) : "", recruiterEmail: email || null, roundId: (drive.rounds || [])[0]?.id || "" }]);
     setName("");
@@ -1731,7 +1819,7 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   function inviteRecruiter() {
     const v = invite.trim();
     if (!v || !setOrgs) return;
-    if ((org.members || []).length >= planLimits(org).seats) { setInvite(""); return; }
+    if (atSeatCap(org)) { setInvite(""); return; }
     if ((org.members || []).some((m) => memberEmail(m).toLowerCase() === v.toLowerCase())) { setInvite(""); return; }
     setOrgs((p) => p.map((o) => (o.id === org.id ? { ...o, members: [...(o.members || []), { email: v, role: "recruiter" }] } : o)));
     setInvite("");
@@ -1771,7 +1859,6 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
           );
         })}
       </div>
-      {planLimits(org).rooms !== false && (
       <div style={{ display: "flex", gap: 9, flexWrap: "wrap", marginBottom: 18 }}>
         <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Room name — e.g. Room 6" style={{ ...input, flex: "1 1 160px" }} />
         <Select
@@ -1783,7 +1870,6 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
         />
         <button onClick={add} style={solidSm}><Plus size={15} /> Add room</button>
       </div>
-      )}
       <div style={{ ...box, padding: 18 }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Add a recruiter to the team</div>
         <div style={{ fontSize: 12.5, color: k.mid, marginBottom: 10, lineHeight: 1.5 }}>They can sign in with this email (same company password) and appear in the room assignment list.</div>
@@ -1796,27 +1882,9 @@ export function RoomsTab({ rooms, setRooms, org, setOrgs, drive }) {
   );
 }
 
-export function Msgs({ msgs }) {
-  return (
-    <div style={{ maxWidth: 560 }}>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 16px" }}>Only the 15-minute “you’re up soon” WhatsApp. No extra message types — not called, selected, or rejected.</p>
-      {!msgs.length && <Blank text="No 15-minute nudges sent yet." />}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {msgs.map((m) => (
-          <div key={m.id} style={{ ...box, padding: 14, borderLeft: `3px solid ${m.ch === "WhatsApp" ? k.teal : k.mid}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}><Pill tone={m.ch === "WhatsApp" ? "teal" : "grey"}>{m.ch}</Pill><span style={{ color: k.ink2 }}>{m.name}</span><span style={{ fontFamily: typ, color: k.faint, fontSize: 11.5 }}>{m.to}</span></span>
-              <span style={{ fontFamily: typ, fontSize: 11.5, color: k.faint }}>{new Date(m.at).toLocaleTimeString()}</span>
-            </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{m.text}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function Result({ s, drive }) {
+  const [ats, setAts] = useState("workday");
+  const chosen = ATS_TARGETS.find((t) => t.id === ats) || ATS_TARGETS[0];
   const cs = drive?.candidates || [];
   const waited = cs.filter((x) => x.calledAt && x.at).map((x) => (x.calledAt - x.at) / 60000);
   const interviewed = cs.filter((x) => x.calledAt && x.decidedAt).map((x) => (x.decidedAt - x.calledAt) / 60000);
@@ -1835,32 +1903,27 @@ export function Result({ s, drive }) {
     });
     downloadFile(`${drive.company.replace(/\s+/g, "_")}_walkin_extract.csv`, [header.join(","), ...lines].join("\n"), "text/csv");
   }
-  function sendAts() {
-    const payload = {
-      drive: { id: drive.id, company: drive.company, role: drive.role, city: drive.city, venue: drive.venue, date: drive.date },
-      exportedAt: new Date().toISOString(),
-      candidates: cs.map((x) => ({
-        token: x.token, name: x.name, phone: x.phone, email: x.email || "", experience: x.expBand || x.exp, linkedin: x.linkedin || "", resume: x.resume || "",
-        status: x.state,
-        rounds: (drive.rounds || []).map((r, i) => ({ name: r.name, outcome: x.roundOutcomes?.[r.id] || (i < x.roundIdx ? "selected" : ""), notes: x.notes?.[r.id] || "" })),
-      })),
-    };
-    downloadFile(`${drive.company.replace(/\s+/g, "_")}_ats_handoff.json`, JSON.stringify(payload, null, 2), "application/json");
-    alert("Extract ready. In production this posts to Greenhouse, Lever, or your ATS — round-by-round selected / rejected / on hold, with notes. Offers stay in the ATS, not at the walk-in desk.");
-  }
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
         <div>
           <h1 style={{ fontFamily: dsp, fontSize: 22, fontWeight: 700, letterSpacing: -0.4, margin: "0 0 5px" }}>Day-end report</h1>
-          <p style={{ color: k.mid, fontSize: 13.5, margin: 0 }}>This is the full candidate file — name, phone, email, experience, resume, and round outcomes — ready to send to your ATS. Offers and joining stay there. It is not a list of who attended.</p>
+          <p style={{ color: k.mid, fontSize: 13.5, margin: 0 }}>Download the candidate file for the HR system you already use. This saves a spreadsheet your team uploads. It does not sign in to that system. Offers and joining stay there.</p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={extractCsv} style={outline}><Download size={14} /> CSV extract</button>
-          <button onClick={sendAts} style={solid}><Send size={14} /> Send to ATS</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button onClick={extractCsv} style={outline}><Download size={14} /> Full spreadsheet</button>
+          <Select
+            value={ats}
+            onChange={setAts}
+            aria-label="HR system"
+            options={ATS_TARGETS.map((t) => ({ value: t.id, label: t.label }))}
+            style={{ width: 160, padding: "9px 12px" }}
+          />
+          <button onClick={() => downloadAts(drive, ats)} style={solid}><Download size={14} /> Download for {chosen.label}</button>
         </div>
       </div>
+      <p style={{ color: k.mid, fontSize: 13, margin: "0 0 4px", maxWidth: 720 }}>{chosen.hint}</p>
       <div style={{ ...box, padding: 22, margin: "18px 0" }}>
         <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">

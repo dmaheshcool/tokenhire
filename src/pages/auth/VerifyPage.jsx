@@ -22,11 +22,11 @@ export default function VerifyPage() {
     try {
       await api.verify({ code });
       setOrgs((p) => p.map((o) => o.id === activeOrgId ? { ...o, verified: true } : o));
-      nav("/app/hiring", { replace: true });
+      nav("/app/today", { replace: true });
     } catch {
       if (code.trim() === "618204") {
         setOrgs((p) => p.map((o) => o.id === activeOrgId ? { ...o, verified: true } : o));
-        nav("/app/hiring", { replace: true });
+        nav("/app/today", { replace: true });
       } else setErr("That email code is not valid. Demo code is 618204.");
     }
     setBusy(false);
@@ -40,7 +40,7 @@ export default function VerifyPage() {
         <Field label="Email code"><input value={code} onChange={(e) => setCode(e.target.value)} style={input} placeholder="618204" /></Field>
         {err && <div style={{ fontSize: 12.5, color: k.red }}>{err}</div>}
         <button type="submit" disabled={busy} style={{ ...solid, justifyContent: "center", padding: 12 }}>{busy ? "Checking…" : "Verify and continue"}</button>
-        <button type="button" onClick={() => nav("/app/hiring")} style={textLink}>Skip for now</button>
+        <button type="button" onClick={() => nav("/app/today")} style={textLink}>Skip for now</button>
       </form>
     </AuthShell>
   );

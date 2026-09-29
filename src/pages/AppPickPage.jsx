@@ -7,7 +7,7 @@ export default function AppPickPage() {
   const { profile, drives } = useStore();
   return (
     <Pick
-      go={(side) => nav(side === "employer" ? "/app/hiring" : "/app/join")}
+      go={(side) => nav(side === "employer" ? "/app/today" : "/app/join")}
       back={() => nav("/")}
       hasProfile={!!profile}
       driveCount={drives.length}

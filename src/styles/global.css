@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
 
 *{box-sizing:border-box}
 html,body,#root{max-width:100%;overflow-x:clip}
@@ -9,8 +9,51 @@ button,input,select,textarea{max-width:100%}
 body{margin:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 h1,h2,h3{font-weight:700}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes storyIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.home-title{white-space:nowrap}
+@media (max-width:560px){.home-title{white-space:normal}}
+.one-line{white-space:nowrap}
+.home-step,.home-for-row{display:grid;grid-template-columns:64px minmax(200px,280px) 1fr;gap:8px 28px;align-items:baseline}
+.home-for-row{grid-template-columns:220px 1fr}
+@media (max-width:860px){
+  .one-line{white-space:normal}
+  .home-step,.home-for-row{grid-template-columns:1fr}
+}
+.home-halls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.home-halls button:hover{border-color:#2F5BFF}
+@media (max-width:860px){
+  .home-split{grid-template-columns:1fr!important;gap:28px!important}
+  .home-halls{grid-template-columns:1fr}
+}
+.home-audience{transition:background .15s ease,padding-left .15s ease}
+.home-audience:hover{background:rgba(44,107,245,.04);padding-left:10px!important}
+.home-step-btn{transition:color .15s ease}
+html.is-phone .home-halls{grid-template-columns:1fr}
+html.is-phone .home-audience{grid-template-columns:1fr!important;gap:6px!important}
+html.is-phone .home-audience>span:last-child{justify-self:start}
+html.is-phone .home-split{grid-template-columns:1fr!important;gap:28px!important;padding:36px 18px 40px!important}
+html.is-phone .home-console-split{grid-template-columns:1fr!important}
+html.is-phone .about-point{grid-template-columns:1fr!important;gap:6px!important}
+.portal-split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.portal-jobs,.how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.portal-board{display:grid;grid-template-columns:230px 1fr;gap:22px;align-items:start}
+.portal-foot{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:28px}
+@media (max-width:860px){
+  .portal-split,.portal-jobs,.how-grid,.portal-board,.portal-foot{grid-template-columns:1fr}
+}
+.walkin-bar{position:sticky;top:64px;z-index:40}
+.walkin-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.walkin-head-actions{display:flex;gap:8px;flex-shrink:0}
+.walkin-find{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+@media (max-width:760px){
+  .walkin-head{flex-direction:column;gap:14px}
+}
+.walkin-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.walkin-chips::-webkit-scrollbar{display:none}
+html.is-phone .walkin-bar{top:60px}
+html.is-phone .walkin-find{grid-template-columns:1fr}
+html.is-phone .walkin-rule{display:none}
 /* The stage is sized for a roomy desktop. Rather than reflow every scene for short
    viewports, scale the whole set down so nothing is ever clipped off the bottom. */
 .storyscale{--s:1;width:min(1120px,100%);transform:scale(var(--s));transform-origin:center center}
@@ -23,10 +66,10 @@ h1,h2,h3{font-weight:700}
 @keyframes scanSweep{0%{top:18%}100%{top:72%}}
 .livefilm{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.78fr) minmax(0,1.05fr);gap:14px;align-items:stretch;width:100%}
 html.is-phone .livefilm{grid-template-columns:1fr}
-html.is-computer .hallhero-stage{min-height:248px}
-html.is-computer .hallhero-wall{padding-right:252px}
-html.is-computer .hallhero-phone{position:absolute;right:18px;bottom:16px;width:232px;z-index:2}
-html.is-phone .hallhero-phone{margin-top:16px}
+html.is-computer .hallhero-stage{min-height:360px}
+html.is-computer .hallhero-wall{padding-right:248px}
+html.is-computer .hallhero-phone{position:absolute;right:22px;bottom:8px;width:220px;z-index:2}
+html.is-phone .hallhero-phone{margin-top:16px;max-width:240px}
 @keyframes paperSettle{from{transform:rotate(var(--r,-2deg)) translateY(10px)}to{transform:rotate(var(--r,-2deg)) translateY(0)}}
 .navitem:hover{color:#111318}
 .quiet-tile{transition:transform .18s ease,box-shadow .18s ease}
@@ -36,7 +79,7 @@ html.is-phone .hallhero-phone{margin-top:16px}
 .tabscroll::-webkit-scrollbar{display:none}
 .nav-burger{display:none}
 .bottabs{display:none}
-.plans{grid-template-columns:repeat(4,1fr)}
+.plans{grid-template-columns:repeat(3,1fr)}
 .g2,.g3,.g2>*,.g3>*{min-width:0}
 @media (max-width:1100px){html.is-phone .plans{grid-template-columns:repeat(2,1fr)}}
 html.is-phone .g2{grid-template-columns:1fr!important}

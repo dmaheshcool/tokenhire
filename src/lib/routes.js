@@ -1,10 +1,14 @@
 export const PATHS = {
   home: "/",
-  services: "/products",
-  pricing: "/pricing",
+  services: "/for-companies",
+  companies: "/for-companies",
+  pricing: "/for-companies#pricing",
   drives: "/walk-ins",
-  about: "/about",
-  contact: "/contact",
+  how: "/how-it-works",
+  about: "/how-it-works",
+  guides: "/guides",
+  blog: "/guides",
+  contact: "/for-companies#pilot",
   legal: "/legal",
   privacy: "/privacy",
   terms: "/terms",
@@ -17,13 +21,14 @@ export const PATHS = {
 
 export function pathFor(id) {
   if (!id) return "/";
-  if (id.startsWith("sol:")) return `/solutions/${id.slice(4)}`;
+  if (id.startsWith("sol:")) return "/for-companies";
   return PATHS[id] || "/";
 }
 
 export function pageFromPath(pathname) {
   if (pathname === "/") return "home";
-  if (pathname.startsWith("/solutions/")) return `sol:${pathname.split("/")[2] || ""}`;
+  if (pathname === "/walk-ins" || pathname.startsWith("/walk-ins/")) return "drives";
+  if (pathname === "/guides" || pathname.startsWith("/guides/")) return "guides";
   const hit = Object.entries(PATHS).find(([, p]) => p === pathname);
   return hit ? hit[0] : "";
 }

@@ -17,12 +17,20 @@ export function writeSession(s) {
   if (!s) localStorage.removeItem(SESSION_KEY);
   else localStorage.setItem(SESSION_KEY, JSON.stringify(s));
 }
+function cleanProfile(p) {
+  if (!p || typeof p !== "object") return p;
+  const next = { ...p };
+  delete next.aadhaarHash;
+  delete next.aadhaarLast4;
+  delete next.whatsapp;
+  return next;
+}
 export function readSavedProfile() {
-  try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || "null"); } catch { return null; }
+  try { return cleanProfile(JSON.parse(localStorage.getItem(PROFILE_KEY) || "null")); } catch { return null; }
 }
 export function writeSavedProfile(p) {
   if (!p) localStorage.removeItem(PROFILE_KEY);
-  else localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
+  else localStorage.setItem(PROFILE_KEY, JSON.stringify(cleanProfile(p)));
 }
 
 async function req(path, opts = {}) {
@@ -50,6 +58,9 @@ export const api = {
     }
   },
   snapshot: () => req("/api/snapshot"),
+  publishListing: (body) => req("/api/listings", { method: "POST", body }),
+  confirmListing: (body) => req("/api/listings/confirm", { method: "POST", body }),
+  pilot: (body) => req("/api/pilot", { method: "POST", body }),
   putSnapshot: (body) => req("/api/snapshot", { method: "PUT", body }),
   login: (body) => req("/api/auth/login", { method: "POST", body }),
   signup: (body) => req("/api/auth/signup", { method: "POST", body }),

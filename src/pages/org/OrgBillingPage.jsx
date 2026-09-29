@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/Store.jsx";
-import { driveSlotsLeft, planLimits, planOf, planPrice, PUBLIC_PLANS, renewsOn } from "../../lib/helpers.js";
-import { box, bdy, dsp, k, outlineSm, solidSm, typ } from "../../theme.js";
+import { driveSlotsLeft, planCycle, planLimits, planOf, planPrice, PUBLIC_PLANS, renewsOn } from "../../lib/helpers.js";
+import { box, dsp, k, outlineSm, solidSm, typ } from "../../theme.js";
 
 function fmtRenew(iso) {
   if (!iso) return "—";
@@ -15,15 +15,16 @@ export default function OrgBillingPage() {
   const org = orgs.find((o) => o.id === activeOrgId);
   if (!org) return null;
   const spec = planOf(org);
-  const cycle = org.billingCycle === "year" ? "year" : "month";
+  const cycle = org.billingCycle || planCycle(spec);
   const lim = planLimits(org);
   const slots = driveSlotsLeft(org, drives);
-  const cost = planPrice(spec, cycle);
+  const cost = planPrice(spec);
   const renew = org.renewsOn || renewsOn(cycle);
 
   function apply(next) {
-    const nextCycle = next.billingCycle || cycle;
     const nextPlan = next.plan || spec.id;
+    const nextSpec = PUBLIC_PLANS.find((p) => p.id === nextPlan) || spec;
+    const nextCycle = planCycle(nextSpec);
     setOrgs((p) => p.map((o) => (o.id === org.id ? {
       ...o,
       plan: nextPlan,
@@ -44,31 +45,23 @@ export default function OrgBillingPage() {
           {cost.label}{cost.unit ? ` ${cost.unit}` : ""}
           {cost.billed ? ` · ${cost.billed}` : ""}
         </div>
-        {spec.monthInr ? (
+        {spec.monthInr || spec.talk ? (
           <div style={{ fontSize: 13.5, color: k.mid, marginTop: 6 }}>
-            {cycle === "year" ? "Yearly" : "Monthly"} · renews {fmtRenew(renew)}
+            {cycle === "drive" ? "One hiring drive · no subscription"
+              : cycle === "6month" ? `Every 6 months · renews ${fmtRenew(renew)}`
+              : cycle === "year" ? `Yearly · renews ${fmtRenew(renew)}`
+              : spec.talk ? spec.validity
+              : `Monthly · renews ${fmtRenew(renew)}`}
           </div>
         ) : (
           <div style={{ fontSize: 13.5, color: k.mid, marginTop: 6 }}>{spec.validity}</div>
         )}
 
-        {spec.monthInr ? (
-          <div style={{ display: "inline-flex", padding: 4, borderRadius: 999, background: k.cream2, gap: 4, marginTop: 16 }}>
-            {[["month", "Monthly"], ["year", "Yearly · 2 months free"]].map(([id, lab]) => (
-              <button key={id} type="button" onClick={() => apply({ billingCycle: id })} style={{
-                border: "none", borderRadius: 999, padding: "8px 14px", cursor: "pointer", fontFamily: bdy, fontSize: 13, fontWeight: 600,
-                background: cycle === id ? "#fff" : "transparent", color: cycle === id ? k.ink : k.mid,
-                boxShadow: cycle === id ? "0 0 0 1px " + k.line : "none",
-              }}>{lab}</button>
-            ))}
-          </div>
-        ) : null}
-
         <ul style={{ margin: "16px 0 0", paddingLeft: 18, fontSize: 13.5, color: k.ink2, lineHeight: 1.7 }}>
           {spec.feats.map((f) => <li key={f}>{f}</li>)}
         </ul>
         <div style={{ marginTop: 16, fontSize: 13, color: k.mid }}>
-          {lim.drives < 999 ? `${slots} walk-in${slots === 1 ? "" : "s"} left${spec.multiDay ? " this month" : ""}.` : "Walk-ins are included on this plan."}
+          {lim.drives < 999 ? `${slots} hiring drive${slots === 1 ? "" : "s"} left${spec.multiDay ? " this month" : ""}.` : "Hiring drives are included on this plan."}
         </div>
       </div>
 
@@ -76,7 +69,7 @@ export default function OrgBillingPage() {
       <div style={{ display: "grid", gap: 10 }}>
         {PUBLIC_PLANS.map((p) => {
           const on = spec.id === p.id;
-          const price = planPrice(p, cycle);
+          const price = planPrice(p);
           return (
             <div key={p.id} style={{ ...box, padding: "16px 18px", display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", borderColor: on ? k.ink : k.line }}>
               <div>
@@ -86,9 +79,11 @@ export default function OrgBillingPage() {
               </div>
               {on ? (
                 <span style={{ fontSize: 12.5, color: k.faint, fontWeight: 600 }}>On this plan</span>
+              ) : p.talk ? (
+                <Link to="/for-companies#pilot" style={{ ...outlineSm, textDecoration: "none" }}>Talk to us</Link>
               ) : (
                 <button type="button" onClick={() => apply({ plan: p.id })} style={p.best ? solidSm : outlineSm}>
-                  {p.monthInr ? "Subscribe" : "Switch"}
+                  {p.cta || "Subscribe"}
                 </button>
               )}
             </div>
@@ -97,8 +92,8 @@ export default function OrgBillingPage() {
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
-        <Link to="/pricing" style={{ ...outlineSm, textDecoration: "none" }}>See public pricing</Link>
-        <Link to="/contact" style={{ ...outlineSm, textDecoration: "none" }}>Need more halls or SSO? Talk to us</Link>
+        <Link to="/for-companies#pricing" style={{ ...outlineSm, textDecoration: "none" }}>See pricing</Link>
+        <Link to="/for-companies#pilot" style={{ ...outlineSm, textDecoration: "none" }}>Talk to us</Link>
       </div>
     </div>
   );

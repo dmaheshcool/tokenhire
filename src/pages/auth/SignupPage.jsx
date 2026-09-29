@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Field } from "../../components/ui.jsx";
 import { useStore } from "../../context/Store.jsx";
 import { AuthShell } from "../../layouts/AuthShell.jsx";
+import { isWorkEmail } from "../../lib/helpers.js";
 import { input, k, R, solid, textLink } from "../../theme.js";
 
 export default function SignupPage() {
@@ -26,6 +27,11 @@ export default function SignupPage() {
       setErr("Fill in all fields.");
       return;
     }
+    if (!isWorkEmail(email)) {
+      setBusy(false);
+      setErr("Use a work email.");
+      return;
+    }
     const r = await signUpOrg({ companyName, email, password, kind });
     setBusy(false);
     if (!r.ok) { setErr(r.error); return; }
@@ -33,19 +39,19 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthShell title="Create a company" sub="This becomes your hiring space. Invite teammates after you are in.">
+    <AuthShell title="Create a company account" sub="Sign in later with this email. You can create a drive as soon as the account exists.">
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <Field label="Company or agency name"><input value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={input} placeholder="Vistaar Services, or Quess Corp" /></Field>
+        <Field label="Company name"><input value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={input} placeholder="Your company" /></Field>
         <div>
-          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>How you hire</div>
+          <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Who you hire for</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" onClick={() => setKind("captive")} style={{ flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: "inherit", border: `1px solid ${kind === "captive" ? k.coral : k.line}`, background: kind === "captive" ? k.coralDim : "#fff" }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>Enterprise / captive</div>
-              <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3 }}>Hire for yourselves. No client layer.</div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>Our company</div>
+              <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3, whiteSpace: "nowrap" }}>Our own roles.</div>
             </button>
             <button type="button" onClick={() => setKind("agency")} style={{ flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: "inherit", border: `1px solid ${kind === "agency" ? k.coral : k.line}`, background: kind === "agency" ? k.coralDim : "#fff" }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>Staffing agency</div>
-              <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3 }}>Walk-ins for clients, branded as you.</div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>A client</div>
+              <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3, whiteSpace: "nowrap" }}>A client’s roles.</div>
             </button>
           </div>
         </div>

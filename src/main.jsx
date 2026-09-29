@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { applyDeviceClass } from "./hooks/useNarrow.js";
 import "./styles/global.css";
+import "./styles/ds.css";
 
 applyDeviceClass();
 

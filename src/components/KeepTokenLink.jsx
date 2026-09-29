@@ -27,9 +27,9 @@ export function KeepTokenLink({ driveId, token, claim }) {
 
   return (
     <div style={{ ...box, padding: 16, marginTop: 14, background: k.cream2 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Bookmark size={14} /> Save your token</div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Bookmark size={14} /> Track your interview status</div>
       <p style={{ fontSize: 12.5, color: k.ink2, lineHeight: 1.5, margin: "0 0 10px" }}>
-        See your place in line any time.
+        Keep this page open to receive live turn updates. You can also copy the link or add it to your home screen.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button type="button" onClick={copy} style={solidSm}>{copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy link</>}</button>
