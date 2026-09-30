@@ -15,7 +15,7 @@ export function readSession() {
 }
 export function writeSession(s) {
   if (!s) localStorage.removeItem(SESSION_KEY);
-  else localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+  else localStorage.setItem(SESSION_KEY, JSON.stringify({ orgId: s.orgId, role: s.role, email: s.email }));
 }
 function cleanProfile(p) {
   if (!p || typeof p !== "object") return p;
@@ -34,10 +34,8 @@ export function writeSavedProfile(p) {
 }
 
 async function req(path, opts = {}) {
-  const session = readSession();
   const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
-  if (session?.token) headers.Authorization = `Bearer ${session.token}`;
-  const res = await fetch(path, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  const res = await fetch(path, { ...opts, credentials: "include", headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error(data.error || `Request failed (${res.status})`);
@@ -63,24 +61,31 @@ export const api = {
   pilot: (body) => req("/api/pilot", { method: "POST", body }),
   putSnapshot: (body) => req("/api/snapshot", { method: "PUT", body }),
   login: (body) => req("/api/auth/login", { method: "POST", body }),
+  lookup: (body) => req("/api/auth/lookup", { method: "POST", body }),
   signup: (body) => req("/api/auth/signup", { method: "POST", body }),
   forgot: (body) => req("/api/auth/forgot", { method: "POST", body }),
   reset: (body) => req("/api/auth/reset", { method: "POST", body }),
   verify: (body) => req("/api/auth/verify", { method: "POST", body }),
+  verifyResend: (body) => req("/api/auth/verify-resend", { method: "POST", body }),
+  verifyLink: (body) => req("/api/auth/verify-link", { method: "POST", body }),
+  magicStart: (body) => req("/api/auth/magic-start", { method: "POST", body }),
+  magicConsume: (body) => req("/api/auth/magic-consume", { method: "POST", body }),
   me: () => req("/api/auth/me"),
   logout: () => req("/api/auth/logout", { method: "POST", body: {} }),
+  logoutAll: () => req("/api/auth/logout-all", { method: "POST", body: {} }),
   acceptInvite: (body) => req("/api/auth/invite/accept", { method: "POST", body }),
   patchOrg: (body) => req("/api/org", { method: "PATCH", body }),
   candidate: (phone) => req(`/api/candidate/${encodeURIComponent(phone)}`),
   putCandidate: (body) => req("/api/candidate", { method: "PUT", body }),
   routes: () => req("/api/routes"),
   remindStart: (body) => req("/api/reminders/start", { method: "POST", body }),
-  remindVerify: (body) => req("/api/reminders/verify", { method: "POST", body }),
   remindStop: (body) => req("/api/reminders/stop", { method: "POST", body }),
-  checkinStart: (body) => req("/api/checkin/start", { method: "POST", body }),
-  checkinVerify: (body) => req("/api/checkin/verify", { method: "POST", body }),
   exportStart: (body) => req("/api/exports", { method: "POST", body }),
   exportStatus: (id) => req(`/api/exports/${encodeURIComponent(id)}`),
+  lobby: (driveId) => req(`/api/lobby/${encodeURIComponent(driveId)}`),
+  lobbyCheck: (body) => req("/api/lobby/check", { method: "POST", body }),
+  deskPass: (body) => req("/api/desk-pass", { method: "POST", body }),
+  liveStats: () => req("/api/stats/live"),
 };
 
 // Which walk-ins this phone has asked to be reminded about: { v: 1, items: [{ driveId, phone }] }.

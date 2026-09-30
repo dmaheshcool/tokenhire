@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
-import { EXP_BANDS, ROTATE, cityNameOf, code, docsOf, isWorkEmail, memberEmail, memberRole, resumeDataUrl, scrubDrive, todayStr } from "../src/lib/helpers.js";
+import { EXP_BANDS, cityNameOf, code, docsOf, isWorkEmail, memberEmail, memberRole, resumeDataUrl, scrubDrive, todayStr } from "../src/lib/helpers.js";
 import { publicResume } from "../src/lib/resume.js";
+import { windowRemaining } from "../src/lib/lobby.js";
 import { blankSeed, boardOrgs, seedBoardDrives, seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../src/data/seed.js";
-import { driveStatus } from "../src/lib/status.js";
+import { driveStatus, tokensOpen } from "../src/lib/status.js";
 import { mode, readState, settled, writeState } from "./persist.js";
 
 export const storageMode = mode;
@@ -11,15 +12,16 @@ function fresh() {
   return {
     version: 1,
     startedAt: Date.now(),
-    deskLeft: ROTATE,
+    deskLeft: Math.ceil(windowRemaining() / 1000),
     orgs: [...seedOrgs(), ...boardOrgs()],
     drives: [seedMegaDrive(), seedDrive(), ...seedExtraDrives(), ...seedPlanDemoDrives(), ...seedBoardDrives()],
     sessions: {},
     resets: {},
+    magics: {},
+    verifies: {},
     candidates: {},
     pilots: [],
     reminders: [],
-    otps: {},
     resumes: {},
   };
 }
@@ -61,7 +63,7 @@ function refreshSeeds(stored, seeds) {
 function merge(raw) {
   if (!raw) return fresh();
   const base = fresh();
-  const next = { ...base, ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, candidates: raw.candidates || {}, pilots: raw.pilots || [], reminders: raw.reminders || [], otps: raw.otps || {}, resumes: raw.resumes || {} };
+  const next = { ...base, ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, magics: raw.magics || {}, verifies: raw.verifies || {}, candidates: raw.candidates || {}, pilots: raw.pilots || [], reminders: raw.reminders || [], resumes: raw.resumes || {} };
   const orgIds = new Set((next.orgs || []).map((o) => o.id));
   next.orgs = [...(next.orgs || []), ...base.orgs.filter((o) => !orgIds.has(o.id))];
   const boardIds = new Set(base.drives.filter((d) => d.board).map((d) => d.id));
@@ -340,28 +342,41 @@ export function confirmListing(token) {
   return { ok: true, drive: publicSnapshot().drives.find((d) => d.id === next.id) };
 }
 
-const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
-
-// Derived from the clock rather than a timer: serverless instances don't share
-// setInterval state, so every instance (and the TV, and each phone) must be able to
-// compute the same DESK code independently for the current rotation window.
-function deriveDesk(seed, window) {
-  let h = 2166136261;
-  for (const ch of `${seed}:${window}`) {
-    h ^= ch.charCodeAt(0);
-    h = Math.imul(h, 16777619);
-  }
-  let out = "";
-  for (let i = 0; i < 6; i++) {
-    h = Math.imul(h ^ (h >>> 13), 16777619);
-    out += ALPHABET[(h >>> 8) % ALPHABET.length];
-  }
-  return out;
+export function issueDeskPass(driveId) {
+  const d = state.drives.find((x) => x.id === driveId);
+  if (!d) return { ok: false, error: "No drive." };
+  const digits = "23456789";
+  let pass = "";
+  for (let i = 0; i < 6; i++) pass += digits[Math.floor(Math.random() * digits.length)];
+  d.gatePass = { code: pass, exp: Date.now() + 10 * 60 * 1000, used: false };
+  state.version += 1;
+  save();
+  return { ok: true, code: pass, exp: d.gatePass.exp };
 }
 
-export function deskWindow(at = Date.now()) {
-  const period = ROTATE * 1000;
-  return { index: Math.floor(at / period), left: Math.ceil((period - (at % period)) / 1000) };
+export function consumeDeskPass(driveId, raw) {
+  const d = state.drives.find((x) => x.id === driveId);
+  const p = d?.gatePass;
+  const six = String(raw || "").replace(/\D/g, "");
+  if (!p || p.used || p.exp <= Date.now() || String(p.code) !== six) return false;
+  d.gatePass = { ...p, used: true };
+  state.version += 1;
+  save();
+  return true;
+}
+
+export function deskPassValid(driveId, raw, at = Date.now()) {
+  const d = state.drives.find((x) => x.id === driveId);
+  const p = d?.gatePass;
+  const six = String(raw || "").replace(/\D/g, "");
+  return !!(p && !p.used && p.exp > at && String(p.code) === six);
+}
+
+export function findDriveForDeskPass(raw, at = Date.now()) {
+  const six = String(raw || "").replace(/\D/g, "");
+  if (six.length !== 6) return null;
+  const hits = (state.drives || []).filter((d) => deskPassValid(d.id, six, at) && tokensOpen(d, at));
+  return hits.length === 1 ? hits[0] : null;
 }
 
 function healUnboundDemoRooms() {
@@ -374,16 +389,16 @@ function healUnboundDemoRooms() {
 
 export function publicSnapshot() {
   healUnboundDemoRooms();
-  const { index, left } = deskWindow();
   return {
     ok: true,
     version: state.version,
     startedAt: state.startedAt,
-    deskLeft: left,
-    // This endpoint is read by every candidate phone, so credentials never ride along.
+    deskLeft: Math.ceil(windowRemaining() / 1000),
+    now: Date.now(),
     orgs: state.orgs.map(({ password, passwordHash, ...rest }) => ({ ...rest, hasPassword: !!(password || passwordHash) })),
     drives: state.drives.filter((d) => !(d.listingOnly && d.listingPending)).map((d) => {
-      const pub = { ...scrubDrive(d), desk: deriveDesk(d.gate || d.id, index) };
+      const pub = { ...scrubDrive(d) };
+      delete pub.desk;
       pub.candidates = (pub.candidates || []).map((c) => (c ? { ...c, resume: publicResume(c.resume) } : c));
       delete pub.listCode;
       delete pub.listedEmail;
@@ -391,11 +406,9 @@ export function publicSnapshot() {
       if (pub.listingOnly) {
         delete pub.gate;
         delete pub.host;
-        delete pub.desk;
       }
       return pub;
     }),
-    now: Date.now(),
   };
 }
 
@@ -418,7 +431,7 @@ export function createSession(org, email, role) {
   return token;
 }
 
-export const SESSION_TTL = 12 * 60 * 60 * 1000; // one hiring day
+export const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;
 
 export function sessionOf(token) {
   if (!token) return null;
@@ -439,6 +452,48 @@ export function dropSession(token) {
     delete state.sessions[token];
     save();
   }
+}
+
+export function dropSessionsForOrg(orgId) {
+  let n = 0;
+  for (const [tok, s] of Object.entries(state.sessions || {})) {
+    if (s.orgId === orgId) {
+      delete state.sessions[tok];
+      n += 1;
+    }
+  }
+  if (n) save();
+}
+
+function putTimed(map, token, email) {
+  state[map][token] = { email: (email || "").trim().toLowerCase(), exp: Date.now() + 15 * 60 * 1000 };
+  save();
+  return token;
+}
+
+function takeTimed(map, token) {
+  const rec = state[map][token];
+  if (!rec) return null;
+  delete state[map][token];
+  save();
+  if (rec.exp < Date.now()) return null;
+  return rec.email;
+}
+
+export function issueMagic(email) {
+  return putTimed("magics", `mg_${code(8)}${code(8)}`, email);
+}
+
+export function consumeMagic(token) {
+  return takeTimed("magics", token);
+}
+
+export function issueVerify(email) {
+  return putTimed("verifies", `vf_${code(8)}${code(8)}`, email);
+}
+
+export function consumeVerify(token) {
+  return takeTimed("verifies", token);
 }
 
 export function upsertOrg(org) {
@@ -485,24 +540,24 @@ export async function checkOrgPassword(org, plain) {
 }
 
 export function saveCandidate(profile) {
-  if (!profile?.phone) return profile;
-  state.candidates[profile.phone] = profile;
+  const deviceId = String(profile?.deviceId || "").slice(0, 80);
+  const phone = normalPhone(profile?.phone) || profile?.phone;
+  if (!deviceId && !phone) return profile;
+  const rec = { ...profile, deviceId: deviceId || undefined, phone };
+  const key = deviceId || phone;
+  state.candidates[key] = rec;
   save();
-  return profile;
+  return rec;
 }
 
 export function candidateByPhone(phone) {
-  return state.candidates[phone] || null;
+  const p = normalPhone(phone) || String(phone || "");
+  if (!p) return null;
+  const all = Object.values(state.candidates || {});
+  return all.find((c) => c.phone === p) || state.candidates[p] || null;
 }
 
 export const DEMO_RESET = "482911";
-
-// Walk-in reminders by SMS. No SMS provider is wired in yet, so no text is sent:
-// the code is the fixed demo code and the API says so. Once a provider is approved,
-// generate a random code here and send it instead of returning `demo: true`.
-export const DEMO_SMS = "482911";
-const OTP_TTL = 10 * 60 * 1000;
-const OTP_TRIES = 5;
 
 export const normalPhone = (v) => {
   const d = String(v ?? "").replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
@@ -519,31 +574,12 @@ function reminderDrive(driveId) {
 export function startReminder(body = {}) {
   const phone = normalPhone(body.phone);
   if (!phone) return { ok: false, error: "Enter a 10-digit mobile number." };
-  const { error } = reminderDrive(body.driveId);
-  if (error) return { ok: false, error };
-  state.otps = { ...(state.otps || {}), [`remind:${phone}`]: { code: DEMO_SMS, exp: Date.now() + OTP_TTL, tries: 0, driveId: body.driveId } };
-  save();
-  return { ok: true, phone, demo: true, demoCode: DEMO_SMS };
-}
-
-export function verifyReminder(body = {}) {
-  const phone = normalPhone(body.phone);
-  const key = `remind:${phone}`;
-  const rec = (state.otps || {})[key];
-  if (!phone || !rec || rec.driveId !== body.driveId || rec.exp < Date.now()) return { ok: false, error: "That code has expired. Send a new one." };
-  if (rec.tries >= OTP_TRIES) return { ok: false, error: "Too many wrong codes. Send a new one." };
-  if (String(body.code ?? "").trim() !== rec.code) {
-    rec.tries += 1;
-    save();
-    return { ok: false, error: "That code doesn't match. Check the SMS and try again." };
-  }
   const { drive, error } = reminderDrive(body.driveId);
   if (error) return { ok: false, error };
-  delete state.otps[key];
   const others = (state.reminders || []).filter((r) => !(r.phone === phone && r.driveId === drive.id));
-  state.reminders = [...others, { id: `rm_${Date.now()}_${code(4)}`, phone, driveId: drive.id, at: Date.now() }].slice(-5000);
+  state.reminders = [...others, { id: `rm_${Date.now()}_${code(4)}`, phone, driveId: drive.id, deviceId: body.deviceId || "", at: Date.now() }].slice(-5000);
   save();
-  return { ok: true };
+  return { ok: true, phone };
 }
 
 export function stopReminder(body = {}) {
@@ -551,34 +587,4 @@ export function stopReminder(body = {}) {
   state.reminders = (state.reminders || []).filter((r) => !(r.phone === phone && r.driveId === body.driveId));
   save();
   return { ok: true };
-}
-
-function checkinKey(phone, driveId) {
-  return `checkin:${phone}:${driveId}`;
-}
-
-export function startCheckin(body = {}) {
-  const phone = normalPhone(body.phone);
-  if (!phone) return { ok: false, error: "Enter a 10-digit mobile number." };
-  const drive = (state.drives || []).find((d) => d.id === body.driveId);
-  if (!drive) return { ok: false, error: "This walk-in isn't listed any more." };
-  state.otps = { ...(state.otps || {}), [checkinKey(phone, drive.id)]: { code: DEMO_SMS, exp: Date.now() + OTP_TTL, tries: 0, driveId: drive.id } };
-  save();
-  return { ok: true, phone, demo: true, demoCode: DEMO_SMS };
-}
-
-export function verifyCheckin(body = {}) {
-  const phone = normalPhone(body.phone);
-  const key = checkinKey(phone, body.driveId);
-  const rec = (state.otps || {})[key];
-  if (!phone || !rec || rec.exp < Date.now()) return { ok: false, error: "That code has expired. Send a new one." };
-  if (rec.tries >= OTP_TRIES) return { ok: false, error: "Too many wrong codes. Send a new one." };
-  if (String(body.code ?? "").trim() !== rec.code) {
-    rec.tries += 1;
-    save();
-    return { ok: false, error: "That code doesn't match. Check the SMS and try again." };
-  }
-  delete state.otps[key];
-  save();
-  return { ok: true, phone };
 }

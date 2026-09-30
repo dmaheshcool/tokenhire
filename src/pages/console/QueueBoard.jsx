@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CornerUpLeft, Megaphone, NotebookPen, Pause, Search, SkipForward, UserX, X } from "lucide-react";
 import { Btn, STROKE, useToast } from "../../components/ds.jsx";
+import { preregList } from "../../lib/prereg.js";
 import { NotesPanel } from "../app/EmployerPage.jsx";
 import { isLastRound, nextRoundIdx, occupantOf, roundIndexOfRoom, waitingRoundIdx } from "../../lib/helpers.js";
 import { roleOf } from "../../lib/library.js";
@@ -63,6 +64,7 @@ function Card({ c, drive, col, actions, onDragStart, onNotes, deskMode }) {
           {col === "round" ? t(c.state === "calling" ? "console.queue.walking" : "console.queue.interviewing") : round?.name || t("console.form.roundN", { n: 1 })}
           {c.expBand ? ` · ${c.expBand}` : ""}
           {col === "waiting" && c.checkedIn === false && <span className="tag" style={{ marginLeft: 6 }}>{t("console.queue.notArrived")}</span>}
+          {c.location_verified === false || c.location_verified === "unknown" ? <span className="tag" style={{ marginLeft: 6 }}>{t("console.queue.locUnknown")}</span> : null}
         </p>
       </div>
       {actions && <div className="row gap-4" style={{ flexWrap: "wrap" }}>{actions}</div>}
@@ -187,8 +189,22 @@ export default function QueueBoard({ drive, act, disabled, deskMode }) {
   );
 
   const rooms = drive.rooms || [];
+  const prereg = preregList(drive);
   return (
     <div className="stack gap-16">
+      {prereg.length > 0 && (
+        <div className="card card-pad stack gap-8">
+          <p className="strong small" style={{ margin: 0 }}>{t("console.queue.preregCount", { n: prereg.length })}</p>
+          <ul className="stack gap-4" style={{ margin: 0, padding: 0, listStyle: "none" }}>
+            {prereg.slice(0, 12).map((c) => (
+              <li key={c.id} className="row between">
+                <span>{c.name}</span>
+                <span className="tag">{t("console.queue.prereg")}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p className="small strong" style={{ margin: 0 }} aria-live="polite">
         {t("console.queue.summary", {
           waiting: drive.candidates.filter((c) => columnOf(c) === "waiting").length,

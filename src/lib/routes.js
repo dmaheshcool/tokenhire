@@ -5,6 +5,7 @@ export const PATHS = {
   pricing: "/for-companies#pricing",
   drives: "/walk-ins",
   how: "/how-it-works",
+  questions: "/questions",
   about: "/how-it-works",
   guides: "/guides",
   blog: "/guides",
@@ -13,8 +14,8 @@ export const PATHS = {
   privacy: "/privacy",
   terms: "/terms",
   demo: "/watch",
-  login: "/login",
-  signup: "/signup",
+  login: "/company/start",
+  signup: "/company/start",
   status: "/status",
   developers: "/developers",
 };

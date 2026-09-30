@@ -6,9 +6,11 @@ import { tl } from "../i18n/strings.js";
 
 // A company's own reusable lists. Processes are what used to be "Hiring teams / Clients"
 // and keep the same ids, so drives that already carry a clientId stay linked.
-export const LIBRARY_KINDS = ["processes", "roles", "documents", "rounds"];
-const NAME = { processes: "name", roles: "title", documents: "label", rounds: "name" };
-const PREFIX = { processes: "pr", roles: "jr", documents: "doc", rounds: "rd" };
+export const LIBRARY_KINDS = ["processes", "roles", "documents", "rounds", "fields", "reasons"];
+export const LIBRARY_PAGE_KINDS = ["roles", "rounds", "documents", "fields", "reasons"];
+const NAME = { processes: "name", roles: "title", documents: "label", rounds: "name", fields: "label", reasons: "label" };
+const PREFIX = { processes: "pr", roles: "jr", documents: "doc", rounds: "rd", fields: "fld", reasons: "rsn" };
+export const ROLE_TAG_STARTER = ["Customer support", "Sales", "Operations", "Delivery", "Finance", "IT", "Admin"];
 
 export const FIELD_TYPES = ["text", "number", "yesno", "dropdown"];
 
@@ -21,7 +23,15 @@ export const nameOf = (kind, item) => item?.[NAME[kind]] || "";
 export function libraryOf(org, drives = []) {
   const lib = org?.library;
   if (lib?.v === 1) {
-    return { v: 1, processes: lib.processes || [], roles: lib.roles || [], documents: lib.documents || [], rounds: lib.rounds || [] };
+    return {
+      v: 1,
+      processes: lib.processes || [],
+      roles: lib.roles || [],
+      documents: lib.documents || [],
+      rounds: lib.rounds || [],
+      fields: lib.fields || [],
+      reasons: lib.reasons || [],
+    };
   }
   const titles = [];
   for (const d of drives) {
@@ -34,6 +44,8 @@ export function libraryOf(org, drives = []) {
     roles: titles.map((title, i) => ({ id: `jr_s${i + 1}`, title, processId: "", active: true })),
     documents: tl("library.starterDocs").map((label, i) => ({ id: `doc_s${i + 1}`, label, active: true })),
     rounds: DEFAULT_ROUNDS.map((r, i) => ({ id: `rd_s${i + 1}`, name: r.name, active: true })),
+    fields: [],
+    reasons: [],
   };
 }
 
@@ -68,6 +80,10 @@ export function renameItem(lib, kind, id, text) {
 
 export function setActive(lib, kind, id, active) {
   return { ...lib, [kind]: lib[kind].map((x) => (x.id === id ? { ...x, active } : x)) };
+}
+
+export function deleteItem(lib, kind, id) {
+  return { ...lib, [kind]: (lib[kind] || []).filter((x) => x.id !== id) };
 }
 
 /** Folds `fromId` into `intoId`. The merged-away item is removed from the library. */
@@ -114,6 +130,8 @@ export function usesOf(drives, orgId, kind, item) {
   if (kind === "processes") return mine.filter((d) => d.clientId === item.id).length;
   if (kind === "roles") return mine.filter((d) => driveRoles(d).some((r) => r.roleId === item.id || keyOf(r.title) === k)).length;
   if (kind === "documents") return mine.filter((d) => driveDocuments(d).some((x) => x.docId === item.id || keyOf(x.label) === k)).length;
+  if (kind === "fields") return mine.filter((d) => (d.fields || []).some((x) => x.fieldId === item.id || keyOf(x.label) === k)).length;
+  if (kind === "reasons") return mine.filter((d) => (d.candidates || []).some((c) => keyOf(c.reason) === k)).length;
   return mine.filter((d) => (d.rounds || []).some((r) => r.libId === item.id || keyOf(r.name) === k)).length;
 }
 

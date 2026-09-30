@@ -28,6 +28,7 @@ const FINAL = { wait: "In queue", calling: "Called", interviewing: "In a round",
 const CORE = [
   "Drive ID", "Drive name", "Date (IST)", "Venue", "Process", "Token", "Full name", "Phone", "Email",
   "Role applied", "Experience", "Current company", "Notice period", "Check-in time (IST)",
+  "Check-in method", "Location verified",
   "Resume file name", "Resume link", "Final status", "Final decision reason",
 ];
 
@@ -126,7 +127,9 @@ function candidateRecord(drive, cand, resumeLink) {
     "Experience": cand.expBand || cand.exp || "",
     "Current company": fieldBy(drive, cand, /current company|employer/i, cand.company || cand.currentCompany || ""),
     "Notice period": fieldBy(drive, cand, /notice/i, cand.notice || ""),
-    "Check-in time (IST)": cand.checkedIn === false ? "" : stamp(cand.arrivedAt || cand.at, true),
+    "Check-in time (IST)": cand.checkedIn === false ? "" : stamp(cand.arrivedAt || cand.checkin_at || cand.at, true),
+    "Check-in method": cand.checkin_method || "",
+    "Location verified": cand.location_verified === true ? "yes" : cand.location_verified === false ? "no" : "unknown",
     "Resume file name": file,
     "Resume link": resumeLink || "",
     "Final status": FINAL[cand.state] || cand.state || "",

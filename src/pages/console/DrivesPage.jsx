@@ -10,8 +10,8 @@ import { venueLine } from "../../lib/listing.js";
 import { datesLabel, driveStatus, hoursLabel } from "../../lib/status.js";
 import { t } from "../../i18n/strings.js";
 
-const FILTERS = ["all", "live", "scheduled", "draft", "wrapped"];
-const ORDER = { live: 0, scheduled: 1, draft: 2, wrapped: 3 };
+const FILTERS = ["all", "live", "checkin", "scheduled", "closing", "draft", "wrapped", "cancelled"];
+const ORDER = { live: 0, checkin: 1, closing: 2, scheduled: 3, draft: 4, wrapped: 5, cancelled: 6 };
 
 export default function DrivesPage() {
   const { mine, desk } = useConsole();
@@ -48,7 +48,7 @@ export default function DrivesPage() {
                 </div>
                 <div style={{ minWidth: 0 }}><QueueSummary drive={d} /></div>
                 <div className="row gap-6 drive-row-actions">
-                  {s === "live"
+                  {s === "live" || s === "checkin" || s === "closing"
                     ? <Btn size="sm" icon={Play} onClick={() => nav(`/app/drives/${d.id}`)}>{t("buttons.runDrive")}</Btn>
                     : <Btn size="sm" variant="secondary" onClick={() => nav(`/app/drives/${d.id}`)}>{t("console.today.viewQueue")}</Btn>}
                   {!desk && <Btn size="sm" variant="ghost" icon={Pencil} onClick={() => nav(`/app/drives/${d.id}/edit`)}>{t("console.drives.edit")}</Btn>}

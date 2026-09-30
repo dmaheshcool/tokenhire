@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { pc, PLANS, PLAN_ROWS, PUBLIC_PLANS, planPrice, listingHost, listingPlace, EXP_BANDS, citiesMatching, cityQueryHits, docsOf, driveEnded, driveOpenToday, driveWindow, todayStr } from "../../lib/helpers.js";
 import { readSession } from "../../lib/api.js";
 import { pathFor } from "../../lib/routes.js";
+import { t } from "../../i18n/strings.js";
 import { Pill, fmtDate, CitySelect, DropPanel, Field, Select } from "../../components/ui.jsx";
 
 export const PAGES = [["home", "Home"], ["services", "Products"], ["drives", "Walk-ins"], ["about", "About us"], ["contact", "Contact us"]];
@@ -86,8 +87,7 @@ export function SiteNav({ page, go, onLaunch }) {
             <button onClick={() => onLaunch("employer")} style={solidSm}>Open console</button>
           ) : (
             <>
-              <Link to="/login" style={{ ...navBtn, color: k.ink, textDecoration: "none" }}>Sign in</Link>
-              <Link to="/signup" style={{ ...solidSm, textDecoration: "none" }}>Register</Link>
+              <Link to="/company/start" style={{ ...navBtn, color: k.ink, textDecoration: "none" }}>{t("nav.companies")}</Link>
             </>
           )}
         </div>
@@ -102,8 +102,7 @@ export function SiteNav({ page, go, onLaunch }) {
               <button onClick={() => { setMenu(false); onLaunch("employer"); }} style={{ ...solid, justifyContent: "center", width: "100%" }}>Go to console</button>
             ) : (
               <>
-                <Link to="/signup" onClick={() => setMenu(false)} style={{ ...solid, justifyContent: "center", width: "100%", textDecoration: "none" }}>Register</Link>
-                <Link to="/login" onClick={() => setMenu(false)} style={{ ...outline, justifyContent: "center", width: "100%", textDecoration: "none" }}>Sign in</Link>
+                <Link to="/company/start" onClick={() => setMenu(false)} style={{ ...solid, justifyContent: "center", width: "100%", textDecoration: "none" }}>{t("nav.companies")}</Link>
               </>
             )}
           </div>
@@ -129,9 +128,9 @@ export function SiteFooter() {
             ))}
           </div>
           <div>
-            <div style={colTitle}>For companies</div>
-            <div><Link to="/login" style={colLink}>Sign in</Link></div>
-            <div><Link to="/walk-ins/list" style={colLink}>Create a drive</Link></div>
+            <div style={colTitle}>For employers</div>
+            <div><Link to="/company/start" style={colLink}>Sign in</Link></div>
+            <div><Link to="/register" style={colLink}>Start hiring</Link></div>
             <div><Link to="/for-companies#pilot" style={colLink}>Contact</Link></div>
           </div>
           <div>
@@ -314,11 +313,11 @@ export function Home({ go, onLaunch, drives = [] }) {
               <p style={{ fontSize: 15.5, lineHeight: 1.55, margin: "0 0 20px", color: k.ink2 }}>One list for the day. Your phone shows the token, how many people are ahead, and which room to walk to.</p>
               <button type="button" onClick={() => go("drives")} style={solid}>Browse walk-ins</button>
             </div>
-            <div style={{ ...box, padding: "28px 26px", background: k.band, color: "#fff", borderColor: k.band }}>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: "rgba(255,255,255,.7)", marginBottom: 10 }}>COMPANIES</div>
-              <h2 className="one-line" style={{ fontFamily: dsp, fontSize: "clamp(22px, 2.2vw, 28px)", fontWeight: 750, letterSpacing: -0.5, margin: "0 0 12px", lineHeight: 1.15 }}>Post the walk-in. Call from one list.</h2>
-              <p style={{ fontSize: 15.5, lineHeight: 1.55, margin: "0 0 20px", color: "rgba(255,255,255,.82)" }}>Create the account and the drive first. The scan on the lobby display turns on after the walk-in is paid.</p>
-              <button type="button" onClick={() => onLaunch("employer")} style={solid}>Create a drive</button>
+            <div style={{ ...box, padding: "40px", background: "#1E2A44", color: "#E8ECF5", borderColor: "rgba(255,255,255,0.08)", borderRadius: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: "#8FA8FF", marginBottom: 10 }}>FOR EMPLOYERS</div>
+              <h2 className="one-line" style={{ fontFamily: dsp, fontSize: "clamp(22px, 2.2vw, 28px)", fontWeight: 750, letterSpacing: -0.5, margin: "0 0 12px", lineHeight: 1.15, color: "#E8ECF5" }}>Run your walk-in without the chaos.</h2>
+              <p style={{ fontSize: 15.5, lineHeight: 1.55, margin: "0 0 20px", color: "#A9B4CC" }}>One queue for every recruiter and room. No duplicate calls, no lost resumes. A clean candidate file for your ATS at the end of the day.</p>
+              <button type="button" onClick={() => onLaunch("employer")} style={{ ...solid, background: "#3B5BDB", color: "#fff" }}>Start hiring</button>
             </div>
           </div>
         </div>
@@ -518,7 +517,12 @@ export function Services({ go, onLaunch }) {
 
 /* --- small illustrative mockups for the Services page, built from our own UI language --- */
 function ArtFrame({ children }) {
-  return <div style={{ background: "#fff", borderRadius: 16, padding: 22, width: "100%", maxWidth: 340, boxShadow: "0 10px 26px -18px rgba(11,16,32,.28)" }}>{children}</div>;
+  return (
+    <div style={{ background: "#fff", borderRadius: 16, padding: 22, width: "100%", maxWidth: 340, boxShadow: "0 10px 26px -18px rgba(11,16,32,.28)", position: "relative" }}>
+      <span style={{ position: "absolute", top: 10, right: 12, font: "700 10px/1 Inter, sans-serif", letterSpacing: ".08em", textTransform: "uppercase", color: k.mid }}>Sample</span>
+      {children}
+    </div>
+  );
 }
 function ArtCode() {
   return (
@@ -538,7 +542,7 @@ function ArtSlip() {
     <ArtFrame>
       <div style={{ background: k.ink, color: k.cream, padding: "6px 12px", fontFamily: typ, fontSize: 9.5, letterSpacing: 1.2, borderRadius: "6px 6px 0 0", margin: "-22px -22px 16px" }}>ADMISSION SLIP</div>
       <div style={{ marginBottom: 14 }}>
-        <TokenChip token="W-014" name="Priya Nair" size={48} />
+        <TokenChip token="W-014" name="Token #014" size={48} />
       </div>
       <div style={{ display: "flex", gap: 20, paddingTop: 10, borderTop: `1px solid ${k.line}` }}>
         <div><div style={{ fontSize: 10.5, color: k.mid }}>Position</div><div style={{ fontFamily: typ, fontWeight: 700, fontSize: 14 }}>4</div></div>
@@ -548,7 +552,7 @@ function ArtSlip() {
   );
 }
 function ArtQueue() {
-  const rows = [["W-011", "Lakshmi Prasad", "Being called", k.coral], ["W-012", "Sandeep Kumar", "Waiting", k.mid], ["W-013", "Meera Joshi", "Waiting", k.mid]];
+  const rows = [["W-011", "Token #011", "Being called", k.coral], ["W-012", "Token #012", "Waiting", k.mid], ["W-013", "Token #013", "Waiting", k.mid]];
   return (
     <ArtFrame>
       <div style={{ fontSize: 10.5, color: k.mid, fontWeight: 700, letterSpacing: .6, marginBottom: 10, textTransform: "uppercase" }}>Live queue</div>
@@ -565,7 +569,7 @@ function ArtMasked() {
   return (
     <ArtFrame>
       <div style={{ fontSize: 10.5, color: k.mid, fontWeight: 700, letterSpacing: .6, marginBottom: 10, textTransform: "uppercase" }}>Lobby display</div>
-      {[["W-014", "R···l"], ["W-015", "P···a"], ["W-016", "M···d"]].map(([tok, nm], i) => (
+      {[["W-014", "Token #014"], ["W-015", "Token #015"], ["W-016", "Token #016"]].map(([tok, nm], i) => (
         <div key={tok} style={{ display: "flex", alignItems: "center", padding: "9px 0", borderTop: i ? `1px solid ${k.line}` : "none" }}>
           <TokenChip token={tok} name={nm} size={28} muted />
         </div>
@@ -602,13 +606,13 @@ function ArtPace() {
 function ArtReport() {
   const rows = [
     ["Phone", "98480 11223"],
-    ["Email", "priya.nair@email.com"],
+    ["Email", "candidate@email.com"],
     ["Experience", "1–3 years"],
-    ["Resume", "priya_nair_cv.pdf"],
+    ["Resume", "token_014.pdf"],
   ];
   return (
     <ArtFrame>
-      <div style={{ marginBottom: 12 }}><TokenChip token="014" name="Priya Nair" size={36} /></div>
+      <div style={{ marginBottom: 12 }}><TokenChip token="014" name="Token #014" size={36} /></div>
       {rows.map(([l, v]) => (
         <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "7px 0", borderTop: `1px solid ${k.line}`, fontSize: 12.5 }}>
           <span style={{ color: k.mid }}>{l}</span>
@@ -848,7 +852,7 @@ export function PublicDrives({ drives, onLaunch }) {
               {liveCount} open today · {upcomingCount} coming up
             </h1>
             <div className="walkin-head-actions">
-              <Link to="/walk-ins/list" style={{ ...outline, textDecoration: "none" }}>Create a drive</Link>
+              <Link to="/register" style={{ ...outline, textDecoration: "none" }}>Start hiring</Link>
               <button onClick={() => onLaunch("candidate")} style={solid}>Check in</button>
             </div>
           </div>

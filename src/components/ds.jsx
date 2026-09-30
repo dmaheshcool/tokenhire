@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bookmark, BookmarkCheck, CalendarDays, CircleAlert, CircleCheck, Clock, IndianRupee, MapPin, SearchX } from "lucide-react";
-import { driveStatus, driveWhen, hoursLabel, datesLabel, shortDate } from "../lib/status.js";
-import { drivePath, expLabel, hasPay, isFresherFriendly, monogram, payText, queueStats, venueLine, waitLabel } from "../lib/listing.js";
+import { driveStatus, driveWhen, hoursLabel, datesLabel, shortDate, tokensOpen } from "../lib/status.js";
+import { checkinStatusLine, drivePath, expLabel, hasPay, monogram, payText, queueStats, venueLine, waitLabel } from "../lib/listing.js";
 import { onSavedChange, readSaved, removeSaved, toggleSaved } from "../lib/saved.js";
 import { t } from "../i18n/strings.js";
 import { formatNumber } from "../lib/time.js";
@@ -156,19 +156,24 @@ export function useSaved() {
 }
 
 export function joinPath(drive) {
-  return `/app/join?drive=${encodeURIComponent(drive.id)}`;
+  return `/check-in/${encodeURIComponent(drive.id)}`;
+}
+
+export function registerPath(drive) {
+  return `/app/join?drive=${encodeURIComponent(drive.id)}&register=1`;
 }
 
 export function QueueLine({ drive }) {
   const q = queueStats(drive);
-  if (driveStatus(drive) !== "live") return null;
+  if (!tokensOpen(drive)) return null;
   if (!q.waiting) return <span className="small muted row gap-8"><LiveDot /> {t("card.noQueue")}</span>;
+  const wait = waitLabel(q.estMin);
   return (
     <span className="row gap-10" style={{ gap: 10 }}>
       <LiveDot />
       <span className="stack" style={{ lineHeight: 1.3 }}>
         <b className="small" style={{ color: "var(--ink)" }}>{t("card.inQueue", { n: q.waiting })}</b>
-        <span className="tiny muted">{t("card.wait", { w: waitLabel(q.estMin) })}</span>
+        {wait ? <span className="tiny muted">{t("card.wait", { w: wait })}</span> : null}
       </span>
     </span>
   );
@@ -180,12 +185,35 @@ export function whenText(drive) {
   return t("time.when", { day: w.key === "today" || w.key === "tomorrow" ? w.label : datesLabel(drive), hours: hoursLabel(drive) });
 }
 
-export function DriveCard({ drive, saved, actions }) {
+export function DriveRow({ drive, saved }) {
+  const pay = payText(drive);
+  return (
+    <article className="drive-row">
+      <Monogram name={drive.company} color={drive.brand?.color} size={40} />
+      <div className="drive-row-main grow">
+        <div className="row gap-8" style={{ alignItems: "baseline", flexWrap: "wrap" }}>
+          <h3 className="drive-row-title clamp-1" style={{ margin: 0 }}>
+            <Link to={drivePath(drive)} className="cover-link">{drive.role}</Link>
+          </h3>
+          <span className="small muted">{drive.company}</span>
+        </div>
+        <p className="tiny muted" style={{ margin: "2px 0 0" }}>{venueLine(drive)} · {whenText(drive)}</p>
+        <div className="row gap-8 wrap-row" style={{ marginTop: 6 }}>
+          {hasPay(drive) ? <span className="small strong">{pay}</span> : <span className="tiny muted">{pay}</span>}
+          <span className="tag">{expLabel(drive)}</span>
+          <span className="tiny muted">{checkinStatusLine(drive)}</span>
+        </div>
+      </div>
+      <Btn size="sm" variant="secondary" to={drivePath(drive)} className="drive-row-cta">{t("card.viewDetails")}</Btn>
+    </article>
+  );
+}
+
+export function DriveCard({ drive, saved }) {
   const nav = useNavigate();
-  const live = driveStatus(drive) === "live";
+  const live = tokensOpen(drive);
   const ended = driveStatus(drive) === "wrapped";
   const pay = payText(drive);
-  const isSaved = saved?.has(drive.id);
   return (
     <article className="card card-lift wcard" style={{ position: "relative" }}>
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
@@ -199,9 +227,9 @@ export function DriveCard({ drive, saved, actions }) {
       </div>
       <div className="wrap-row gap-6">
         <WhenChip drive={drive} />
-        {isFresherFriendly(drive) ? <span className="tag">{t("card.fresher")}</span> : <span className="tag">{expLabel(drive)}</span>}
+        <span className="tag">{expLabel(drive)}</span>
         {drive.roleType && <span className="tag hide-mobile">{drive.roleType}</span>}
-        {drive.board && <span className="tag" title={t("card.demoHint")}>{t("card.demo")}</span>}
+        {!import.meta.env.PROD && drive.board && <span className="tag" title={t("card.demoHint")}>{t("card.demo")}</span>}
       </div>
       <div className="wcard-meta">
         <MapPin size={16} strokeWidth={STROKE} aria-hidden="true" /><span>{venueLine(drive)}</span>
@@ -213,15 +241,8 @@ export function DriveCard({ drive, saved, actions }) {
         <div className="grow">
           {live ? <QueueLine drive={drive} /> : <span className="small muted row gap-8"><Clock size={15} strokeWidth={STROKE} aria-hidden="true" />{ended ? t("card.ended") : t("card.opensLater", { when: shortDate(drive.date) })}</span>}
         </div>
-        {live ? (
-          <Btn size="sm" onClick={() => nav(joinPath(drive))} style={{ position: "relative", zIndex: 1 }}>{t("buttons.getToken")}</Btn>
-        ) : !ended && saved ? (
-          <Btn size="sm" variant="secondary" icon={isSaved ? BookmarkCheck : Bookmark} aria-pressed={isSaved} onClick={() => saved.toggle(drive.id)} style={{ position: "relative", zIndex: 1 }}>
-            {isSaved ? t("buttons.saved") : t("buttons.save")}
-          </Btn>
-        ) : null}
+        <Btn size="sm" onClick={() => nav(drivePath(drive))} style={{ position: "relative", zIndex: 1 }}>{t("card.viewDetails")}</Btn>
       </div>
-      {actions && <div className="wcard-actions">{actions}</div>}
     </article>
   );
 }

@@ -4,6 +4,7 @@ import { bdy, dsp, k, box, input, solid, outline, textLink } from "../theme.js";
 import { CitySelect, DocPicker, Field } from "../components/ui.jsx";
 import { useStore } from "../context/Store.jsx";
 import { api } from "../lib/api.js";
+import { t } from "../i18n/strings.js";
 import { EXP_BANDS, isWorkEmail, todayStr } from "../lib/helpers.js";
 
 const empty = {
@@ -132,8 +133,8 @@ export default function ListWalkInPage() {
           <div style={{ ...box, padding: 22 }}>
             <div style={{ fontFamily: dsp, fontSize: 20, fontWeight: 700, marginBottom: 14 }}>Sign in to list a walk-in.</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link to="/login" state={{ from: "/walk-ins/list" }} style={{ ...solid, textDecoration: "none" }}>Sign in</Link>
-              <Link to="/signup" style={{ ...outline, textDecoration: "none" }}>Create a company account</Link>
+              <Link to="/company/start" state={{ from: "/walk-ins/list" }} style={{ ...solid, textDecoration: "none" }}>{t("nav.employerSignIn")}</Link>
+              <Link to="/register" style={{ ...outline, textDecoration: "none" }}>{t("nav.startHiring")}</Link>
             </div>
           </div>
         ) : !workEmail ? (

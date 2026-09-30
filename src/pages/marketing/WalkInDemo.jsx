@@ -6,11 +6,11 @@ import { TokenChip, TokenMark, TokenTile, Wordmark } from "../../components/bran
 const STORY_SCENES = [
   { id: "title", ms: 2800, kicker: "TokenHire", line: "A walk-in day with digital candidate files." },
   { id: "chaos", ms: 3200, kicker: "Without TokenHire", line: "Paper lists. Photocopies. Nobody knows who is next." },
-  { id: "gate", ms: 3800, kicker: "Check-in", line: "She scans the lobby display and joins the queue." },
+  { id: "gate", ms: 3800, kicker: "Check-in", line: "Scan the lobby display and join the queue." },
   { id: "prove", ms: 3800, kicker: "At the door", line: "A forwarded photo of the code expires in 45 seconds." },
-  { id: "checkin", ms: 4200, kicker: "Her file", line: "Token 014. Resume and details are already on file." },
+  { id: "checkin", ms: 4200, kicker: "The file", line: "Token #014. Resume and details are already on file." },
   { id: "nudge", ms: 3600, kicker: "Token page", line: "Keep this page open. Sound and vibration when it is your turn." },
-  { id: "floor", ms: 4000, kicker: "The desk", line: "The recruiter calls her to Room 2." },
+  { id: "floor", ms: 4000, kicker: "The desk", line: "The recruiter calls Token #014 to Room 2." },
   { id: "end", ms: 6200, kicker: "End of day", line: "The full file is ready to send to your ATS." },
 ];
 
@@ -189,10 +189,16 @@ function StorySet({ children, tone = "set" }) {
     <div className="storystage" style={{
       width: "min(1120px, 100%)", minHeight: 460, background: bg, borderRadius: 26,
       display: "flex", alignItems: "center", justifyContent: "center", gap: 40, padding: "40px 36px",
-      boxSizing: "border-box",
-      // Lifts the lit panel off the dark backdrop.
+      boxSizing: "border-box", position: "relative",
       boxShadow: "0 40px 90px -40px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.05)",
-    }}>{children}</div>
+    }}>
+      <span style={{
+        position: "absolute", top: 14, left: 18, font: "700 11px/1 Inter, sans-serif",
+        letterSpacing: ".08em", textTransform: "uppercase", color: k.mid,
+        background: "rgba(11,16,32,.06)", padding: "6px 8px", borderRadius: 8,
+      }}>Sample</span>
+      {children}
+    </div>
   );
 }
 function DemoQr({ seed = "GATE", size = 176 }) {
@@ -294,11 +300,11 @@ function StoryChaos() {
         <div style={{ fontFamily: typ, fontSize: 10, letterSpacing: 1.2, color: k.gold, fontWeight: 700, marginBottom: 8 }}>CLIPBOARD · GATE 1</div>
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Vistaar — 26 Aug</div>
         {[
-          ["Rahul Menon", "Room 1??"],
-          ["Sneha Iyer", "waiting"],
-          ["Priya Nair", "which list"],
-          ["Arjun Reddy", "SKIPPED"],
-          ["Fatima S.", "called twice"],
+          ["Token #041", "Room 1??"],
+          ["Token #042", "waiting"],
+          ["Token #014", "which list"],
+          ["Token #044", "SKIPPED"],
+          ["Token #045", "called twice"],
         ].map(([n, st], i) => (
           <div key={n} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 0", borderTop: i ? "1px dashed rgba(154,107,0,.28)" : "none", fontSize: 14 }}>
             <span style={{ textDecoration: st === "SKIPPED" ? "line-through" : "none", color: st === "SKIPPED" ? k.red : k.ink }}>{i + 1}. {n}</span>
@@ -309,7 +315,7 @@ function StoryChaos() {
       <div style={{ marginLeft: -56, zIndex: 2 }}>
         <StoryPaper rot={4.2} width={250} z={2}>
           <div style={{ fontFamily: typ, fontSize: 10, letterSpacing: 1.2, color: k.gold, fontWeight: 700, marginBottom: 8 }}>FRONT DESK</div>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 10, letterSpacing: -0.4 }}>“Priya? Which list?”</div>
+          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 10, letterSpacing: -0.4 }}>“Token 014? Which list?”</div>
           <div style={{ fontSize: 14, color: k.ink2, lineHeight: 1.45, marginBottom: 16 }}>Notebook. Three photocopies. A paper list named Walk-in TODAY.</div>
           <div style={{ background: k.redDim, color: k.red, borderRadius: 8, padding: "12px 14px", fontSize: 13.5, fontWeight: 700 }}>40 at the gate · nobody next</div>
         </StoryPaper>
@@ -360,7 +366,7 @@ function StoryProve({ fill = 0 }) {
         </div>
         <div style={{ padding: "16px 20px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: k.mid }}>
           <span>Now calling</span>
-          <TokenChip token="W-013" name="M···a" size={32} muted />
+          <TokenChip token="W-013" name="Token #013" size={32} muted />
         </div>
       </StoryTv>
       <StoryPhone glow>
@@ -382,9 +388,9 @@ function StoryProve({ fill = 0 }) {
 function StoryCheckin() {
   const rows = [
     ["Phone", "98480 11223"],
-    ["Email", "priya.nair@email.com"],
+    ["Email", "candidate@email.com"],
     ["Experience", "1–3 years"],
-    ["Resume", "priya_nair_cv.pdf"],
+    ["Resume", "token_014.pdf"],
   ];
   return (
     <StorySet>
@@ -396,8 +402,8 @@ function StoryCheckin() {
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
             <TokenTile token="014" size={56} pulse />
             <div>
-              <div style={{ fontWeight: 700, fontSize: 20, lineHeight: 1.15, letterSpacing: -0.4 }}>Priya Nair</div>
-              <div style={{ fontSize: 13, color: k.mid, marginTop: 4 }}>Token 014 · Voice Process Associate</div>
+              <div style={{ fontWeight: 700, fontSize: 20, lineHeight: 1.15, letterSpacing: -0.4 }}>Token #014</div>
+              <div style={{ fontSize: 13, color: k.mid, marginTop: 4 }}>Voice Process Associate</div>
             </div>
           </div>
           {rows.map(([l, v]) => (
@@ -445,13 +451,13 @@ function StoryNudge() {
 function StoryFloor() {
   return (
     <StorySet tone="night">
-      <StoryDesk label="Recruiter · Arun · Room 2">
+      <StoryDesk label="Recruiter · Room 2">
         <div style={{ padding: "18px 18px 20px" }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: k.mid, letterSpacing: .7, textTransform: "uppercase", marginBottom: 12 }}>Live queue</div>
           {[
-            ["W-013", "Meera Joshi", "In interview", false],
-            ["W-014", "Priya Nair", "Call · Room 2", true],
-            ["W-015", "Sandeep Kumar", "Waiting", false],
+            ["W-013", "Token #013", "In interview", false],
+            ["W-014", "Token #014", "Call · Room 2", true],
+            ["W-015", "Token #015", "Waiting", false],
           ].map(([tok, name, st, on]) => (
             <div key={tok} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "14px 12px", borderRadius: 12, background: on ? k.coralDim : "transparent", marginBottom: 4 }}>
               <TokenChip token={tok} name={name} size={44} pulse={on} />
@@ -465,10 +471,10 @@ function StoryFloor() {
           <span>NOW CALLING</span><span style={{ color: k.coral, fontWeight: 700 }}>LIVE</span>
         </div>
         <div style={{ padding: "32px 20px", background: k.band, display: "flex", justifyContent: "center" }}>
-          <TokenChip token="W-014" name="P···a" size={64} pulse />
+          <TokenChip token="W-014" name="Token #014" size={64} pulse />
         </div>
         <div style={{ padding: "10px 18px", background: k.cream2, fontFamily: typ, fontSize: 11, letterSpacing: 1.3, color: k.mid }}>UP NEXT</div>
-        {[["W-015", "S···r"], ["W-016", "A···a"]].map(([tok, nm]) => (
+        {[["W-015", "Token #015"], ["W-016", "Token #016"]].map(([tok, nm]) => (
           <div key={tok} style={{ padding: "14px 18px", borderTop: `1px solid ${k.line}` }}>
             <TokenChip token={tok} name={nm} size={36} muted />
           </div>
@@ -481,9 +487,9 @@ function StoryFloor() {
 function StoryOutcomes({ onLaunch, replay }) {
   const rows = [
     ["Phone", "98480 11223"],
-    ["Email", "priya.nair@email.com"],
+    ["Email", "candidate@email.com"],
     ["Experience", "1–3 years"],
-    ["Resume", "priya_nair_cv.pdf"],
+    ["Resume", "token_014.pdf"],
     ["HR screening", "Passed"],
     ["Operations", "Passed"],
   ];
@@ -495,7 +501,7 @@ function StoryOutcomes({ onLaunch, replay }) {
           boxShadow: "0 24px 50px -24px rgba(11,16,32,.28)",
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
-            <TokenChip token="014" name="Priya Nair" size={48} />
+            <TokenChip token="014" name="Token #014" size={48} />
             <div style={{ background: k.coralDim, color: k.coral, fontSize: 13, fontWeight: 700, padding: "6px 10px", borderRadius: 8 }}>Selected</div>
           </div>
           {rows.map(([l, v]) => (

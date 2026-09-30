@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Bell, BellRing, CalendarPlus, Check, Copy, DoorOpen, MapPin, TicketX } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
 import { Btn, EmptyState, LiveDot, QueueBar, STROKE, TokenTicket, useToast } from "../components/ds.jsx";
-import { Logo } from "../components/SiteChrome.jsx";
+import { Logo, AudienceStrip } from "../components/SiteChrome.jsx";
 import { useQueueAlert } from "../hooks/useQueueAlert.js";
 import { useMeta } from "../hooks/useMeta.js";
 import { queueAhead, roomName, servingNow, tokenHref } from "../lib/helpers.js";
@@ -61,7 +61,8 @@ function Shell({ children }) {
         <Link to="/" aria-label={t("nav.home")} style={{ textDecoration: "none" }}><Logo size={26} /></Link>
         <span className="tiny muted row gap-8"><LiveDot /> {t("token.refresh")}</span>
       </header>
-      <main className="wrap" style={{ maxWidth: 520, padding: "0 20px 48px" }}>{children}</main>
+      <main className="wrap" style={{ maxWidth: 520, padding: "0 20px 24px" }}>{children}</main>
+      <AudienceStrip kind="candidate" />
     </div>
   );
 }
@@ -69,14 +70,14 @@ function Shell({ children }) {
 /** Full-screen, high-contrast "go now" panel. */
 function CalledScreen({ drive, cand, room }) {
   return (
-    <div role="alert" style={{ position: "fixed", inset: 0, zIndex: 50, background: "var(--lime)", color: "#0B1020", display: "grid", placeItems: "center", padding: 24, textAlign: "center" }}>
+    <div role="alert" style={{ position: "fixed", inset: 0, zIndex: 50, background: "var(--slate)", color: "var(--slate-text)", display: "grid", placeItems: "center", padding: 24, textAlign: "center" }}>
       <div className="stack gap-16" style={{ maxWidth: 440 }}>
-        <p className="h-display" style={{ margin: 0, color: "#0B1020" }}>{t("token.called.title")}</p>
-        <p className="ticket-num" style={{ fontSize: 96, margin: 0, color: "#0B1020" }}>{t("token.number", { token: digits(cand.token) })}</p>
-        <p className="h-3" style={{ margin: 0, color: "#0B1020" }}>
+        <p className="h-display" style={{ margin: 0, color: "var(--slate-text)" }}>{t("token.called.title")}</p>
+        <p className="ticket-num" style={{ fontSize: 96, margin: 0, color: "var(--slate-text)" }}>{t("token.number", { token: digits(cand.token) })}</p>
+        <p className="h-3" style={{ margin: 0, color: "var(--slate-text)" }}>
           {room ? t("token.called.body", { room, token: digits(cand.token) }) : t("token.called.bodyNoRoom", { token: digits(cand.token) })}
         </p>
-        <p className="small" style={{ margin: 0, color: "#0B1020", opacity: 0.75 }}>{drive.company} · {drive.role}</p>
+        <p className="small" style={{ margin: 0, color: "var(--slate-muted)" }}>{drive.company} · {drive.role}</p>
       </div>
     </div>
   );
@@ -191,7 +192,8 @@ function Ticket({ drive, cand, setDrives }) {
         </div>
       )}
 
-      {status === "wrapped" && !decision && <p className="small muted center">{t("token.wrapped")}</p>}
+      {status === "wrapped" && cand.state === "not_seen" && <p className="small muted center">{t("token.notSeen", { company: drive.company })}</p>}
+      {status === "wrapped" && cand.state !== "not_seen" && !decision && <p className="small muted center">{t("token.wrapped")}</p>}
       <div className="row between small" style={{ marginTop: 8 }}>
         <Link to={drivePath(drive)} className="link">{t("token.details")}</Link>
         <Link to="/walk-ins" className="link row gap-6"><DoorOpen size={16} strokeWidth={STROKE} aria-hidden="true" />{t("token.others")}</Link>

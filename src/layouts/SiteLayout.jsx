@@ -1,16 +1,18 @@
 import { useEffect } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { pathFor } from "../lib/routes.js";
-import { SiteFooter, SiteNav } from "../components/SiteChrome.jsx";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { ScanLine } from "lucide-react";
+import { AudienceStrip, SiteFooter, SiteNav, companyPublicPath } from "../components/SiteChrome.jsx";
+import { STROKE } from "../components/ds.jsx";
+import { t } from "../i18n/strings.js";
 import { useLaunch } from "./useLaunch.js";
-
-// Older pages still paint with fixed light colours, so they opt out of dark mode.
-const LIGHT_ONLY = ["/privacy", "/terms", "/legal", "/walk-ins/list", "/walk-ins/confirm"];
+import { useTheme } from "../context/Theme.jsx";
 
 export function SiteLayout() {
   const loc = useLocation();
   const nav = useNavigate();
   const onLaunch = useLaunch();
+  const { theme } = useTheme();
   const go = (id) => { nav(pathFor(id)); };
 
   useEffect(() => {
@@ -21,14 +23,22 @@ export function SiteLayout() {
     window.scrollTo(0, 0);
   }, [loc.pathname, loc.hash]);
 
-  const light = LIGHT_ONLY.some((p) => loc.pathname === p);
+  const fab = loc.pathname === "/" || loc.pathname.startsWith("/walk-ins");
+  const home = loc.pathname === "/";
   return (
-    <div className="ds" data-theme={light ? "light" : undefined}>
+    <div className={`ds${fab ? " has-scan-fab" : ""}`} data-theme={theme}>
       <a href="#main" className="btn btn-dark" style={{ position: "absolute", left: -9999, top: 8 }} onFocus={(e) => { e.currentTarget.style.left = "8px"; }} onBlur={(e) => { e.currentTarget.style.left = "-9999px"; }}>Skip to content</a>
       <SiteNav />
       <main id="main">
         <Outlet context={{ go, onLaunch }} />
       </main>
+      {fab && (
+        <Link to="/check-in" className="scan-fab hide-desktop">
+          <ScanLine size={18} strokeWidth={STROKE} aria-hidden="true" />
+          {t("nav.scanCheckIn")}
+        </Link>
+      )}
+      {!home && <AudienceStrip kind={companyPublicPath(loc.pathname) ? "company" : "candidate"} />}
       <SiteFooter />
     </div>
   );

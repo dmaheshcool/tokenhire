@@ -1,7 +1,7 @@
-import { driveSchedule, driveStatus, driveWhen, fromMinutes, hoursLabel, datesLabel } from "./status.js";
+import { driveSchedule, driveStatus, driveWhen, fromMinutes, hoursLabel, datesLabel, tokensOpen, windowUtc } from "./status.js";
 import { tat } from "./helpers.js";
 import { t } from "../i18n/strings.js";
-import { addDays, formatNumber } from "./time.js";
+import { addDays, formatIST, formatNumber } from "./time.js";
 
 export const HERO_CITIES = ["Hyderabad", "Bengaluru", "Pune", "Mumbai", "Chennai", "Delhi"];
 
@@ -17,6 +17,7 @@ export function cityFromSlug(slug, drives) {
 
 export const drivePath = (drive) => `/walk-ins/${encodeURIComponent(drive.id)}`;
 export const cityPath = (city) => `/walk-ins/${citySlug(city)}`;
+export const cityFilterPath = (city) => `/walk-ins?city=${encodeURIComponent(city)}`;
 
 const rupees = (n) => formatNumber(Math.round(n));
 
@@ -62,11 +63,11 @@ export function isFresherFriendly(drive) {
 }
 
 export function expLabel(drive) {
+  if (drive?.fresherWelcome) return t("card.exp.fresher");
   if (drive?.expMin == null && drive?.expMax == null && !(drive?.expNeeded || []).length) return t("card.exp.any");
   const [lo, hi] = expRange(drive);
-  if (hi >= 15) return lo ? t("card.exp.plus", { lo }) : t("card.exp.any");
   if (!lo && !hi) return t("card.exp.fresher");
-  if (!lo) return t("card.exp.upTo", { hi });
+  if (hi >= 15) return lo ? t("card.exp.plus", { lo }) : t("card.exp.any");
   if (lo === hi) return t(lo === 1 ? "card.exp.one" : "card.exp.many", { n: lo });
   return t("card.exp.range", { lo, hi });
 }
@@ -118,16 +119,29 @@ function roomsForFirstRound(drive) {
 export function queueStats(drive) {
   const cands = drive?.candidates || [];
   const waiting = cands.filter((c) => c.state === "wait").length;
-  const inRound = cands.filter((c) => c.state === "calling" || c.state === "interviewing").length;
-  const seen = cands.filter((c) => ["selected", "rejected", "onhold"].includes(c.state)).length;
+  const calling = cands.filter((c) => c.state === "calling").length;
+  const interviewing = cands.filter((c) => c.state === "interviewing").length;
+  const inRound = calling + interviewing;
+  const inside = inRound;
+  const shortlisted = cands.filter((c) => c.state === "selected").length;
+  const onhold = cands.filter((c) => c.state === "onhold").length;
+  const rejected = cands.filter((c) => c.state === "rejected").length;
+  const undecided = cands.filter((c) => c.state === "undecided").length;
+  const seen = shortlisted + onhold + rejected + undecided;
   const noShow = cands.filter((c) => c.state === "absent").length;
+  const notSeen = cands.filter((c) => c.state === "not_seen").length;
+  const carried = cands.filter((c) => c.state === "carried").length;
+  const registered = cands.filter((c) => c.state !== "cancelled" && c.state !== "prereg").length;
   const minutesEach = tat(drive || {});
   const estMin = Math.round((waiting * minutesEach) / roomsForFirstRound(drive));
-  return { waiting, inRound, seen, noShow, total: cands.length, estMin, minutesEach };
+  return {
+    waiting, inRound, inside, seen, noShow, notSeen, carried, shortlisted, onhold, rejected, undecided,
+    registered, total: cands.length, estMin, minutesEach,
+  };
 }
 
 export function waitLabel(min) {
-  if (min <= 0) return "no wait";
+  if (min <= 0) return "";
   if (min < 10) return "under 10 min";
   if (min < 55) return `${Math.round(min / 5) * 5} min`;
   const h = Math.round((min / 60) * 2) / 2;
@@ -171,9 +185,9 @@ export function publicDrives(drives) {
 export function boardStats(drives, now = Date.now()) {
   const pub = publicDrives(drives);
   const today = pub.filter((d) => driveWhen(d, now).key === "today");
-  const live = pub.filter((d) => driveStatus(d, now) === "live");
+  const live = pub.filter((d) => tokensOpen(d, now));
   const inQueue = live.reduce((s, d) => s + queueStats(d).waiting, 0);
-  const cities = new Set(pub.filter((d) => driveStatus(d, now) !== "wrapped").map((d) => d.city).filter(Boolean));
+  const cities = new Set(pub.filter((d) => !["wrapped", "cancelled", "closing"].includes(driveStatus(d, now))).map((d) => d.city).filter(Boolean));
   return { today: today.length, live: live.length, inQueue, cities: cities.size };
 }
 
@@ -185,7 +199,8 @@ export function matchesQuery(d, q) {
 
 /** Drives worth showing to someone searching: public and not over yet. */
 export function searchableDrives(drives, now = Date.now()) {
-  return sortForBoard(publicDrives(drives).filter((d) => driveStatus(d, now) !== "wrapped"), now);
+  const hide = new Set(["wrapped", "cancelled", "closing", "draft"]);
+  return sortForBoard(publicDrives(drives).filter((d) => !hide.has(driveStatus(d, now))), now);
 }
 
 export function searchDrives(drives, q, now = Date.now()) {
@@ -212,11 +227,37 @@ export function searchSuggestions(drives, q, now = Date.now(), perGroup = 6) {
 }
 
 export function sortForBoard(list, now = Date.now()) {
-  const rank = { live: 0, scheduled: 1, wrapped: 2, draft: 3 };
+  const rank = { live: 0, checkin: 1, scheduled: 2, closing: 3, wrapped: 4, cancelled: 5, draft: 6 };
   return [...list].sort((a, b) => {
     const sa = driveStatus(a, now), sb = driveStatus(b, now);
     if (rank[sa] !== rank[sb]) return rank[sa] - rank[sb];
     if (sa === "wrapped") return String(b.date).localeCompare(String(a.date));
     return String(a.date).localeCompare(String(b.date)) || String(a.startTime || "").localeCompare(String(b.startTime || ""));
   });
+}
+
+export function checkinStatusLine(drive, now = Date.now()) {
+  const st = driveStatus(drive, now);
+  if (st === "wrapped" || st === "cancelled") return t("card.statusEnded");
+  if (st === "closing") {
+    const { endsAt } = windowUtc(drive);
+    if (!Number.isNaN(endsAt) && endsAt > now) {
+      const wait = waitLabel((endsAt - now) / 60000);
+      return wait ? t("card.endsIn", { w: wait }) : t("card.statusEnded");
+    }
+    return t("card.statusEnded");
+  }
+  if (tokensOpen(drive, now)) {
+    const q = queueStats(drive);
+    const bits = [t("card.checkinOpenNow")];
+    if (q.waiting) {
+      bits.push(t("card.inQueue", { n: q.waiting }));
+      const wait = waitLabel(q.estMin);
+      if (wait) bits.push(t("card.wait", { w: wait }));
+    }
+    return bits.join(" · ");
+  }
+  const { doorsAt } = windowUtc(drive);
+  const time = formatIST(doorsAt, { time: true });
+  return t("card.checkinOpens", { time });
 }

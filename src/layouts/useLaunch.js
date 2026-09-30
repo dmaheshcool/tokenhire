@@ -4,7 +4,7 @@ import { readSession } from "../lib/api.js";
 export function useLaunch() {
   const nav = useNavigate();
   return (target) => {
-    if (target === "employer") nav(readSession()?.orgId ? "/app/today" : "/signup");
+    if (target === "employer") nav(readSession()?.orgId ? "/app/today" : "/company/start");
     else if (target === "candidate") nav("/app/join");
     else nav("/app");
   };

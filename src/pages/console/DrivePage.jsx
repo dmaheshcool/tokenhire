@@ -1,19 +1,24 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, Copy, CopyPlus, ExternalLink, MonitorPlay, Pencil, Play, Send, Square } from "lucide-react";
+import { ChevronLeft, Copy, CopyPlus, Download, ExternalLink, MonitorPlay, Pencil, Play, Send, Square } from "lucide-react";
 import { Btn, StatusChip, STROKE, useToast } from "../../components/ds.jsx";
 import { useConsole } from "../../layouts/ConsoleLayout.jsx";
 import { useDriveActions } from "../../hooks/useDriveActions.js";
 import { useMeta } from "../../hooks/useMeta.js";
+import { useLibrary } from "../../hooks/useLibrary.js";
 import QueueBoard from "./QueueBoard.jsx";
 import ReportTab from "./ReportTab.jsx";
+import WrapUpWizard from "./WrapUpWizard.jsx";
 import { QueueSummary } from "./TodayPage.jsx";
 import { Queue, RoomsTab, RoundsTab } from "../app/EmployerPage.jsx";
 import { code, driveSlotsLeft, newGate, newHost, tat } from "../../lib/helpers.js";
 import { duplicateDrive, driveRoles } from "../../lib/library.js";
 import { drivePath, venueLine } from "../../lib/listing.js";
-import { datesLabel, driveStatus, hoursLabel, istDate, startNowPatch, wrapUpPatch } from "../../lib/status.js";
+import { datesLabel, driveStatus, hoursLabel, istDate, startNowPatch, canWrapDrive } from "../../lib/status.js";
+import { reminderDue, reopenDrive, AUTO_WRAP_MS } from "../../lib/wrap.js";
+import { formatIST } from "../../lib/time.js";
 import { t } from "../../i18n/strings.js";
+import { downloadPreregCsv, preregCount } from "../../lib/prereg.js";
 
 const TABS = ["queue", "rooms", "candidates", "report"];
 
@@ -38,10 +43,11 @@ export default function DrivePage() {
   const [params, setParams] = useSearchParams();
   const toast = useToast();
   const nav = useNavigate();
-  const { org, desk, drives, setDrives, setOrgs } = useConsole();
+  const { org, desk, drives, setDrives, setOrgs, staffEmail } = useConsole();
+  const { lib } = useLibrary();
   const drive = drives.find((d) => d.id === id && d.orgId === org.id);
   const act = useDriveActions(drive, setDrives);
-  const [confirmWrap, setConfirmWrap] = useState(false);
+  const [wizard, setWizard] = useState("");
   useMeta({ title: drive ? drive.role : t("console.nav.drives") });
   if (!drive) return <Navigate to="/app/drives" replace />;
 
@@ -67,8 +73,22 @@ export default function DrivePage() {
     nav(`/app/drives/${nid}/edit`);
   };
 
-  const startNow = () => { act.patch({ ...startNowPatch(drive), draft: false }); toast(t("console.queue.isLive")); };
-  const wrapUp = () => { act.patch(wrapUpPatch()); setConfirmWrap(false); toast(t("console.queue.wrapped")); };
+  const startNow = () => {
+    act.patch({ ...startNowPatch(drive), draft: false });
+    toast(t("console.queue.isLive"));
+    if (preregCount(drive) > 0) downloadPreregCsv(drive);
+  };
+  const applyDrive = (next) => { setDrives((p) => p.map((d) => (d.id === next.id ? next : d))); };
+  const reopen = () => {
+    const r = reopenDrive(drive, { by: staffEmail });
+    if (r.error) return;
+    applyDrive(r.drive);
+    toast(t("console.queue.reopen"));
+  };
+  const ended = status === "wrapped" || status === "cancelled";
+  const showEndBanner = status === "closing" && !desk;
+  const showRemind = reminderDue(drive) && !desk;
+  const canReopen = status === "wrapped" && drive.wrappedAt && Date.now() - drive.wrappedAt < AUTO_WRAP_MS;
 
   return (
     <>
@@ -80,9 +100,13 @@ export default function DrivePage() {
           <div className="row gap-8" style={{ flexWrap: "wrap" }}>
             <StatusChip drive={drive} />
             <span className="small muted">{datesLabel(drive)} · {hoursLabel(drive)}</span>
+            {drive.wrappedBy && status === "wrapped" && (
+              <span className="tiny muted">{t("console.queue.wrappedBy", { name: drive.wrappedBy, time: formatIST(drive.wrappedAt, { time: true }).replace(" IST", "") })}</span>
+            )}
           </div>
           <h1 className="h-2">{drive.role}</h1>
           <p className="small muted" style={{ margin: 0 }}>{venueLine(drive) || drive.venue}{drive.clientName ? ` · ${drive.clientName}` : ""}</p>
+          {preregCount(drive) > 0 && <p className="small" style={{ margin: 0 }}>{t("console.queue.preregCount", { n: preregCount(drive) })}</p>}
           {roles.length > 1 && (
             <div className="wrap-row gap-8" aria-label={t("console.drives.roles")}>
               {roles.map((r) => (
@@ -97,16 +121,32 @@ export default function DrivePage() {
         <div className="row gap-8" style={{ flexWrap: "wrap" }}>
           {!desk && status === "draft" && <Btn icon={Send} onClick={() => { act.patch({ draft: false }); toast(t("console.queue.published")); }}>{t("console.queue.publish")}</Btn>}
           {!desk && status === "scheduled" && <Btn icon={Play} onClick={startNow}>{t("console.queue.startNow")}</Btn>}
-          {!desk && status === "live" && (confirmWrap
-            ? <><Btn variant="danger" icon={Square} onClick={wrapUp}>{t("console.queue.wrapNow")}</Btn><Btn variant="ghost" onClick={() => setConfirmWrap(false)}>{t("console.queue.keepRunning")}</Btn></>
-            : <Btn variant="secondary" icon={Square} onClick={() => setConfirmWrap(true)}>{t("console.queue.wrapUp")}</Btn>)}
+          {!desk && status === "scheduled" && <Btn variant="ghost" onClick={() => setWizard("cancel")}>{t("console.queue.cancelDrive")}</Btn>}
+          {!desk && canWrapDrive(drive) && <Btn variant="secondary" icon={Square} onClick={() => setWizard("wrap")}>{t("console.queue.wrapDrive")}</Btn>}
+          {!desk && canReopen && <Btn variant="ghost" onClick={reopen}>{t("console.queue.reopen")}</Btn>}
+          {canReopen && <span className="tiny muted">{t("console.queue.reopenHelp")}</span>}
           <Btn variant="secondary" icon={MonitorPlay} to={`/tv/${drive.id}`} target="_blank" rel="noopener">{t("console.queue.lobby")}</Btn>
           {!desk && <DeskPin drive={drive} />}
+          {!desk && preregCount(drive) > 0 && <Btn variant="ghost" icon={Download} onClick={() => downloadPreregCsv(drive)}>{t("console.queue.exportPrereg")}</Btn>}
           {!desk && <Btn variant="ghost" icon={Pencil} to={`/app/drives/${drive.id}/edit`}>{t("console.drives.edit")}</Btn>}
           {!desk && !drive.listingOnly && <Btn variant="ghost" icon={CopyPlus} onClick={duplicate} disabled={!canCopy} title={canCopy ? undefined : t("console.form.noSlots")}>{t("console.drives.duplicate")}</Btn>}
           {!desk && drive.visibility !== "private" && status !== "draft" && <Btn variant="ghost" icon={ExternalLink} to={drivePath(drive)} className="hide-mobile">{t("console.queue.publicPage")}</Btn>}
         </div>
       </div>
+
+      {showEndBanner && (
+        <div className="panel small row between gap-8" role="status" style={{ marginBottom: 16 }}>
+          <span>{t("console.today.endedBanner")}</span>
+          <Btn size="sm" onClick={() => setWizard("wrap")}>{t("console.queue.wrapDrive")}</Btn>
+        </div>
+      )}
+      {showRemind && (
+        <div className="panel small" role="status" style={{ marginBottom: 16 }}>{t("console.today.remindBanner")}</div>
+      )}
+      {wizard && (
+        <WrapUpWizard drive={drive} lib={lib} by={staffEmail} mode={wizard} onClose={() => setWizard("")}
+          onSave={(next) => { applyDrive(next); toast(t("console.queue.wrapped")); }} />
+      )}
 
       <div className="card card-pad" style={{ marginBottom: 20 }}><QueueSummary drive={drive} /></div>
 
@@ -121,12 +161,12 @@ export default function DrivePage() {
       <div role="tabpanel">
         {tab === "queue" && (
           <>
-            {status !== "live" && (
+            {status !== "live" && status !== "checkin" && status !== "closing" && (
               <div className="panel small" role="status" style={{ marginBottom: 16 }}>
-                {status === "wrapped" ? t("console.queue.readOnly") : t("console.queue.notLive")}
+                {ended ? t("console.queue.readOnly") : t("console.queue.notLive")}
               </div>
             )}
-            <QueueBoard drive={drive} act={act} disabled={status === "wrapped"} deskMode={desk} />
+            <QueueBoard drive={drive} act={act} disabled={ended} deskMode={desk} />
           </>
         )}
         {tab === "rooms" && (

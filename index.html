@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en-IN">
+<html lang="en-IN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -7,10 +7,17 @@
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#2F5BFF" />
-    <meta name="description" content="Walk-in hiring, without the queue. Find a walk-in near you, get a token, and walk in when it is your turn." />
+    <meta name="description" content="Find walk-in interviews near you, get a token at the venue and see how many people are ahead of you." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="TokenHire" />
     <link rel="apple-touch-icon" href="/logo.png" />
+    <script>
+      try {
+        document.documentElement.dataset.theme = localStorage.getItem("th-theme") === "dark" ? "dark" : "light";
+      } catch (e) {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,14 +1,26 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ROTATE, code, memberEmail, memberRole, scrubDrive } from "../lib/helpers.js";
+import { memberEmail, memberRole, scrubDrive, ROTATE } from "../lib/helpers.js";
+import { applyDueWraps, migrateRoleContent, migrateUnresolvedWrapped } from "../lib/wrap.js";
 import { boardOrgs, seedBoardDrives, seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../data/seed.js";
 import { api, readSavedProfile, readSession, writeSavedProfile, writeSession } from "../lib/api.js";
+import { readDeviceId } from "../lib/device.js";
 
 const StoreContext = createContext(null);
+
+function finalizeDrives(list) {
+  const mig = migrateUnresolvedWrapped((list || []).map((d) => migrateRoleContent(scrubDrive(d))));
+  if (mig.report.length) {
+    console.info("Wrapped-up drives: marked leftover tokens Not seen", mig.report.map((r) => ({
+      driveId: r.driveId, role: r.role, changed: r.changed, tokens: r.tokens.map((x) => x.token),
+    })));
+  }
+  return applyDueWraps(mig.drives);
+}
 
 function localSeed() {
   return {
     orgs: [...seedOrgs(), ...boardOrgs()],
-    drives: [seedMegaDrive(), seedDrive(), ...seedExtraDrives(), ...seedPlanDemoDrives(), ...seedBoardDrives()],
+    drives: finalizeDrives([seedMegaDrive(), seedDrive(), ...seedExtraDrives(), ...seedPlanDemoDrives(), ...seedBoardDrives()]),
   };
 }
 
@@ -19,7 +31,11 @@ export function StoreProvider({ children }) {
   const [activeOrgId, setActiveOrgId] = useState(() => readSession()?.orgId || null);
   const [staffRole, setStaffRole] = useState(() => readSession()?.role || "recruiter");
   const [staffEmail, setStaffEmail] = useState(() => readSession()?.email || "");
-  const [profile, setProfile] = useState(() => readSavedProfile());
+  const [profile, setProfile] = useState(() => {
+    const p = readSavedProfile();
+    if (!p) return p;
+    return { ...p, deviceId: p.deviceId || readDeviceId() };
+  });
   const [left, setLeft] = useState(ROTATE);
   const [beat, setBeat] = useState(0);
   const [apiOk, setApiOk] = useState(false);
@@ -41,21 +57,21 @@ export function StoreProvider({ children }) {
         if (cancelled) return;
         if (!snap?.orgs) return;
         setOrgsState(snap.orgs);
-        setDrivesState((snap.drives || []).map(scrubDrive));
+        setDrivesState(finalizeDrives(snap.drives || []));
         setLeft(snap.deskLeft || ROTATE);
         versionRef.current = snap.version || 0;
         setApiOk(true);
         const sess = readSession();
-        if (sess?.token) {
-          try {
-            const me = await api.me();
-            if (!cancelled && me.orgId) {
-              setActiveOrgId(me.orgId);
-              setStaffRole(me.role);
-              setStaffEmail(me.email);
-              writeSession({ token: sess.token, orgId: me.orgId, role: me.role, email: me.email });
-            }
-          } catch {
+        try {
+          const me = await api.me();
+          if (!cancelled && me.orgId) {
+            setActiveOrgId(me.orgId);
+            setStaffRole(me.role);
+            setStaffEmail(me.email);
+            writeSession({ orgId: me.orgId, role: me.role, email: me.email });
+          }
+        } catch {
+          if (sess?.orgId) {
             writeSession(null);
             setActiveOrgId(null);
           }
@@ -71,21 +87,18 @@ export function StoreProvider({ children }) {
 
   useEffect(() => {
     if (!apiOk) {
-      const i = setInterval(() => setLeft((s) => {
-        if (s <= 1) { setDrivesState((p) => p.map((d) => ({ ...d, desk: code(6) }))); return ROTATE; }
-        return s - 1;
-      }), 1000);
+      const i = setInterval(() => setLeft((s) => (s <= 1 ? 60 : s - 1)), 1000);
       return () => clearInterval(i);
     }
     const i = setInterval(async () => {
       try {
         const snap = await api.snapshot();
-        setLeft(snap.deskLeft || ROTATE);
+        setLeft(snap.deskLeft || 60);
         if (skipPoll.current) return;
         if ((snap.version || 0) > versionRef.current) {
           versionRef.current = snap.version;
           setOrgsState(snap.orgs);
-          setDrivesState((snap.drives || []).map(scrubDrive));
+          setDrivesState(finalizeDrives(snap.drives || []));
         }
       } catch { /* keep local */ }
     }, 2000);
@@ -117,33 +130,41 @@ export function StoreProvider({ children }) {
     setStaffEmail(email || "");
   }
 
+  function applySession(r) {
+    if (!r?.orgId) return;
+    if (r.org) {
+      setOrgs((p) => p.some((o) => o.id === r.org.id)
+        ? p.map((o) => (o.id === r.org.id ? { ...o, ...r.org } : o))
+        : [...p, r.org]);
+    }
+    writeSession({ orgId: r.orgId, role: r.role, email: r.email });
+    signInLocal(r.orgId, r.role, r.email);
+  }
+
   async function signInWithPassword(email, password) {
     const em = email.trim();
     try {
       const r = await api.login({ email: em, password });
-      writeSession({ token: r.token, orgId: r.orgId, role: r.role, email: r.email });
-      if (r.org) setOrgs((p) => p.some((o) => o.id === r.org.id) ? p.map((o) => o.id === r.org.id ? { ...o, ...r.org, password: o.password || password } : o) : [...p, { ...r.org, password }]);
-      signInLocal(r.orgId, r.role, r.email);
-      return { ok: true };
+      applySession(r);
+      return { ok: true, org: r.org };
     } catch (e) {
+      if (e.data?.status === "unverified") return { ok: false, status: "unverified", error: e.message };
       const org = orgs.find((o) => o.email?.toLowerCase() === em.toLowerCase() || (o.members || []).some((m) => memberEmail(m).toLowerCase() === em.toLowerCase()));
-      if (!org) return { ok: false, error: e.message || "No company account found with that email." };
-      if (org.password !== password) return { ok: false, error: "Incorrect password." };
+      if (!org) return { ok: false, error: e.message || "Incorrect email or password." };
+      if (org.verified === false) return { ok: false, status: "unverified" };
+      if (org.password !== password) return { ok: false, error: "Incorrect email or password." };
       const mem = org.members.find((m) => memberEmail(m).toLowerCase() === em.toLowerCase());
-      writeSession({ token: "", orgId: org.id, role: mem ? memberRole(mem) : "recruiter", email: em });
+      writeSession({ orgId: org.id, role: mem ? memberRole(mem) : "recruiter", email: em });
       signInLocal(org.id, mem ? memberRole(mem) : "recruiter", em);
-      return { ok: true, offline: true };
+      return { ok: true, org, offline: true };
     }
   }
 
-  async function signUpOrg({ companyName, email, password, kind }) {
+  async function signUpOrg({ companyName, email, password, kind = "captive" }) {
     try {
       const r = await api.signup({ companyName, email, password, kind });
-      writeSession({ token: r.token, orgId: r.orgId, role: r.role, email: r.email });
-      const org = { ...r.org, password, plan: "single", billingCycle: r.org?.billingCycle || "drive" };
-      setOrgs((p) => [...p.filter((o) => o.id !== org.id), org]);
-      signInLocal(r.orgId, r.role, r.email);
-      return { ok: true, verify: true };
+      if (r.org) setOrgs((p) => [...p.filter((o) => o.id !== r.org.id), r.org]);
+      return { ok: true, verify: true, verifyToken: r.verifyToken, org: r.org };
     } catch (e) {
       if (orgs.some((o) => o.email.toLowerCase() === email.trim().toLowerCase())) {
         return { ok: false, error: "An account with that email already exists — sign in instead." };
@@ -152,10 +173,10 @@ export function StoreProvider({ children }) {
         return { ok: false, error: e.message };
       }
       const id = `org_${Date.now()}`;
-      const agency = kind === "agency";
       const name = companyName.trim();
+      const agency = kind === "agency";
       const org = {
-        id, name, short: name.split(" ")[0], kind, color: agency ? "#0F8A6B" : "#341C8A",
+        id, name, short: name.split(" ")[0], kind: agency ? "agency" : "captive", hireForAsked: true, color: agency ? "#0F8A6B" : "#341C8A",
         logo: agency ? "bars" : "ring", wash: agency ? "#E6F5F0" : "#EEE8F8",
         email: email.trim(), password, plan: "single", billingCycle: "drive", verified: false,
         members: [{ email: email.trim(), role: "recruiter" }],
@@ -163,9 +184,7 @@ export function StoreProvider({ children }) {
         branches: [],
       };
       setOrgs((p) => [...p, org]);
-      writeSession({ token: "", orgId: id, role: "recruiter", email: email.trim() });
-      signInLocal(id, "recruiter", email.trim());
-      return { ok: true, verify: true, offline: true };
+      return { ok: true, verify: true, offline: true, org };
     }
   }
 
@@ -177,9 +196,17 @@ export function StoreProvider({ children }) {
     setStaffEmail("");
   }
 
+  async function signOutAll() {
+    try { await api.logoutAll(); } catch { await signOut(); return; }
+    writeSession(null);
+    setActiveOrgId(null);
+    setStaffRole("recruiter");
+    setStaffEmail("");
+  }
+
   const value = useMemo(() => ({
     drives, setDrives, orgs, setOrgs, activeOrgId, setActiveOrgId, staffRole, setStaffRole, staffEmail,
-    profile, setProfile, left, beat, apiOk, hydrated, signInWithPassword, signUpOrg, signOut, signInLocal,
+    profile, setProfile, left, beat, apiOk, hydrated, signInWithPassword, signUpOrg, signOut, signOutAll, signInLocal, applySession,
   }), [drives, orgs, activeOrgId, staffRole, staffEmail, profile, left, beat, apiOk, hydrated]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

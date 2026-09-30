@@ -11,5 +11,5 @@ export default function LogoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!done) return null;
-  return <Navigate to="/login" replace />;
+  return <Navigate to="/" replace />;
 }

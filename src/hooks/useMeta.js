@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const DEFAULT_TITLE = "TokenHire · Walk-in hiring, without the queue";
+const DEFAULT_TITLE = "TokenHire · Walk-in jobs with a live queue";
 
 function setMeta(name, content, attr = "name") {
   let el = document.head.querySelector(`meta[${attr}="${name}"]`);

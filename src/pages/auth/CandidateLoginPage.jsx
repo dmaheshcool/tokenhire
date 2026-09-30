@@ -4,6 +4,7 @@ import { Field } from "../../components/ui.jsx";
 import { useStore } from "../../context/Store.jsx";
 import { api, readSavedProfile } from "../../lib/api.js";
 import { AuthShell } from "../../layouts/AuthShell.jsx";
+import { t } from "../../i18n/strings.js";
 import { input, k, solid, textLink } from "../../theme.js";
 
 export default function CandidateLoginPage() {
@@ -38,7 +39,7 @@ export default function CandidateLoginPage() {
   }
 
   return (
-    <AuthShell title="Candidate sign in" sub="Enter the mobile number on your profile. No code, no verification.">
+    <AuthShell title={t("auth.candidateTitle")} sub={t("auth.candidateSub")} audience="candidate">
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
         <Field label="Mobile number">
           <input

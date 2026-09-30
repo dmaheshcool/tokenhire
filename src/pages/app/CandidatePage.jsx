@@ -1,23 +1,26 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ShieldCheck, FileText, BadgeCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck, FileText, Check } from "lucide-react";
 import { bdy, dsp, typ, k, box, input, solidTeal, outlineSm, ghostSm, iconBtn } from "../../theme.js";
 import { HallBrand, TokenChip, tokenDigits } from "../../components/brand.jsx";
+import { AudienceStrip } from "../../components/SiteChrome.jsx";
 import { Blank, Field, Pill, SectionLabel, TopBar } from "../../components/ui.jsx";
 import { DrivePosting } from "../../components/DrivePosting.jsx";
 import { KeepTokenLink } from "../../components/KeepTokenLink.jsx";
 import { useQueueAlert } from "../../hooks/useQueueAlert.js";
 import { rememberTicket, readTickets, api } from "../../lib/api.js";
-import { gateCodeFrom, startQrScan } from "../../lib/scanner.js";
+import { readDeviceId } from "../../lib/device.js";
+import { clearProof, readProof, writeProof } from "../../lib/proof.js";
 import { t } from "../../i18n/strings.js";
 import { driveRoles, fieldAnswerOk } from "../../lib/library.js";
 import { checkResumeFile, emailOk, indianPhone, resumeIsRequired } from "../../lib/resume.js";
-import { DEFAULT_ROUNDS, firstRoundIdx, boundToday, code, driveStatus, currentServingToken, dupOf, hallChrome, inARound, isTerminal, joinBlockedReason, listingHost, liveDesk, livePass, listingPlace, queueAhead, resumeName, readResumeFile, roomName, roundLabel, scanEnabled, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
+import { isPrereg, makePrereg, preregOf, promotePrereg } from "../../lib/prereg.js";
+import { DEFAULT_ROUNDS, firstRoundIdx, boundToday, code, driveStatus, tokensOpen, currentServingToken, dupOf, hallChrome, inARound, isTerminal, joinBlockedReason, listingHost, liveDesk, livePass, listingPlace, queueAhead, resumeName, readResumeFile, roomName, roundLabel, scanEnabled, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
 
-export function Candidate({ store, back }) {
+export function Candidate({ store, back, initialTab }) {
   const nav = useNavigate();
   const { profile, setProfile, drives, setDrives, left, orgs } = store;
-  const [tab, setTab] = useState("profile");
+  const [tab, setTab] = useState(initialTab || "profile");
   const [matched, setMatched] = useState(null);
   const [proven, setProven] = useState(false);
   const [result, setResult] = useState(null);
@@ -26,8 +29,10 @@ export function Candidate({ store, back }) {
   const scannedGate = params.get("g");
   const scannedDesk = params.get("d");
   const wantedDrive = params.get("drive");
+  const registerOnly = params.get("register") === "1";
   const [remote, setRemote] = useState(false);
   const autoRef = useRef(false);
+  const proofRef = useRef(readProof());
 
   function markArrived(driveId, candId) {
     setDrives((prev) => prev.map((x) => x.id !== driveId ? x : {
@@ -64,12 +69,13 @@ export function Candidate({ store, back }) {
     const live = drives.find((x) => x.id === drive.id) || drive;
     const already = dupOf(live, profile);
     const hostOrg = orgs.find((o) => o.id === live.orgId);
+    const queueLen = live.candidates.filter((c) => !isPrereg(c)).length;
     const blocked = !already && !scanEnabled(hostOrg)
       ? "This walk-in is not taking scans yet."
-      : (!already ? joinBlockedReason(hostOrg, live.candidates.length) : "");
+      : (!already || isPrereg(already) ? joinBlockedReason(hostOrg, queueLen) : "");
     setJoinErr(blocked);
     if (via === "remote") {
-      if (already) { showDupSlip(live, already); return; }
+      if (already && !isPrereg(already) && already.token) { showDupSlip(live, already); return; }
       setMatched(live);
       setProven(true);
       setRemote(true);
@@ -78,12 +84,12 @@ export function Candidate({ store, back }) {
     setRemote(false);
     if (via === "desk" || via === "pass") {
       if (via === "pass") consumePass(live.id);
-      if (already) { markArrived(live.id, already.id); showDupSlip(live, already); return; }
+      if (already && !isPrereg(already) && already.token) { markArrived(live.id, already.id); showDupSlip(live, already); return; }
       setMatched(live);
       setProven(true);
       return;
     }
-    if (already && boundToday(profile, live.id)) { showDupSlip(live, already); return; }
+    if (already && !isPrereg(already) && boundToday(profile, live.id)) { showDupSlip(live, already); return; }
     setMatched(live);
     setProven(false);
   }
@@ -93,7 +99,7 @@ export function Candidate({ store, back }) {
   // one confirm tap. Waits for a profile and for drives to hydrate before deciding.
   useEffect(() => {
     if (autoRef.current || !profile || !scannedGate) return;
-    const live = drives.filter((d) => driveStatus(d) === "live");
+    const live = drives.filter((d) => tokensOpen(d));
     const byDesk = scannedDesk ? live.find((d) => liveDesk(d) === bare6(scannedDesk)) : null;
     const byGate = live.find((d) => bare6(d.gate) === bare6(scannedGate));
     const hit = byDesk || byGate;
@@ -113,52 +119,100 @@ export function Candidate({ store, back }) {
     if (!hit) return;
     autoRef.current = true;
     setParams({}, { replace: true });
-    if (driveStatus(hit) !== "live") { setJoinErr(t("empty.checkinClosed")); setTab("join"); return; }
+    const proof = readProof();
+    if (proof?.driveId === hit.id) {
+      proofRef.current = proof;
+      setTab("join");
+      handleMatch(hit, proof.method === "desk_pass" ? "pass" : "desk");
+      return;
+    }
+    if (registerOnly || !tokensOpen(hit)) {
+      setTab("join");
+      handleMatch(hit, "remote");
+      if (!tokensOpen(hit) && !registerOnly) setJoinErr(t("empty.checkinClosed"));
+      return;
+    }
     setTab("join");
     handleMatch(hit, "gate");
   }, [drives, profile, wantedDrive]);
 
-  function tryProve(codeStr) {
+  async function tryProve(codeStr) {
     if (!matched) return "No walk-in selected.";
     const live = drives.find((x) => x.id === matched.id) || matched;
-    const raw = (codeStr || "").trim().toUpperCase();
-    if (raw.startsWith("HOST") || raw.startsWith("GATE")) {
-      return "Scan the lobby display, or type the code shown on it.";
+    try {
+      const r = await api.lobbyCheck({ driveId: live.id, code: codeStr, method: "typed_code", deviceId: readDeviceId() });
+      writeProof({ driveId: r.driveId || live.id, method: r.method, location_verified: r.location_verified, at: Date.now() });
+      proofRef.current = r;
+      const already = dupOf(live, profile);
+      if (already && !isPrereg(already) && already.token) { markArrived(live.id, already.id); showDupSlip(live, already); return ""; }
+      setProven(true);
+      return "";
+    } catch (e) {
+      return e.message || t("scan.fail");
     }
-    const kind = venueProofOf(live, codeStr);
-    if (!kind) return "Expired or wrong code. Check the screen, or ask the desk.";
-    if (kind === "pass") consumePass(live.id);
-    const already = dupOf(live, profile);
-    if (already) { markArrived(live.id, already.id); showDupSlip(live, already); return ""; }
-    setProven(true);
-    return "";
   }
 
   function join(d, extra = {}) {
-    if (!proven) return;
     const live = drives.find((x) => x.id === d.id) || d;
     const dup = dupOf(live, profile);
-    if (dup) { showDupSlip(live, dup); return; }
     const hostOrg = orgs.find((o) => o.id === live.orgId);
-    const blocked = !scanEnabled(hostOrg) ? "This walk-in is not taking scans yet." : joinBlockedReason(hostOrg, live.candidates.length);
+
+    if (remote) {
+      if (dup && !isPrereg(dup) && dup.token) { showDupSlip(live, dup); return; }
+      if (dup && isPrereg(dup)) { setMatched(null); setProven(false); setRemote(false); nav(`/walk-ins/${encodeURIComponent(live.id)}`); return; }
+      const cand = makePrereg({ ...profile, deviceId: profile.deviceId || readDeviceId() }, { consentAt: extra.consentAt, roleId: extra.roleId, answers: extra.answers });
+      setDrives((prev) => prev.map((x) => x.id === live.id ? { ...x, candidates: [...x.candidates, cand] } : x));
+      if (!profile.applications.includes(live.id)) profile.applications.push(live.id);
+      setProfile({ ...profile, applications: profile.applications });
+      setMatched(null);
+      setProven(false);
+      setRemote(false);
+      nav(`/walk-ins/${encodeURIComponent(live.id)}`);
+      return;
+    }
+
+    if (!proven) return;
+    const blocked = !scanEnabled(hostOrg) ? "This walk-in is not taking scans yet." : joinBlockedReason(hostOrg, live.candidates.filter((c) => !isPrereg(c)).length);
     if (blocked) {
       setJoinErr(blocked);
       return;
     }
     setJoinErr("");
-    const seq = live.seq + 1, token = `W-${String(seq).padStart(3, "0")}`;
+    const proof = readProof() || proofRef.current || {};
+
+    if (dup && isPrereg(dup)) {
+      const seq = live.seq + 1;
+      const cand = promotePrereg(dup, seq, proof);
+      setDrives((prev) => prev.map((x) => x.id === live.id ? {
+        ...x, seq, candidates: x.candidates.map((c) => (c.id === dup.id ? cand : c)),
+      } : x));
+      bindDevice(live.id);
+      clearProof();
+      setMatched(null);
+      setProven(false);
+      openTicket(live, cand);
+      return;
+    }
+    if (dup) { showDupSlip(live, dup); return; }
+
+    const seq = live.seq + 1;
+    const token = `W-${String(seq).padStart(3, "0")}`;
     const now = Date.now();
     const role = driveRoles(live).find((r) => r.id === extra.roleId);
     const answers = Object.fromEntries((live.fields || []).map((f) => [f.id, String(extra.answers?.[f.id] ?? "").trim()]).filter(([, v]) => v));
     const cand = {
-      id: token, token, claim: code(6), name: profile.name, phone: profile.phone, email: profile.email, resume: profile.resume, room: null, state: "wait", at: now, pinged: false, calledAt: null, decidedAt: null,
-      roundIdx: firstRoundIdx(live.rounds, role?.id), roundAssigned: false, notes: {}, checkedIn: !remote, arrivedAt: remote ? null : now,
+      id: token, token, claim: code(6), name: profile.name, phone: profile.phone, email: profile.email, resume: profile.resume, deviceId: profile.deviceId || readDeviceId(), room: null, state: "wait", at: now, pinged: false, calledAt: null, decidedAt: null,
+      roundIdx: firstRoundIdx(live.rounds, role?.id), roundAssigned: false, notes: {}, checkedIn: true, arrivedAt: now,
+      checkin_method: proof.method || "typed_code",
+      location_verified: proof.location_verified ?? "unknown",
+      checkin_at: proof.at || now,
       ...(role ? { roleId: role.id, roleCode: role.code } : {}), ...(Object.keys(answers).length ? { answers } : {}),
-      consentAt: extra.consentAt || now, phoneVerifiedAt: extra.phoneVerifiedAt || null,
+      consentAt: extra.consentAt || now,
     };
     setDrives((prev) => prev.map((x) => x.id === live.id ? { ...x, seq, candidates: [...x.candidates, cand] } : x));
-    profile.applications.push(live.id);
+    if (!profile.applications.includes(live.id)) profile.applications.push(live.id);
     bindDevice(live.id);
+    clearProof();
     setMatched(null);
     setProven(false);
     setRemote(false);
@@ -169,15 +223,16 @@ export function Candidate({ store, back }) {
 
   return (
     <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink }}>
-      <TopBar back={back} title="Your token" accent={k.teal} tabs={profile ? [["profile", "My profile"], ["join", "Get my token"], ["history", "My applications"]] : null} tab={tab} setTab={setTab} />
+      <TopBar back={back} title="Your token" accent={k.teal} tabs={profile ? [["profile", t("candidate.tabs.details")], ["join", t("candidate.tabs.checkIn")], ["history", t("candidate.tabs.tokens")]] : null} tab={tab} setTab={setTab} />
       <div className="pagepad" style={{ maxWidth: 720, margin: "0 auto", padding: 26 }}>
         {!profile ? <BuildProfile onDone={setProfile} />
           : result ? <Slip r={result} drives={drives} onAgain={resetJoin} />
-            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={(extra) => join(matched, extra)} joinErr={joinErr} remote={remote} apiOk={store.apiOk} />
+            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={(extra) => join(matched, extra)} joinErr={joinErr} remote={remote} />
               : tab === "profile" ? <MyProfile p={profile} setP={setProfile} />
                 : tab === "join" ? <JoinDrive drives={drives} left={left} onMatch={handleMatch} />
                   : <History p={profile} drives={drives} />}
       </div>
+      <AudienceStrip kind="candidate" />
     </div>
   );
 }
@@ -244,7 +299,7 @@ function CheckinQuestions({ drive, roleId, setRoleId, answers, setAnswers, err }
   );
 }
 
-export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, remote, apiOk }) {
+export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, remote }) {
   const [deskIn, setDeskIn] = useState("");
   const [proveErr, setProveErr] = useState("");
   const roles = driveRoles(matched);
@@ -252,10 +307,9 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
   const [answers, setAnswers] = useState({});
   const [formErr, setFormErr] = useState("");
   const [consent, setConsent] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(null);
-  const [verified, setVerified] = useState(!apiOk);
-  const [otpBusy, setOtpBusy] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const pre = preregOf(matched, p);
+  const oneTap = proven && !remote && !!pre && p?.name && p?.phone && !edit;
   const company = hallName(matched);
   function confirm() {
     if (!emailOk(p.email)) { setFormErr(t("checkin.emailErr")); return; }
@@ -264,9 +318,8 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
     if (roles.length > 1 && !roles.some((r) => r.id === roleId)) { setFormErr(t("checkin.roleErr")); return; }
     if ((matched.fields || []).some((f) => !fieldAnswerOk(f, answers[f.id]))) { setFormErr(t("checkin.answerErr")); return; }
     if (!consent) { setFormErr(t("checkin.consentErr")); return; }
-    if (apiOk && !verified) { setFormErr(t("checkin.otpNeed")); return; }
     setFormErr("");
-    onConfirm({ roleId: roles.length > 1 ? roleId : "", answers, consentAt: Date.now(), phoneVerifiedAt: verified ? Date.now() : null });
+    onConfirm({ roleId: roles.length > 1 ? roleId : "", answers, consentAt: Date.now() });
   }
   async function uploadResume(e) {
     const file = e.target.files?.[0];
@@ -277,28 +330,8 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
     setFormErr("");
     setP({ ...p, resume: await readResumeFile(file) });
   }
-  async function sendOtp() {
-    setOtpBusy(true);
-    setFormErr("");
-    try {
-      const r = await api.checkinStart({ phone: p.phone, driveId: matched.id });
-      setOtpSent(r);
-      setOtp("");
-    } catch (err) { setFormErr(err.message || t("remind.failed")); }
-    finally { setOtpBusy(false); }
-  }
-  async function verifyOtp() {
-    setOtpBusy(true);
-    setFormErr("");
-    try {
-      await api.checkinVerify({ phone: otpSent.phone, code: otp, driveId: matched.id });
-      setVerified(true);
-    } catch (err) { setFormErr(err.message || t("remind.failed")); }
-    finally { setOtpBusy(false); }
-  }
   function submitProof() {
-    const err = onProve(deskIn);
-    if (err) setProveErr(err);
+    onProve(deskIn).then((err) => { if (err) setProveErr(err); });
   }
   return (
     <div style={{ maxWidth: 480 }}>
@@ -317,16 +350,25 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
         <div style={{ ...box, padding: 18, marginBottom: 18 }}>
           <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Code on the lobby display</div>
           <div style={{ display: "flex", gap: 9 }}>
-            <input value={deskIn} onChange={(e) => { setDeskIn(e.target.value.toUpperCase()); setProveErr(""); }} onKeyDown={(e) => e.key === "Enter" && submitProof()} placeholder="DESK-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={11} />
-            <button onClick={submitProof} style={solidTeal}>Get my token</button>
+            <input value={deskIn} onChange={(e) => { setDeskIn(e.target.value.toUpperCase()); setProveErr(""); }} onKeyDown={(e) => e.key === "Enter" && submitProof()} placeholder={t("scan.placeholder")} style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={8} />
+            <button onClick={submitProof} style={solidTeal}>{t("buttons.checkIn")}</button>
           </div>
           {proveErr ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 10, lineHeight: 1.5 }}>{proveErr}</div>
-            : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9 }}>Rotates in {left}s. Desk can issue a pass.</div>}
+            : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9 }}>{t("scan.deskHint")}</div>}
         </div>
       )}
 
       {proven && (
         <>
+          {oneTap ? (
+            <div style={{ ...box, padding: 18, marginBottom: 18 }}>
+              <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px" }}>{t("checkin.asName", { name: p.name })}</p>
+              <p className="small muted" style={{ margin: "0 0 14px" }}>{p.name} · {p.phone}</p>
+              <button type="button" onClick={() => onConfirm({ roleId: roles.length === 1 ? roles[0].id : roleId, answers, consentAt: pre?.consentAt || Date.now() })} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14 }}>{t("checkin.confirm")}</button>
+              <button type="button" onClick={() => setEdit(true)} style={{ ...ghostSm, marginTop: 10 }}>{t("checkin.notYou")}</button>
+            </div>
+          ) : (
+          <>
           <div style={{ ...box, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, background: k.tealDim }}>
             <ShieldCheck size={16} color={k.teal} />
             <div style={{ fontSize: 12.5, color: k.teal, fontWeight: 600 }}>{remote ? "You’ll get a token number and see how many people are ahead of you. Scan the lobby display when you arrive." : "You’re at the venue."}</div>
@@ -356,25 +398,11 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
             <input type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); setFormErr(""); }} />
             <span style={{ fontSize: 13, lineHeight: 1.45 }}>{t("checkin.consent", { company })}</span>
           </label>
-          {apiOk && !verified && (
-            <div style={{ ...box, padding: 16, marginBottom: 14 }}>
-              {!otpSent ? (
-                <button type="button" onClick={sendOtp} disabled={otpBusy} style={{ ...outlineSm }}>{otpBusy ? t("checkin.otpSending") : t("checkin.otpSend")}</button>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {otpSent.demo && <div style={{ fontSize: 12.5, color: k.ink2 }}>{t("checkin.otpDemo", { code: otpSent.demoCode })}</div>}
-                  <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" maxLength={6} placeholder={t("checkin.otpLabel")} style={{ ...input, fontFamily: typ, letterSpacing: 4 }} />
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" onClick={verifyOtp} disabled={otpBusy || otp.length !== 6} style={solidTeal}>{t("checkin.otpVerify")}</button>
-                    <button type="button" onClick={sendOtp} disabled={otpBusy} style={outlineSm}>{t("checkin.otpResend")}</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
           {joinErr && <div style={{ fontSize: 13, color: k.red, margin: "0 0 10px", textAlign: "center" }}>{joinErr}</div>}
-          <button onClick={confirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Get my token <ArrowRight size={15} /></>}</button>
-          <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Save the token page. That’s your place in line.</div>
+          <button onClick={confirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : remote ? t("buttons.registerWalkIn") : <>Get my token <ArrowRight size={15} /></>}</button>
+          <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>{remote ? t("detail.noTokenYet") : "Save the token page. That’s your place in line."}</div>
+          </>
+          )}
         </>
       )}
     </div>
@@ -385,7 +413,7 @@ export function BuildProfile({ onDone }) {
   const [f, setF] = useState({ name: "", phone: "", email: "", resume: null });
   const fillSample = () => onDone({
     name: "Ananya Rao", phone: "9959001122", email: "ananya.rao@gmail.com",
-    id: `c_${Date.now()}`, resume: { name: "ananya_rao.pdf" }, applications: [], bound: {},
+    id: `c_${Date.now()}`, deviceId: readDeviceId(), resume: { name: "ananya_rao.pdf" }, applications: [], bound: {},
   });
 
   async function attachResume(e) {
@@ -402,7 +430,7 @@ export function BuildProfile({ onDone }) {
     if (!emailOk(f.email.trim())) return;
     onDone({
       name: f.name.trim(), phone: indianPhone(f.phone), email: f.email.trim(), resume: f.resume,
-      id: `c_${Date.now()}`, applications: [], bound: {},
+      id: `c_${Date.now()}`, deviceId: readDeviceId(), applications: [], bound: {},
     });
   }
 
@@ -441,14 +469,16 @@ export function MyProfile({ p, setP }) {
     <div style={{ maxWidth: 560 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
         <div><h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 3px" }}>{p.name}</h1><div style={{ fontSize: 13, color: k.mid, fontFamily: typ }}>{p.phone}{p.email ? ` · ${p.email}` : ""}</div></div>
-        <Pill tone={p.resume ? "teal" : "gold"}>{p.resume ? "Resume on file" : "Add a resume"}</Pill>
+        <Pill tone={p.resume ? "teal" : "gold"}>{p.resume ? t("candidate.resumeOnFile") : t("candidate.addResume")}</Pill>
       </div>
+      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 18px" }}>{t("candidate.device")}</p>
       <SectionLabel>Contact</SectionLabel>
       <div style={{ ...box, overflow: "hidden", marginBottom: 24 }}>
-        <DataRow label="Mobile" value={p.phone} mono />
-        <DataRow label="Email" value={p.email || "—"} last />
+        <DataRow label={t("candidate.name")} value={p.name} />
+        <DataRow label={t("candidate.phone")} value={p.phone} mono />
+        <DataRow label={t("candidate.email")} value={p.email || "—"} last />
       </div>
-      <SectionLabel>Resume</SectionLabel>
+      <SectionLabel>{t("candidate.resume")}</SectionLabel>
       <div style={{ ...box, overflow: "hidden" }}>
         <DocRow icon={FileText} title="Resume" sub={resumeName(p.resume) || "Recruiters see this when they call you"} done={!!p.resume} last
           action={p.resume
@@ -478,7 +508,7 @@ export function DocRow({ icon: I, title, sub, done, action, last }) {
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", borderBottom: last ? "none" : `1px solid ${k.line}` }}>
       <I size={18} color={done ? k.teal : k.faint} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 7 }}>{title}{done && <BadgeCheck size={14} color={k.teal} />}</div>
+        <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 7 }}>{title}{done && <Check size={14} color={k.teal} />}</div>
         <div style={{ fontSize: 12.5, color: done ? k.teal : k.mid, marginTop: 2 }}>{sub}</div>
       </div>
       {action}
@@ -486,146 +516,34 @@ export function DocRow({ icon: I, title, sub, done, action, last }) {
   );
 }
 
-export function JoinDrive({ drives, left, onMatch }) {
+export function JoinDrive({ drives, onMatch }) {
   const nav = useNavigate();
   const tickets = readTickets();
-  const [entered, setEntered] = useState("");
-  const [err, setErr] = useState("");
-  const [scan, setScan] = useState("idle"); // idle | starting | scanning | denied | unsupported
-  const videoRef = useRef(null);
-  const stopRef = useRef(null);
-  const abortRef = useRef(false);
-
-  function resolve(codeStr) {
-    setErr("");
-    const raw = codeStr.trim().toUpperCase();
-    if (raw.startsWith("HOST")) {
-      setErr("That is a Desk PIN. Scan the lobby display instead.");
-      return;
-    }
-    const kind = raw.startsWith("PASS") ? "pass" : raw.startsWith("DESK") ? "desk" : raw.startsWith("GATE") ? "gate" : null;
-    const v = bare6(raw);
-    const live = drives.filter((d) => driveStatus(d) === "live");
-    const byGate = live.find((d) => bare6(d.gate) === v);
-    const byDesk = live.find((d) => liveDesk(d) === v);
-    const byPass = live.find((d) => livePass(d)?.code === v);
-
-    if (kind === "desk") {
-      if (v.length < 6) { setErr("Enter the full code from the screen."); return; }
-      if (!byDesk) { setErr("That code has expired. Check the screen again."); return; }
-      onMatch(byDesk, "desk");
-      return;
-    }
-    if (kind === "pass") {
-      if (!byPass) { setErr("That pass has expired. Ask the desk for a new one."); return; }
-      onMatch(byPass, "pass");
-      return;
-    }
-    if (kind === "gate") {
-      if (v.length < 6) { setErr("Enter the full code."); return; }
-      if (byGate) { onMatch(byGate, "gate"); return; }
-      const later = drives.find((d) => driveStatus(d) === "scheduled" && bare6(d.gate) === v);
-      if (later) { setErr("This walk-in has not opened yet."); return; }
-      setErr("No walk-in matches that code.");
-      return;
-    }
-    if (v.length <= 4 && byPass) { onMatch(byPass, "pass"); return; }
-    if (v.length < 6) { setErr("Enter the full code from the screen."); return; }
-    if (byGate) { onMatch(byGate, "gate"); return; }
-    if (byDesk) { onMatch(byDesk, "desk"); return; }
-    const later = drives.find((d) => driveStatus(d) === "scheduled" && bare6(d.gate) === v);
-    if (later) { setErr("This walk-in has not opened yet."); return; }
-    setErr("No walk-in matches that code.");
-  }
-
-  async function startScan() {
-    setErr("");
-    setScan("starting");
-    abortRef.current = false;
-    const stop = await startQrScan(
-      videoRef.current,
-      (raw) => {
-        const found = gateCodeFrom(raw);
-        setScan("idle");
-        if (!found) { setErr("Not a TokenHire code."); return; }
-        // A screen QR carries the live desk code as well, so presence is already proven
-        // and there is nothing left to ask for.
-        if (found.desk) {
-          const byDesk = drives.find((d) => driveStatus(d) === "live" && liveDesk(d) === found.desk);
-          if (byDesk) { onMatch(byDesk, "desk"); return; }
-        }
-        setEntered(`GATE-${found.gate}`);
-        resolve(`GATE-${found.gate}`);
-      },
-      (reason) => {
-        setScan(reason === "denied" ? "denied" : "unsupported");
-      },
-    );
-    // The camera can take a second to open; honour a stop pressed in the meantime so
-    // the torch and preview don't stay on behind a closed panel.
-    if (abortRef.current) { stop(); return; }
-    stopRef.current = stop;
-    // startQrScan only reports failures, so a silent return means frames are flowing.
-    setScan((s) => (s === "starting" ? "scanning" : s));
-  }
-  function stopScan() {
-    abortRef.current = true;
-    stopRef.current?.();
-    stopRef.current = null;
-    setScan("idle");
-  }
-  useEffect(() => () => { abortRef.current = true; stopRef.current?.(); }, []);
-
+  const live = drives.filter((d) => tokensOpen(d));
   return (
     <div style={{ maxWidth: 520 }}>
-      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>Get my token</h1>
-      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>Scan the lobby display at the venue, or pick a walk-in from the list.</p>
+      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 5px" }}>{t("nav.scanCheckIn")}</h1>
+      <p style={{ fontSize: 13.5, color: k.mid, margin: "0 0 20px", lineHeight: 1.55 }}>{t("scan.lede")}</p>
+      <button onClick={() => nav("/check-in")} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, marginBottom: 16 }}>{t("scan.openCamera")}</button>
       {!!tickets.length && (
         <div style={{ ...box, padding: 14, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Your tokens</div>
-          {tickets.slice(0, 4).map((t) => (
-            <button key={t.driveId + t.token} type="button" onClick={() => nav(tokenPath(t.driveId, t.token, t.claim))} style={{ ...ghostSm, marginRight: 8, marginBottom: 6 }}>
-              {t.token}{t.role ? ` · ${t.role}` : ""}
+          <div style={{ fontSize: 12, fontWeight: 700, color: k.faint, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>{t("candidate.tabs.tokens")}</div>
+          {tickets.slice(0, 4).map((tk) => (
+            <button key={tk.driveId + tk.token} type="button" onClick={() => nav(tokenPath(tk.driveId, tk.token, tk.claim))} style={{ ...ghostSm, marginRight: 8, marginBottom: 6 }}>
+              {tk.token}{tk.role ? ` · ${tk.role}` : ""}
             </button>
           ))}
         </div>
       )}
-
-      <div style={{ ...box, padding: 20, marginBottom: 14 }}>
-        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Scan the lobby display</div>
-        {/* iOS will not start playback on a hidden element, so keep it mounted while starting. */}
-        <div style={{ position: "relative", borderRadius: 6, overflow: "hidden", background: "#000", display: scan === "scanning" || scan === "starting" ? "block" : "none" }}>
-          <video ref={videoRef} muted playsInline style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "cover" }} />
-          <div style={{ position: "absolute", inset: 28, border: `2px solid ${k.teal}`, borderRadius: 8, pointerEvents: "none" }} />
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "7px 10px", background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 11.5, textAlign: "center" }}>
-            Point at the screen — it scans by itself
-          </div>
-        </div>
-        {scan === "scanning" || scan === "starting" ? (
-          <button onClick={stopScan} style={{ ...ghostSm, marginTop: 10 }}>
-            {scan === "starting" ? "Opening camera…" : "Stop scanning"}
-          </button>
-        ) : (
-          <>
-            <button onClick={startScan} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 11 }}>Open camera to scan</button>
-            {scan === "denied" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>Camera blocked. Type the code below instead.</div>}
-            {scan === "unsupported" && <div style={{ fontSize: 12, color: k.gold, marginTop: 9, lineHeight: 1.5 }}>No camera available on this device — enter the code below instead.</div>}
-          </>
-        )}
-      </div>
-
-      <div style={{ ...box, padding: 20 }}>
-        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>No camera? Type the code from the screen</div>
-        <div style={{ display: "flex", gap: 9 }}>
-          <input value={entered} onChange={(e) => { setEntered(e.target.value.toUpperCase()); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && resolve(entered)} placeholder="DESK-XXXXXX" style={{ ...input, fontFamily: typ, letterSpacing: 2, flex: 1, textTransform: "uppercase" }} maxLength={11} />
-          <button onClick={() => resolve(entered)} style={solidTeal}>Find</button>
-        </div>
-        {err ? <div style={{ fontSize: 12.5, color: k.red, marginTop: 10, lineHeight: 1.5 }}>{err}</div> : <div style={{ fontSize: 11.5, color: k.faint, marginTop: 9, lineHeight: 1.5 }}>The code on the screen changes every 45 seconds, so type it in the next {left}s.</div>}
-      </div>
+      {live.map((d) => (
+        <button key={d.id} type="button" onClick={() => onMatch(d, "gate")} style={{ ...box, display: "block", width: "100%", textAlign: "left", padding: 14, marginBottom: 8, cursor: "pointer" }}>
+          <div style={{ fontWeight: 700 }}>{d.role}</div>
+          <div style={{ fontSize: 13, color: k.mid }}>{d.company}</div>
+        </button>
+      ))}
     </div>
   );
 }
-
 const QUEUE_STATE_COPY = {
   calling: "You're being called right now — head to the desk.",
   interviewing: "You're in with a recruiter right now.",
@@ -786,13 +704,21 @@ export function RoundTracker({ rounds, cand, roundIdx, state }) {
 
 export function History({ p, drives }) {
   const nav = useNavigate();
-  const mine = drives.flatMap((d) => d.candidates.filter((c) => c.phone === p.phone).map((c) => ({ ...c, drive: d })));
+  const mine = drives.flatMap((d) => d.candidates.filter((c) => c.phone === p.phone && c.token).map((c) => ({ ...c, drive: d })));
+  const active = ["wait", "calling", "interviewing"];
+  mine.sort((a, b) => (active.includes(b.state) ? 1 : 0) - (active.includes(a.state) ? 1 : 0) || (b.at || 0) - (a.at || 0));
   const label = { wait: ["grey", "Waiting"], calling: ["teal", "Being called"], interviewing: ["teal", "In interview"], selected: ["teal", "Selected"], rejected: ["red", "Rejected"], onhold: ["gold", "On hold"], absent: ["grey", "Missed turn"] };
   return (
     <div style={{ maxWidth: 560 }}>
-      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 8px" }}>My applications</h1>
-      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 18px" }}>Open a token to see your wait.</p>
-      {!mine.length ? <Blank text="You haven't joined a drive yet." /> : (
+      <h1 style={{ fontFamily: dsp, fontSize: 23, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 8px" }}>{t("candidate.tokensTitle")}</h1>
+      <p style={{ fontSize: 13, color: k.mid, margin: "0 0 18px" }}>{t("candidate.tokensSub")}</p>
+      {!mine.length ? (
+        <div>
+          <p style={{ fontSize: 14, color: k.mid }}>{t("candidate.emptyTokens")}</p>
+          <button type="button" onClick={() => nav("/walk-ins")} style={{ ...solidTeal, marginTop: 12 }}>{t("buttons.browse")}</button>
+          <button type="button" onClick={() => nav("/check-in")} style={{ ...ghostSm, marginTop: 8 }}>{t("nav.scanCheckIn")}</button>
+        </div>
+      ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {mine.map((c) => (
             <button key={c.drive.id + c.token} type="button" onClick={() => nav(tokenPath(c.drive.id, c.token, c.claim))} style={{ ...box, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", fontFamily: bdy, width: "100%" }}>

@@ -3,6 +3,7 @@ import { Bell, BellRing, X } from "lucide-react";
 import { Btn, STROKE, useToast } from "./ds.jsx";
 import { useStore } from "../context/Store.jsx";
 import { api, readReminders, writeReminders } from "../lib/api.js";
+import { readDeviceId } from "../lib/device.js";
 import { t } from "../i18n/strings.js";
 
 const spaced = (p) => `${p.slice(0, 5)} ${p.slice(5)}`;
@@ -21,10 +22,7 @@ function useReminder(driveId) {
 function Dialog({ drive, onClose }) {
   const id = useId();
   const toast = useToast();
-  const [step, setStep] = useState("phone");
   const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const box = useRef(null);
@@ -36,30 +34,23 @@ function Dialog({ drive, onClose }) {
     window.addEventListener("keydown", onKey);
     return () => { window.removeEventListener("keydown", onKey); prev?.focus?.(); };
   }, [onClose]);
-  useEffect(() => { box.current?.querySelector("input")?.focus(); }, [step]);
 
-  const run = async (fn) => {
-    setBusy(true);
-    setError("");
-    try { await fn(); } catch (e) { setError(e.message || t("remind.failed")); } finally { setBusy(false); }
-  };
   const send = (e) => {
     e?.preventDefault();
-    run(async () => {
-      const r = await api.remindStart({ phone, driveId: drive.id });
-      setSent(r);
-      setCode("");
-      setStep("code");
-    });
-  };
-  const verify = (e) => {
-    e.preventDefault();
-    run(async () => {
-      await api.remindVerify({ phone: sent.phone, code, driveId: drive.id });
-      writeReminders([...readReminders().filter((r) => r.driveId !== drive.id), { driveId: drive.id, phone: sent.phone, at: Date.now() }]);
-      toast(t("remind.done", { phone: spaced(sent.phone) }));
-      onClose();
-    });
+    setBusy(true);
+    setError("");
+    (async () => {
+      try {
+        const r = await api.remindStart({ phone, driveId: drive.id, deviceId: readDeviceId() });
+        writeReminders([...readReminders().filter((x) => x.driveId !== drive.id), { driveId: drive.id, phone: r.phone, at: Date.now() }]);
+        toast(t("remind.done", { phone: spaced(r.phone) }));
+        onClose();
+      } catch (err) {
+        setError(err.message || t("remind.failed"));
+      } finally {
+        setBusy(false);
+      }
+    })();
   };
 
   return (
@@ -72,46 +63,27 @@ function Dialog({ drive, onClose }) {
           </div>
           <button type="button" className="btn btn-ghost btn-icon" aria-label={t("remind.close")} onClick={onClose}><X size={20} strokeWidth={STROKE} /></button>
         </div>
-        {step === "phone" ? (
-          <form className="stack gap-12" onSubmit={send} noValidate>
-            <p className="body" style={{ margin: 0 }}>{t("remind.body")}</p>
-            <label className="stack gap-6" htmlFor={`${id}-p`}>
-              <span className="label">{t("remind.phone")}</span>
-              <span className="phone-field">
-                <span aria-hidden="true">+91</span>
-                <input id={`${id}-p`} className="input" type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={11}
-                  value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, ""))} placeholder="98765 43210"
-                  aria-invalid={!!error} aria-describedby={error ? `${id}-e` : undefined} />
-              </span>
-            </label>
-            {error && <p id={`${id}-e`} className="small field-error" role="alert" style={{ margin: 0 }}>{error}</p>}
-            <p className="tiny muted" style={{ margin: 0 }}>{t("remind.privacy")}</p>
-            <Btn type="submit" block disabled={busy || phone.replace(/\D/g, "").length < 10}>{busy ? t("remind.sending") : t("remind.send")}</Btn>
-          </form>
-        ) : (
-          <form className="stack gap-12" onSubmit={verify} noValidate>
-            <p className="body" style={{ margin: 0 }}>{t("remind.codeSent", { phone: `+91 ${spaced(sent.phone)}` })}</p>
-            {sent.demo && <p className="panel small" style={{ margin: 0, padding: 12 }}>{t("remind.demo", { code: sent.demoCode })}</p>}
-            <label className="stack gap-6" htmlFor={`${id}-c`}>
-              <span className="label">{t("remind.codeLabel")}</span>
-              <input id={`${id}-c`} className="input mono" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
-                value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} style={{ letterSpacing: "0.3em", fontSize: 20 }}
+        <form className="stack gap-12" onSubmit={send} noValidate>
+          <p className="body" style={{ margin: 0 }}>{t("remind.body")}</p>
+          <label className="stack gap-6" htmlFor={`${id}-p`}>
+            <span className="label">{t("remind.phone")}</span>
+            <span className="phone-field">
+              <span aria-hidden="true">+91</span>
+              <input id={`${id}-p`} className="input" type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={11}
+                value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, ""))} placeholder="98765 43210"
                 aria-invalid={!!error} aria-describedby={error ? `${id}-e` : undefined} />
-            </label>
-            {error && <p id={`${id}-e`} className="small field-error" role="alert" style={{ margin: 0 }}>{error}</p>}
-            <Btn type="submit" block disabled={busy || code.length !== 6}>{t("remind.verify")}</Btn>
-            <div className="row between gap-12" style={{ flexWrap: "wrap" }}>
-              <button type="button" className="link small" onClick={() => { setStep("phone"); setError(""); }}>{t("remind.change")}</button>
-              <button type="button" className="link small" onClick={send} disabled={busy}>{t("remind.resend")}</button>
-            </div>
-          </form>
-        )}
+            </span>
+          </label>
+          {error && <p id={`${id}-e`} className="small field-error" role="alert" style={{ margin: 0 }}>{error}</p>}
+          <p className="tiny muted" style={{ margin: 0 }}>{t("remind.privacy")}</p>
+          <Btn type="submit" block disabled={busy || phone.replace(/\D/g, "").length < 10}>{busy ? t("remind.sending") : t("remind.send")}</Btn>
+        </form>
       </div>
     </div>
   );
 }
 
-/** "Remind me" for a walk-in that hasn't opened yet. Needs the API to check the code. */
+/** "Remind me" for a walk-in that hasn't opened yet. Needs the API to save the number. */
 export default function RemindMe({ drive, size, block }) {
   const { apiOk } = useStore();
   const toast = useToast();

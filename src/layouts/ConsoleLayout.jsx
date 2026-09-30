@@ -1,20 +1,32 @@
+import { useState } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { CreditCard, LayoutList, LogOut, MapPin, Plus, Settings, Sun, UserRound, Users } from "lucide-react";
+import { BookOpen, Briefcase, CreditCard, LayoutList, LogOut, MapPin, Plug, Plus, Settings, Sun, UserRound, Users } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
 import { OrgLogo } from "../components/brand.jsx";
 import { Btn, STROKE } from "../components/ds.jsx";
-import { Logo } from "../components/SiteChrome.jsx";
+import { AudienceStrip, Logo } from "../components/SiteChrome.jsx";
 import { HIDE_PRICING } from "../lib/flags.js";
+import { setupProgress } from "../lib/setup.js";
 import { t } from "../i18n/strings.js";
 
-export const CONSOLE_NAV = [
+const SETUP_NAV = [
+  { to: "/app/team", label: t("console.nav.team"), icon: Users, recruiter: true },
+  { to: "/app/hiring-teams", label: t("console.nav.hiringTeams"), icon: Briefcase, recruiter: true },
+  { to: "/app/venues", label: t("console.nav.venues"), icon: MapPin, recruiter: true },
+  { to: "/app/library", label: t("console.nav.library"), icon: BookOpen, recruiter: true },
+];
+const RUN_NAV = [
   { to: "/app/today", label: t("console.nav.today"), icon: Sun },
   { to: "/app/drives", label: t("console.nav.drives"), icon: LayoutList },
-  { to: "/app/venues", label: t("console.nav.venues"), icon: MapPin, recruiter: true },
   { to: "/app/talent", label: t("console.nav.talent"), icon: UserRound, recruiter: true },
-  { to: "/app/team", label: t("console.nav.team"), icon: Users, recruiter: true },
-  { to: "/app/billing", label: t("console.nav.billing"), icon: CreditCard, recruiter: true, billing: true },
 ];
+const ACCOUNT_NAV = [
+  { to: "/app/integrations", label: t("console.nav.integrations"), icon: Plug, recruiter: true },
+  { to: "/app/billing", label: t("console.nav.billing"), icon: CreditCard, recruiter: true, billing: true },
+  { to: "/app/settings", label: t("console.nav.settings"), icon: Settings, recruiter: true },
+];
+
+export const CONSOLE_NAV = [...SETUP_NAV, ...RUN_NAV, ...ACCOUNT_NAV];
 
 export function useConsole() {
   const store = useStore();
@@ -36,30 +48,43 @@ export function PageHead({ title, lede, actions }) {
   );
 }
 
+function NavGroup({ label, extra, items, desk }) {
+  const shown = items.filter((it) => (!desk || !it.recruiter) && (!it.billing || !HIDE_PRICING));
+  if (!shown.length) return null;
+  return (
+    <div className="console-nav-group">
+      <p className="console-nav-label">{label}{extra ? <span style={{ display: "block", letterSpacing: 0, textTransform: "none", fontWeight: 600, marginTop: 2 }}>{extra}</span> : null}</p>
+      <nav className="console-nav">
+        {shown.map(({ to, label: lab, icon: Icon }) => (
+          <NavLink key={to} to={to} className={({ isActive }) => (isActive ? "active" : "")}>
+            <Icon size={19} strokeWidth={STROKE} aria-hidden="true" />{lab}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 export function ConsoleLayout() {
   const loc = useLocation();
   const nav = useNavigate();
-  const { org, desk, signOut, staffEmail } = useConsole();
-  if (!org) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
-  const items = CONSOLE_NAV.filter((it) => (!desk || !it.recruiter) && (!it.billing || !HIDE_PRICING));
-  const out = async () => { await signOut(); nav("/"); };
+  const { org, desk, signOut, staffEmail, mine } = useConsole();
+  const [leaving, setLeaving] = useState(false);
+  if (leaving) return <Navigate to="/" replace />;
+  if (!org) return <Navigate to="/company/start" replace state={{ from: loc.pathname }} />;
+  if (org.verified === false) return <Navigate to="/company/start" replace />;
+  if (org.hireForAsked === false) return <Navigate to="/company/welcome" replace />;
+  const setup = setupProgress(org, mine);
+  const mobile = desk ? RUN_NAV : [...RUN_NAV, { to: "/app/settings", label: t("console.nav.settings"), icon: Settings }];
+  const out = async () => { await signOut(); setLeaving(true); nav("/", { replace: true }); };
   return (
     <div className="ds console" data-theme="light">
       <aside className="console-side" aria-label="Console">
         <Link to="/" style={{ textDecoration: "none", padding: "2px 8px" }} aria-label="TokenHire home"><Logo size={26} /></Link>
-        <nav className="console-nav">
-          {items.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? "active" : "")}>
-              <Icon size={19} strokeWidth={STROKE} aria-hidden="true" />{label}
-            </NavLink>
-          ))}
-        </nav>
+        <NavGroup label={t("console.navGroups.setup")} extra={setup.complete ? null : t("console.setup.doneOf", { done: setup.done })} items={SETUP_NAV} desk={desk} />
+        <NavGroup label={t("console.navGroups.run")} items={RUN_NAV} desk={desk} />
+        <NavGroup label={t("console.navGroups.account")} items={ACCOUNT_NAV} desk={desk} />
         <div className="stack gap-4" style={{ marginTop: "auto" }}>
-          {!desk && (
-            <div className="console-nav">
-              <NavLink to="/app/settings" className={({ isActive }) => (isActive ? "active" : "")}><Settings size={19} strokeWidth={STROKE} aria-hidden="true" />{t("console.nav.settings")}</NavLink>
-            </div>
-          )}
           <div className="row gap-8" style={{ padding: "10px 12px", borderTop: "1px solid var(--line)" }}>
             <span className="grow tiny muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{staffEmail}</span>
             <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={out} aria-label={t("console.signOut")} title={t("console.signOut")}><LogOut size={17} strokeWidth={STROKE} /></button>
@@ -83,9 +108,10 @@ export function ConsoleLayout() {
         <main className="console-body">
           <Outlet />
         </main>
+        <AudienceStrip kind="company" />
       </div>
       <nav className="console-bottom" aria-label="Console">
-        {(desk ? items : [...items, { to: "/app/settings", label: t("console.nav.settings"), icon: Settings }]).map(({ to, label, icon: Icon }) => (
+        {mobile.filter((it) => !desk || !it.recruiter).map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className={({ isActive }) => (isActive ? "active" : "")}>
             <Icon size={20} strokeWidth={STROKE} aria-hidden="true" />{label}
           </NavLink>
@@ -94,4 +120,3 @@ export function ConsoleLayout() {
     </div>
   );
 }
-

@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, CircleCheck, FileSpreadsheet, FileStack, KeyRound, LayoutGrid, Megaphone, Ticket, Users } from "lucide-react";
+import { EmployerTicks, MiniBoard } from "../components/EmployerCard.jsx";
 import { Btn, Reveal, STROKE } from "../components/ds.jsx";
-import { createDrivePath } from "../components/SiteChrome.jsx";
-import { MiniBoard } from "./HomePage.jsx";
 import { useMeta } from "../hooks/useMeta.js";
 import { api } from "../lib/api.js";
 import { isWorkEmail } from "../lib/helpers.js";
@@ -22,9 +21,9 @@ function Block({ id, title, items, icons, dark }) {
             return (
               <Reveal key={it.t} delay={(i % 4) * 80} className="card card-pad stack gap-12"
                 style={dark ? { background: "rgba(255,255,255,.04)", borderColor: "rgba(255,255,255,.08)" } : undefined}>
-                <span className={`step-icon${dark ? " lime" : ""}`}><Icon size={24} strokeWidth={STROKE} aria-hidden="true" /></span>
+                <span className={`step-icon${dark ? " company" : ""}`}><Icon size={24} strokeWidth={STROKE} aria-hidden="true" /></span>
                 <h3 className="h-3">{it.t}</h3>
-                <p className="body" style={{ margin: 0, color: dark ? "#C9CDD8" : "var(--muted)" }}>{it.d}</p>
+                <p className="body" style={{ margin: 0, color: dark ? "#A9B4CC" : "var(--muted)" }}>{it.d}</p>
               </Reveal>
             );
           })}
@@ -119,8 +118,8 @@ export default function ForCompaniesPage() {
             <div className="span-6 stack gap-24">
               <p className="lede" style={{ fontSize: "clamp(18px, 1.9vw, 22px)" }}>{t("forCo.sub")}</p>
               <div className="row gap-12" style={{ flexWrap: "wrap" }}>
-                <Btn href="#pilot" size="lg" iconRight={ArrowRight}>{t("buttons.bookPilot")}</Btn>
-                <Btn to={createDrivePath()} variant="secondary" size="lg">{t("buttons.createDrive")}</Btn>
+                <Btn to="/register" size="lg" iconRight={ArrowRight}>{t("nav.startHiring")}</Btn>
+                <Btn href="#pilot" variant="secondary" size="lg">{t("nav.bookPilot")}</Btn>
               </div>
             </div>
             <div className="span-6"><MiniBoard /></div>
@@ -129,6 +128,7 @@ export default function ForCompaniesPage() {
       </section>
       <Block id="fc-problem" title={t("forCo.problem.title")} items={tl("forCo.problem.items")} icons={PROBLEM_ICONS} />
       <Block id="fc-solution" title={t("forCo.solution.title")} items={tl("forCo.solution.items")} icons={SOLUTION_ICONS} dark />
+      <EmployerTicks />
       <PilotForm />
     </>
   );

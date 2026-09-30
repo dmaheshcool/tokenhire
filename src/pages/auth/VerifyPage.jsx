@@ -4,6 +4,7 @@ import { Field } from "../../components/ui.jsx";
 import { useStore } from "../../context/Store.jsx";
 import { api } from "../../lib/api.js";
 import { AuthShell } from "../../layouts/AuthShell.jsx";
+import { t } from "../../i18n/strings.js";
 import { input, k, solid, textLink } from "../../theme.js";
 
 export default function VerifyPage() {
@@ -12,8 +13,13 @@ export default function VerifyPage() {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const org = orgs.find((o) => o.id === activeOrgId);
 
-  if (!activeOrgId) return <Navigate to="/signup" replace />;
+  if (!activeOrgId) return <Navigate to="/company/start" replace />;
+
+  function go() {
+    nav(org?.hireForAsked === false ? "/company/welcome" : "/app/today", { replace: true });
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -22,25 +28,20 @@ export default function VerifyPage() {
     try {
       await api.verify({ code });
       setOrgs((p) => p.map((o) => o.id === activeOrgId ? { ...o, verified: true } : o));
-      nav("/app/today", { replace: true });
+      go();
     } catch {
-      if (code.trim() === "618204") {
-        setOrgs((p) => p.map((o) => o.id === activeOrgId ? { ...o, verified: true } : o));
-        nav("/app/today", { replace: true });
-      } else setErr("That email code is not valid. Demo code is 618204.");
+      setErr("That email code is not valid.");
     }
     setBusy(false);
   }
 
-  const org = orgs.find((o) => o.id === activeOrgId);
-
   return (
-    <AuthShell title="Verify your email" sub={`We sent a 6-digit code to ${org?.email || "your work email"}. Demo code: 618204.`}>
+    <AuthShell title="Verify your email" sub={t("auth.sentVerify", { email: org?.email || "" })} audience={null}>
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <Field label="Email code"><input value={code} onChange={(e) => setCode(e.target.value)} style={input} placeholder="618204" /></Field>
+        <Field label="Email code"><input value={code} onChange={(e) => setCode(e.target.value)} style={input} /></Field>
         {err && <div style={{ fontSize: 12.5, color: k.red }}>{err}</div>}
         <button type="submit" disabled={busy} style={{ ...solid, justifyContent: "center", padding: 12 }}>{busy ? "Checking…" : "Verify and continue"}</button>
-        <button type="button" onClick={() => nav("/app/today")} style={textLink}>Skip for now</button>
+        <button type="button" onClick={() => nav("/company/start")} style={textLink}>{t("auth.backToSignIn")}</button>
       </form>
     </AuthShell>
   );

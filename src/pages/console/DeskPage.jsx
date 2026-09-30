@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { KeyRound, LogOut, MonitorPlay } from "lucide-react";
-import { Btn, StatusChip, STROKE } from "../../components/ds.jsx";
+import { Btn, StatusChip, STROKE, useToast } from "../../components/ds.jsx";
 import { Logo } from "../../components/SiteChrome.jsx";
 import { useStore } from "../../context/Store.jsx";
 import { useDriveActions } from "../../hooks/useDriveActions.js";
@@ -9,7 +9,8 @@ import { useMeta } from "../../hooks/useMeta.js";
 import QueueBoard from "./QueueBoard.jsx";
 import { QueueSummary } from "./TodayPage.jsx";
 import { venueLine } from "../../lib/listing.js";
-import { driveStatus, hoursLabel } from "../../lib/status.js";
+import { driveStatus, hoursLabel, deskOpen } from "../../lib/status.js";
+import { api } from "../../lib/api.js";
 import { t } from "../../i18n/strings.js";
 
 const bare = (v) => String(v || "").toUpperCase().replace(/^HOST-?/, "").replace(/[^A-Z0-9]/g, "");
@@ -20,9 +21,18 @@ export function findByPin(drives, pin) {
   return drives.find((d) => d.host && bare(d.host) === p && driveStatus(d) !== "wrapped") || null;
 }
 
-function Desk({ drive, onLeave, setDrives }) {
+function Desk({ drive, onLeave, setDrives, pin }) {
   const act = useDriveActions(drive, setDrives);
-  const live = driveStatus(drive) === "live";
+  const live = deskOpen(drive);
+  const toast = useToast();
+  const [pass, setPass] = useState("");
+  async function issue() {
+    try {
+      const r = await api.deskPass({ driveId: drive.id, pin });
+      setPass(r.code);
+      toast(t("console.queue.passIssued", { code: r.code }));
+    } catch (e) { toast(e.message || t("desk.wrong"), "err"); }
+  }
   return (
     <>
       <div className="drive-head">
@@ -32,11 +42,13 @@ function Desk({ drive, onLeave, setDrives }) {
           <p className="small muted" style={{ margin: 0 }}>{drive.company} · {venueLine(drive) || drive.venue}</p>
         </div>
         <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+          <Btn variant="secondary" onClick={issue}>{t("console.queue.issuePass")}</Btn>
           <Btn variant="secondary" icon={MonitorPlay} to={`/tv/${drive.id}`} target="_blank" rel="noopener">{t("console.queue.lobby")}</Btn>
           <Btn variant="ghost" icon={LogOut} onClick={onLeave}>Leave desk</Btn>
         </div>
       </div>
       <div className="card card-pad" style={{ marginBottom: 20 }}><QueueSummary drive={drive} /></div>
+      {pass && <div className="panel small" role="status" style={{ marginBottom: 16 }}>{t("console.queue.passIssued", { code: pass })}</div>}
       {!live && <div className="panel small" role="status" style={{ marginBottom: 16 }}>The queue opens when the drive starts.</div>}
       <QueueBoard drive={drive} act={act} deskMode />
     </>
@@ -65,7 +77,7 @@ export default function DeskPage() {
         <span className="small muted">{t("desk.title")}</span>
       </header>
       <main className="console-body" style={{ margin: "0 auto" }}>
-        {drive ? <Desk drive={drive} setDrives={setDrives} onLeave={() => { setParams({}, { replace: true }); setPin(""); }} /> : (
+        {drive ? <Desk drive={drive} setDrives={setDrives} pin={params.get("pin")} onLeave={() => { setParams({}, { replace: true }); setPin(""); }} /> : (
           <form className="card card-pad stack gap-16" onSubmit={open} noValidate style={{ maxWidth: 420, margin: "8vh auto 0" }}>
             <span className="step-icon"><KeyRound size={22} strokeWidth={STROKE} aria-hidden="true" /></span>
             <div className="stack gap-4">

@@ -1,10 +1,10 @@
 import { k } from "../theme.js";
 import { INDIA_CITIES } from "../data/indiaCities.js";
-import { driveStatus, driveWhen, istDate, istNow } from "./status.js";
+import { driveStatus, driveWhen, istDate, istNow, tokensOpen, deskOpen } from "./status.js";
 import { formatNumber } from "./time.js";
 
 export { INDIA_CITIES };
-export { driveStatus, driveWhen };
+export { driveStatus, driveWhen, tokensOpen, deskOpen };
 
 export const ROTATE = 45, NOTIFY_MIN = 15, FALLBACK_TAT = 8, MIN = 6e4;
 
@@ -436,8 +436,8 @@ export function isWorkEmail(email) {
 export const code = (n) => { const a = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; let s = ""; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
 export const newHost = () => `HOST-${code(6)}`;
 export const newGate = () => `GATE-${code(6)}`;
-export const newPass = () => code(4);
-export const PASS_TTL = 2 * MIN;
+export const PASS_TTL = 10 * MIN;
+export const newPass = () => { const a = "23456789"; let s = ""; for (let i = 0; i < 6; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
 export const bare6 = (s = "") => s.toUpperCase().replace(/^(HOST|GATE|DESK|PASS)-/, "").replace(/[^A-Z0-9]/g, "").slice(0, 6);
 // Posters are printed once and reused, so the QR must resolve on whatever host the
 // tenant actually runs on. VITE_PUBLIC_URL pins it when posters are printed from a
@@ -460,7 +460,12 @@ export const livePass = (d, at = Date.now()) => {
   if (!p || p.used || p.exp <= at) return null;
   return p;
 };
-export const dupOf = (d, profile) => d.candidates.find((x) => x.phone === profile.phone);
+export const dupOf = (d, profile) => (d.candidates || []).find((x) => {
+  if (!x || x.state === "cancelled" || isTerminal(x.state)) return false;
+  if (profile?.phone && x.phone === profile.phone) return true;
+  if (profile?.deviceId && x.deviceId === profile.deviceId) return true;
+  return false;
+});
 export function scrubDrive(d) {
   if (!d) return d;
   return {
@@ -473,6 +478,7 @@ export function scrubDrive(d) {
       delete next.aadhaarHash;
       delete next.aadhaarLast4;
       delete next.whatsapp;
+      delete next.phoneVerifiedAt;
       return next;
     }),
   };
@@ -519,7 +525,6 @@ export const tat = (w) => {
     : FALLBACK_TAT;
   return Math.min(25, Math.max(2, mins));
 };
-export const DEMO_OTP = { sms: "482911", wa: "391720", email: "618204" };
 export const nudgeText = (c) => `${c.name.split(" ")[0]}, you're up in about ${NOTIFY_MIN} minutes — number ${c.token}. Please be near the waiting area.`;
 export const inNudgeWindow = (etaMin) => etaMin <= NOTIFY_MIN && etaMin >= 10;
 export function memberEmail(m) { return typeof m === "string" ? m : m.email; }

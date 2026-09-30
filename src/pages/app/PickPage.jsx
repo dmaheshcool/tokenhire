@@ -25,8 +25,8 @@ export function Pick({ go, back, hasProfile, driveCount }) {
           </button>
         </div>
         <div style={{ marginTop: 18, fontSize: 12, color: k.faint, display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <Link to="/login" style={textLink}>Employer sign in</Link>
-          <Link to="/signup" style={textLink}>New company</Link>
+          <Link to="/company/start" style={textLink}>Employer sign in</Link>
+          <Link to="/company/start" style={textLink}>New company</Link>
           <Link to="/candidate/login" style={textLink}>Candidate sign in</Link>
         </div>
       </div>

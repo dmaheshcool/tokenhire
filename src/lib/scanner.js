@@ -10,17 +10,23 @@ export function gateCodeFrom(raw) {
   const text = (raw || "").trim();
   if (!text) return null;
   try {
-    const url = new URL(text);
+    const url = new URL(text, typeof window !== "undefined" ? window.location.origin : "https://tokenhire.app");
+    const k = url.searchParams.get("k") || url.searchParams.get("d") || url.searchParams.get("code");
+    const parts = url.pathname.split("/").filter(Boolean);
+    const ci = parts.findIndex((p) => p === "check-in");
+    const driveId = ci >= 0 ? decodeURIComponent(parts[ci + 1] || "") : "";
+    const code = six(k);
+    if (driveId && code) return { driveId, code, gate: code, desk: code };
     const g = six(url.searchParams.get("g") || url.searchParams.get("c"));
     const d = six(url.searchParams.get("d"));
-    if (g) return { gate: g, desk: d || null };
+    if (g) return { gate: g, desk: d || null, code: d || g, driveId: "" };
   } catch {
     // not a URL — fall through to the plain-code forms below
   }
   const m = text.toUpperCase().match(/(?:GATE|DESK|PASS)-?([A-Z0-9]{4,6})/);
-  if (m) return { gate: m[1], desk: null };
+  if (m) return { gate: m[1], desk: null, code: m[1] };
   const bare = six(text);
-  return bare.length >= 4 ? { gate: bare, desk: null } : null;
+  return bare.length >= 4 ? { gate: bare, desk: null, code: bare } : null;
 }
 
 /**

@@ -62,10 +62,7 @@ These are known gaps, roughly in order of how much they matter.
 3. **Polling.** Each client refetches the full snapshot every 2 seconds. At a few
    hundred phones this is the thing that falls over first. Fix: Server-Sent Events, or
    Supabase Realtime on the `app_state` table.
-4. **No OTP delivery.** Verification codes are the fixed demo values in
-   `src/lib/helpers.js` (`DEMO_OTP`). Real SMS needs MSG91 plus DLT template
-   registration, which needs GST registration and takes 1–2 weeks — start it now if you
-   want it, and demo without it if you don't.
+4. **Phone numbers are not verified.** Candidates type a name and mobile once; it is saved on the device. There is no SMS or OTP. Company sign-up still uses a free email verification link.
 5. **Session storage.** Sessions live in the same JSON document as everything else and
    expire after 12 hours. Fine for a demo, not for many concurrent recruiters.
 

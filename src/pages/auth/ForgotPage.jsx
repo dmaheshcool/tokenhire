@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Field } from "../../components/ui.jsx";
 import { api } from "../../lib/api.js";
 import { AuthShell } from "../../layouts/AuthShell.jsx";
+import { t } from "../../i18n/strings.js";
 import { input, k, solid, textLink } from "../../theme.js";
 
 export default function ForgotPage() {
@@ -18,8 +19,8 @@ export default function ForgotPage() {
     setErr("");
     setMsg("");
     try {
-      const r = await api.forgot({ email });
-      setMsg(`Reset code sent. Demo code: ${r.demoCode}`);
+      await api.forgot({ email });
+      setMsg(t("auth.forgotSent"));
       setTimeout(() => nav(`/reset-password?email=${encodeURIComponent(email)}`), 600);
     } catch (ex) {
       setErr(ex.message);
@@ -28,13 +29,13 @@ export default function ForgotPage() {
   }
 
   return (
-    <AuthShell title="Forgot password" sub="We’ll send a reset code to your work email. In this demo the code is shown on screen.">
+    <AuthShell title={t("auth.forgotTitle")} sub={t("auth.forgotSub")} audience={null}>
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <Field label="Work email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} /></Field>
+        <Field label={t("auth.workEmail")}><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} /></Field>
         {err && <div style={{ fontSize: 12.5, color: k.red }}>{err}</div>}
         {msg && <div style={{ fontSize: 12.5, color: k.teal }}>{msg}</div>}
-        <button type="submit" disabled={busy} style={{ ...solid, justifyContent: "center", padding: 12 }}>{busy ? "Sending…" : "Send reset code"}</button>
-        <Link to="/login" style={textLink}>Back to sign in</Link>
+        <button type="submit" disabled={busy} style={{ ...solid, justifyContent: "center", padding: 12 }}>{busy ? t("auth.sendingCode") : t("auth.sendCode")}</button>
+        <Link to="/company/start" style={textLink}>{t("auth.backToSignIn")}</Link>
       </form>
     </AuthShell>
   );

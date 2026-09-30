@@ -12,12 +12,12 @@ test("reads the clock in IST", () => {
   assert.equal(istNow(at("2026-09-29T19:00:00Z")).date, "2026-09-30");
 });
 
-test("live inside the hours on the day", () => {
-  assert.equal(driveStatus(base, tenAm), "live");
+test("check-in open after doors and before start", () => {
+  assert.equal(driveStatus({ ...base, doorsOpenTime: "09:00", startTime: "11:00" }, tenAm), "checkin");
 });
 
 test("scheduled before the doors open and on a later day", () => {
-  assert.equal(driveStatus({ ...base, startTime: "11:00" }, tenAm), "scheduled");
+  assert.equal(driveStatus({ ...base, startTime: "11:00", doorsOpenTime: "11:00" }, tenAm), "scheduled");
   assert.equal(driveStatus({ ...base, date: "2026-10-02" }, tenAm), "scheduled");
 });
 
@@ -26,8 +26,8 @@ test("a saved draft stays a draft inside its hours until published", () => {
   assert.equal(driveStatus({ ...base, draft: false }, tenAm), "live");
 });
 
-test("wrapped after closing time", () => {
-  assert.equal(driveStatus({ ...base, endTime: "09:45" }, tenAm), "wrapped");
+test("closing after last entry, not wrapped from the clock", () => {
+  assert.equal(driveStatus({ ...base, endTime: "09:45", lastEntryTime: "09:45" }, tenAm), "closing");
 });
 
 test("a drive dated in the past is never live, whatever it stored", () => {
@@ -43,14 +43,14 @@ test("multi-day drives are scheduled between days and live during each day's hou
   const multi = { ...base, date: "2026-09-28", endDate: "2026-09-30" };
   assert.equal(driveStatus(multi, tenAm), "live");
   assert.equal(driveStatus(multi, at("2026-09-29T13:00:00Z")), "scheduled");
-  assert.equal(driveStatus(multi, at("2026-09-30T12:00:00Z")), "wrapped");
+  assert.equal(driveStatus(multi, at("2026-09-30T12:00:00Z")), "closing");
 });
 
 test("overnight hours run past midnight", () => {
   const night = { ...base, startTime: "22:00", endTime: "04:00" };
   assert.equal(driveStatus(night, at("2026-09-29T18:00:00Z")), "live");
   assert.equal(driveStatus(night, at("2026-09-29T21:00:00Z")), "live");
-  assert.equal(driveStatus(night, at("2026-09-29T23:00:00Z")), "wrapped");
+  assert.equal(driveStatus(night, at("2026-09-29T23:00:00Z")), "closing");
 });
 
 test("draft until it has a role and a date", () => {

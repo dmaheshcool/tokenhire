@@ -35,7 +35,7 @@ test("some drives are live at any hour, and none in the past are", () => {
     const live = list.filter((d) => driveStatus(d, t) === "live");
     assert.ok(live.length >= 15, `only ${live.length} live`);
     assert.ok(live.every((d) => queueStats(d).waiting > 0));
-    assert.ok(list.filter((d) => driveWhen(d, t).key === "ended").every((d) => driveStatus(d, t) === "wrapped"));
+    assert.ok(list.filter((d) => driveWhen(d, t).key === "ended").every((d) => ["wrapped", "closing", "cancelled"].includes(driveStatus(d, t))));
   }
 });
 

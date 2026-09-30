@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { LayoutGrid, MonitorSmartphone, ListChecks, PieChart, ArrowRight, Plus, ArrowLeft, ShieldCheck, Building2, Download, Users2, Building, HeartHandshake, Globe, Lock, Palette, MoreHorizontal, Search, Linkedin, Check } from "lucide-react";
 import { bdy, dsp, typ, k, R, box, input, solid, solidSm, outline, outlineSm, ghostSm, iconBtn, link, cell, textLink } from "../../theme.js";
 import { BarChart, Bar, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -400,96 +400,8 @@ export function Employer({ store, back, initialDriveId }) {
   );
 }
 
-export function OrgAuth({ orgs, setOrgs, onSignedIn, back }) {
-  const [mode, setMode] = useState("signin"); // signin | create
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [kind, setKind] = useState("captive");
-  const [err, setErr] = useState("");
-
-  function signIn(e) {
-    e.preventDefault();
-    setErr("");
-    const em = email.trim().toLowerCase();
-    const org = orgs.find((o) => o.email.toLowerCase() === em || o.members.some((m) => memberEmail(m).toLowerCase() === em));
-    if (!org) { setErr("No company account found with that email."); return; }
-    if (org.password !== password) { setErr("Incorrect password."); return; }
-    const mem = org.members.find((m) => memberEmail(m).toLowerCase() === em);
-    onSignedIn(org.id, mem ? memberRole(mem) : "recruiter");
-  }
-
-  function createOrg(e) {
-    e.preventDefault();
-    setErr("");
-    if (!companyName.trim() || !email.trim() || !password.trim()) { setErr("Fill in all fields."); return; }
-    if (orgs.some((o) => o.email.toLowerCase() === email.trim().toLowerCase())) { setErr("An account with that email already exists — sign in instead."); return; }
-    const id = `org_${Date.now()}`;
-    const agency = kind === "agency";
-    const name = companyName.trim();
-    setOrgs((p) => [...p, {
-      id, name, short: name.split(" ")[0], kind, color: agency ? "#0F8A6B" : "#341C8A",
-      logo: agency ? "bars" : "ring", wash: agency ? "#E6F5F0" : "#EEE8F8",
-      email: email.trim(), password, plan: "single", billingCycle: "drive",
-      members: [{ email: email.trim(), role: "recruiter" }],
-      clients: agency ? [] : [{ id: "cl_own", name: "Own hiring" }],
-      branches: [],
-    }]);
-    onSignedIn(id, "recruiter");
-  }
-
-  return (
-    <div style={{ minHeight: "100vh", background: k.cream2, fontFamily: bdy, color: k.ink, display: "flex", alignItems: "center", justifyContent: "center", padding: 26 }}>
-      <div style={{ maxWidth: 420, width: "100%" }}>
-        <button onClick={back} style={{ ...iconBtn, display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, marginBottom: 22 }}><ArrowLeft size={14} /> Back to site</button>
-        <div style={{ marginBottom: 8 }}><Wordmark size={20} /></div>
-        <p style={{ color: k.mid, fontSize: 14, margin: "0 0 24px" }}>Marketing is TokenHire. After sign-in you land in your company or agency space — only that org’s drives.</p>
-
-        <div style={{ display: "flex", gap: 4, background: k.cream2, borderRadius: R.pill, padding: 4, marginBottom: 20 }}>
-          <button onClick={() => { setMode("signin"); setErr(""); }} style={{ flex: 1, padding: "9px 0", borderRadius: R.pill, border: "none", cursor: "pointer", fontFamily: bdy, fontSize: 13.5, fontWeight: 600, background: mode === "signin" ? "#fff" : "transparent", color: mode === "signin" ? k.ink : k.mid }}>Sign in</button>
-          <button onClick={() => { setMode("create"); setErr(""); }} style={{ flex: 1, padding: "9px 0", borderRadius: R.pill, border: "none", cursor: "pointer", fontFamily: bdy, fontSize: 13.5, fontWeight: 600, background: mode === "create" ? "#fff" : "transparent", color: mode === "create" ? k.ink : k.mid }}>New company</button>
-        </div>
-
-        {mode === "signin" ? (
-          <form onSubmit={signIn} style={{ ...box, padding: 24, display: "flex", flexDirection: "column", gap: 13 }}>
-            <Field label="Work email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} placeholder="hr@yourcompany.com" /></Field>
-            <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} /></Field>
-            {err && <div style={{ fontSize: 12.5, color: k.red }}>{err}</div>}
-            <button type="submit" style={{ ...solid, justifyContent: "center", padding: 12, marginTop: 4 }}>Sign in</button>
-            <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.7, marginTop: 4 }}>
-              Password for every demo: <b style={{ fontFamily: typ }}>demo1234</b><br />
-              {HIDE_PRICING
-                ? <>Recruiter: <b style={{ fontFamily: typ }}>demo@vistaar.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.</>
-                : <>Plans — <b style={{ fontFamily: typ }}>single@tokenhire.demo</b> (Single Drive) · <b style={{ fontFamily: typ }}>monthly@tokenhire.demo</b> (Pro) · <b style={{ fontFamily: typ }}>enterprise@tokenhire.demo</b> (Enterprise) · <b style={{ fontFamily: typ }}>demo@vistaar.com</b><br />
-              Agency floor: <b style={{ fontFamily: typ }}>demo@vistaar.com</b> / <b style={{ fontFamily: typ }}>hr@quesscorp.com</b>. Campus: <b style={{ fontFamily: typ }}>hr@wipro.com</b>. Front desk: <b style={{ fontFamily: typ }}>desk@vistaar.com</b>.</>}
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={createOrg} style={{ ...box, padding: 24, display: "flex", flexDirection: "column", gap: 13 }}>
-            <Field label="Company or agency name"><input value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={input} placeholder="Vistaar Services, or Quess Corp" /></Field>
-            <div>
-              <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>How you hire</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={() => setKind("captive")} style={{ flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: bdy, border: `1px solid ${kind === "captive" ? k.coral : k.line}`, background: kind === "captive" ? k.coralDim : "#fff" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>Enterprise / captive</div>
-                  <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3 }}>Wipro or Genpact — hire for yourselves. No client layer.</div>
-                </button>
-                <button type="button" onClick={() => setKind("agency")} style={{ flex: 1, textAlign: "left", padding: 12, borderRadius: 10, cursor: "pointer", fontFamily: bdy, border: `1px solid ${kind === "agency" ? k.coral : k.line}`, background: kind === "agency" ? k.coralDim : "#fff" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>Staffing agency</div>
-                  <div style={{ fontSize: 11.5, color: k.mid, marginTop: 3 }}>Quess or Vistaar — walk-ins for clients, branded as you.</div>
-                </button>
-              </div>
-            </div>
-            <Field label="Work email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={input} placeholder="hr@yourcompany.com" /></Field>
-            <Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} /></Field>
-            {err && <div style={{ fontSize: 12.5, color: k.red }}>{err}</div>}
-            <button type="submit" style={{ ...solid, justifyContent: "center", padding: 12, marginTop: 4 }}>Create company account</button>
-            <div style={{ fontSize: 11.5, color: k.faint, lineHeight: 1.5, marginTop: 4 }}>This becomes your company's account — invite teammates from Team settings once you're in.</div>
-          </form>
-        )}
-      </div>
-    </div>
-  );
+export function OrgAuth() {
+  return <Navigate to="/company/start" replace />;
 }
 
 export function Lobby({ drives, org, onSignOut, open, create, back, desk, setOrgs, setDrives }) {

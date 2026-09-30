@@ -5,8 +5,9 @@ import { useStore } from "../context/Store.jsx";
 import { dsp, typ } from "../theme.js";
 import QrCode from "../components/QrCode.jsx";
 import { tokenDigits } from "../components/brand.jsx";
-import { bare6, gateUrl, hallName, liveDesk, mask, orgColor, roomName, scanEnabled, servingNow, waitingNow } from "../lib/helpers.js";
+import { bare6, hallName, mask, orgColor, roomName, scanEnabled, servingNow, waitingNow } from "../lib/helpers.js";
 import { formatIST } from "../lib/time.js";
+import { api } from "../lib/api.js";
 
 const BG = "#080B14";
 const PANEL = "#111629";
@@ -15,10 +16,11 @@ const LINE = "#232A44";
 export default function TvScreenPage() {
   const { driveId } = useParams();
   const [params] = useSearchParams();
-  const { drives, orgs, left } = useStore();
+  const { drives, orgs } = useStore();
   const [speak, setSpeak] = useState(false);
   const spokenRef = useRef(new Set());
   const wrapRef = useRef(null);
+  const [lobby, setLobby] = useState(null);
 
   const drive = useMemo(
     () => drives.find((d) => d.id === driveId) || drives.find((d) => bare6(d.gate) === bare6(params.get("g") || "")),
@@ -32,6 +34,25 @@ export default function TvScreenPage() {
     () => waitingNow(drive?.candidates),
     [drive],
   );
+
+  useEffect(() => {
+    if (!drive?.id) return undefined;
+    let timer = 0;
+    let live = true;
+    const load = async () => {
+      try {
+        const r = await api.lobby(drive.id);
+        if (!live) return;
+        setLobby(r);
+        const wait = Math.max(1200, (r.expiresAt || Date.now() + 60000) - Date.now() + 200);
+        timer = window.setTimeout(load, wait);
+      } catch {
+        timer = window.setTimeout(load, 8000);
+      }
+    };
+    load();
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [drive?.id]);
 
   // Announce each token once, so a candidate who looked away still hears their number.
   useEffect(() => {
@@ -67,7 +88,9 @@ export default function TvScreenPage() {
     );
   }
 
-  const desk = liveDesk(drive);
+  const desk = lobby?.display || "";
+  const left = lobby?.secondsLeft ?? 0;
+  const ring = Math.max(0, Math.min(1, left / 60));
 
   return (
     <div ref={wrapRef} style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: dsp, padding: "clamp(14px, 2vw, 30px)", display: "flex", flexDirection: "column", gap: "clamp(12px, 1.6vw, 22px)" }}>
@@ -150,7 +173,7 @@ export default function TvScreenPage() {
                         {/* Carries the live desk code, so this one scan both finds the drive
                             and proves the candidate is in the room. After join, the same
                             phone opens the live token page. */}
-                        <QrCode value={gateUrl(drive.gate, desk)} size={168} alt="Scan to join this walk-in" />
+                        <QrCode value={lobby?.qrUrl || ""} size={168} alt="Scan to join this walk-in" />
                       </div>
                     </div>
                     <div style={{ color: "#C6CCE0", fontSize: "clamp(11px, 1vw, 15px)", marginTop: 12, lineHeight: 1.45 }}>
@@ -164,7 +187,11 @@ export default function TvScreenPage() {
                       Type this code on your phone instead.
                     </div>
                     <div style={{ fontFamily: typ, fontSize: "clamp(24px, 2.8vw, 44px)", fontWeight: 700, letterSpacing: 4, lineHeight: 1 }}>{desk}</div>
-                    <div style={{ color: "#8A93AE", fontFamily: typ, fontSize: "clamp(11px, 1vw, 15px)", marginTop: 10 }}>CHANGES IN {left}s</div>
+                    <svg className="tv-ring" viewBox="0 0 36 36" aria-hidden="true">
+                      <circle cx="18" cy="18" r="14" stroke="rgba(255,255,255,0.12)" />
+                      <circle cx="18" cy="18" r="14" stroke={accent} strokeDasharray={`${ring * 88} 88`} transform="rotate(-90 18 18)" />
+                    </svg>
+                    <div style={{ color: "#8A93AE", fontFamily: typ, fontSize: "clamp(11px, 1vw, 15px)", marginTop: 10 }}>{left}s</div>
                   </div>
           </>
           )}

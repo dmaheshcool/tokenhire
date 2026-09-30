@@ -5,7 +5,7 @@ import { Btn, EmptyState, Monogram, STROKE, useToast } from "../../components/ds
 import { PageHead, useConsole } from "../../layouts/ConsoleLayout.jsx";
 import { useMeta } from "../../hooks/useMeta.js";
 import { useLibrary } from "../../hooks/useLibrary.js";
-import { LIBRARY_KINDS, addItem, mergeItems, nameOf, relinkDrives, renameItem, setActive, usesOf, withNewItems } from "../../lib/library.js";
+import { LIBRARY_PAGE_KINDS, addItem, deleteItem, mergeItems, nameOf, relinkDrives, renameItem, setActive, usesOf, withNewItems } from "../../lib/library.js";
 import { payText } from "../../lib/listing.js";
 import { BrandPanel } from "../app/EmployerPage.jsx";
 import { atSeatCap, downloadFile, isWorkEmail, memberEmail, memberName, memberRole, planLimits } from "../../lib/helpers.js";
@@ -70,7 +70,7 @@ function VenuesInner() {
                 <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => remove(b.id)} aria-label={`Remove ${b.name}`}><Trash2 size={16} strokeWidth={STROKE} /></button>
               </div>
             </Row>
-          )) : <EmptyState icon={MapPin} title="No venues yet." body="Add the offices or campuses you hire at." />}
+          )) : <EmptyState icon={MapPin} title={t("console.setup.empty.venues")} />}
         </div>
         <form className="card card-pad stack gap-12 span-5" onSubmit={add} noValidate>
           <h2 className="h-4">Add a venue</h2>
@@ -94,7 +94,7 @@ function SettingsTabs() {
   return (
     <nav className="tabs settings-tabs" aria-label={t("console.nav.settings")}>
       <NavLink to="/app/settings" end className={({ isActive }) => (isActive ? "active" : "")}>{t("settings.tabs.company")}</NavLink>
-      <NavLink to="/app/settings/library" className={({ isActive }) => (isActive ? "active" : "")}>{t("settings.tabs.library")}</NavLink>
+      <NavLink to="/app/library" className={({ isActive }) => (isActive ? "active" : "")}>{t("settings.tabs.library")}</NavLink>
     </nav>
   );
 }
@@ -144,6 +144,7 @@ function LibraryRow({ kind, item, uses, others, hint, onRename, onMerge, onArchi
             {!archived && <Btn size="sm" variant="ghost" icon={Pencil} onClick={() => setMode("rename")}>{t("library.rename")}</Btn>}
             {!archived && others.length > 0 && <Btn size="sm" variant="ghost" icon={Merge} onClick={() => setMode("merge")}>{t("library.merge")}</Btn>}
             <Btn size="sm" variant="ghost" icon={archived ? ArchiveRestore : Archive} onClick={() => onArchive(archived)}>{archived ? t("library.restore") : t("library.archive")}</Btn>
+            {!archived && uses === 0 && <Btn size="sm" variant="ghost" icon={Trash2} onClick={() => onArchive("delete")}>{t("library.delete")}</Btn>}
           </div>
         </>
       )}
@@ -151,10 +152,10 @@ function LibraryRow({ kind, item, uses, others, hint, onRename, onMerge, onArchi
   );
 }
 
-function LibraryInner() {
+function LibraryInner({ kinds = LIBRARY_PAGE_KINDS, title, lede, hideTabs }) {
   const toast = useToast();
   const { lib, update, drives, setDrives, orgId } = useLibrary();
-  const [kind, setKind] = useState("processes");
+  const [kind, setKind] = useState(kinds[0]);
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -196,6 +197,11 @@ function LibraryInner() {
     toast(t("library.merged", { from: nameOf(kind, item), into: nameOf(kind, into) }));
   }
   function archive(item, restore) {
+    if (restore === "delete") {
+      update((cur) => deleteItem(cur, kind, item.id));
+      toast(t("library.delete"));
+      return;
+    }
     update((cur) => setActive(cur, kind, item.id, restore));
     toast(t(restore ? "library.restored" : "library.archivedToast"));
   }
@@ -208,21 +214,22 @@ function LibraryInner() {
 
   return (
     <>
-      <PageHead title={t("console.nav.settings")} lede={t("library.lede")} />
-      <SettingsTabs />
+      <PageHead title={title || t("console.nav.library")} lede={lede || t("library.lede")} />
+      {!hideTabs && (
       <div className="chips-scroll" role="tablist" aria-label={t("library.title")} style={{ marginBottom: 16 }}>
-        {LIBRARY_KINDS.map((k) => (
+        {kinds.map((k) => (
           <button key={k} type="button" role="tab" className="chip" aria-selected={kind === k} aria-pressed={kind === k}
             onClick={() => { setKind(k); setText(""); setErr(""); setShowArchived(false); }}>
             {t(`library.kinds.${k}`)} <span className="mono" style={{ opacity: 0.6, marginLeft: 4 }}>{(lib[k] || []).filter((x) => x.active !== false).length}</span>
           </button>
         ))}
       </div>
+      )}
       <div className="grid-12" style={{ alignItems: "start", rowGap: 24 }}>
         <div className="span-7 stack gap-12" role="tabpanel">
           <p className="small muted" style={{ margin: 0 }}>{t(`library.help.${kind}`)}</p>
           {active.length ? <div className="card" style={{ padding: 0 }}>{active.map(row)}</div>
-            : <EmptyState icon={BookOpen} title={t("library.none")} body={t("library.noneBody")} />}
+            : <EmptyState icon={BookOpen} title={t("library.none")} body={kind === "processes" ? t("console.setup.empty.hiringTeams") : t("console.setup.empty.library")} />}
           {archived.length > 0 && (
             <div className="stack gap-8">
               <button type="button" className="link small" style={{ alignSelf: "flex-start" }} aria-expanded={showArchived} onClick={() => setShowArchived((s) => !s)}>
@@ -246,9 +253,22 @@ function LibraryInner() {
   );
 }
 export function LibraryPage() { return <RecruiterOnly><LibraryInner /></RecruiterOnly>; }
+export function HiringTeamsPage() {
+  return <RecruiterOnly><LibraryInner kinds={["processes"]} hideTabs title={t("console.nav.hiringTeams")} lede={t("library.help.processes")} /></RecruiterOnly>;
+}
+export function IntegrationsPage() {
+  return (
+    <RecruiterOnly>
+      <>
+        <PageHead title={t("console.nav.integrations")} />
+        <EmptyState icon={BookOpen} title={t("console.setup.empty.integrations")} action={<Btn to="/app/today">{t("console.setup.cta.integrations")}</Btn>} />
+      </>
+    </RecruiterOnly>
+  );
+}
 
 /* ---------- Team ---------- */
-const ROLES = [["recruiter", "Recruiter"], ["frontdesk", "Front desk"]];
+const ROLES = [["admin", t("console.teamRoles.admin")], ["recruiter", t("console.teamRoles.recruiter")], ["frontdesk", t("console.teamRoles.frontdesk")], ["viewer", t("console.teamRoles.viewer")]];
 
 function TeamInner() {
   const { org, staffEmail } = useConsole();
@@ -278,7 +298,7 @@ function TeamInner() {
 
   return (
     <>
-      <PageHead title={t("console.nav.team")} lede="Recruiters run drives and see resumes. Front desk only runs the queue." />
+      <PageHead title={t("console.nav.team")} lede="People and permissions. The account owner is already on the team." />
       <div className="grid-12" style={{ alignItems: "start", rowGap: 24 }}>
         <div className="span-7 stack gap-8">
           {members.map((m) => {
@@ -303,7 +323,7 @@ function TeamInner() {
               </Row>
             );
           })}
-          {!members.length && <EmptyState icon={Users} title="Just you so far." body="Invite the recruiters and front desk staff for drive day." />}
+          {!members.length && <EmptyState icon={Users} title={t("console.setup.empty.team")} />}
         </div>
         <form className="card card-pad stack gap-12 span-5" onSubmit={invite} noValidate>
           <h2 className="h-4">Invite someone</h2>
@@ -327,18 +347,21 @@ export function TeamPage() { return <RecruiterOnly><TeamInner /></RecruiterOnly>
 
 /* ---------- Settings ---------- */
 function SettingsInner() {
-  const { org, setOrgs, setDrives } = useConsole();
+  const { org, setOrgs, setDrives, signOutAll } = useConsole();
   const patch = useOrgPatch();
   const toast = useToast();
   const [name, setName] = useState(org.name || "");
   const [email, setEmail] = useState(org.email || "");
+  const [about, setAbout] = useState(org.about || "");
+  const [website, setWebsite] = useState(org.website || "");
+  const [hiringTeamName, setHiringTeamName] = useState(org.hiringTeamName || "");
   const [err, setErr] = useState("");
   useMeta({ title: "Settings" });
   function save(e) {
     e.preventDefault();
     if (email.trim() && !isWorkEmail(email.trim())) { setErr("Use a work email."); return; }
     setErr("");
-    patch({ name: name.trim() || org.name, email: email.trim() || org.email });
+    patch({ name: name.trim() || org.name, email: email.trim() || org.email, about: about.trim(), website: website.trim(), hiringTeamName: hiringTeamName.trim() });
     toast("Settings saved.");
   }
   return (
@@ -357,9 +380,26 @@ function SettingsInner() {
             <input id="st-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!err} />
             {err && <p className="tiny" role="alert" style={{ color: "var(--danger)", margin: 0 }}>{err}</p>}
           </div>
+          <div className="field">
+            <label className="label" htmlFor="st-about">{t("settings.about")}</label>
+            <textarea id="st-about" className="textarea" rows={3} maxLength={400} value={about} onChange={(e) => setAbout(e.target.value)} />
+            <p className="tiny muted">{t("settings.aboutHelp")}</p>
+          </div>
+          <div className="field">
+            <label className="label" htmlFor="st-web">{t("settings.website")}</label>
+            <input id="st-web" className="input" value={website} onChange={(e) => setWebsite(e.target.value)} />
+          </div>
+          <div className="field">
+            <label className="label" htmlFor="st-team">{t("settings.hiringTeam")}</label>
+            <input id="st-team" className="input" value={hiringTeamName} onChange={(e) => setHiringTeamName(e.target.value)} />
+          </div>
           <div className="row gap-8" style={{ flexWrap: "wrap" }}>
             <Btn type="submit">Save</Btn>
             <Btn variant="ghost" to="/forgot-password">Reset password</Btn>
+            <Btn variant="ghost" type="button" onClick={async () => {
+              await signOutAll();
+              window.location.assign("/");
+            }}>{t("auth.signOutEverywhere")}</Btn>
           </div>
         </form>
         <section className="card card-pad span-7 legacy-panel" aria-label="Lobby display brand">
