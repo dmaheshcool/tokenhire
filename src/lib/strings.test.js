@@ -47,6 +47,8 @@ test("keys built at runtime exist", () => {
     "library.placeholder.": ["processes", "roles", "documents", "rounds"],
     "checkin.": ["yes", "no"],
     "console.tabs.": ["queue", "rooms", "candidates", "report"],
+    "ats.templates.": ["generic", "workday", "greenhouse", "lever", "zoho", "successfactors"],
+    "ats.hints.": ["generic", "workday", "greenhouse", "lever", "zoho", "successfactors"],
     "console.report.funnel.": ["registered", "checkedIn", "interviewed", "shortlisted"],
     "console.report.states.": ["wait", "calling", "interviewing", "selected", "rejected", "onhold", "absent"],
     "console.queue.labels.": ["selected", "rejected", "onhold", "absent"],

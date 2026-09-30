@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Download, FileArchive, FileSpreadsheet } from "lucide-react";
 import { Btn } from "../../components/ds.jsx";
 import { ATS_TARGETS, downloadAts } from "../../lib/ats.js";
+import { api, readSession } from "../../lib/api.js";
 import { roundLabel } from "../../lib/helpers.js";
 import { tokenNumber } from "../../lib/listing.js";
 import { t, tl } from "../../i18n/strings.js";
@@ -30,11 +31,58 @@ export function reportNumbers(drive) {
   };
 }
 
+async function pullFile(job) {
+  const session = readSession();
+  const res = await fetch(job.download, { headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {} });
+  if (!res.ok) throw new Error("download");
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = job.filename || "export";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+}
+
 export default function ReportTab({ drive }) {
-  const [target, setTarget] = useState("standard");
+  const [target, setTarget] = useState("generic");
+  const [job, setJob] = useState(null);
   const r = useMemo(() => reportNumbers(drive), [drive]);
   const top = Math.max(1, r.funnel[0][1]);
   const rows = [...r.cs].sort((a, b) => String(a.token).localeCompare(String(b.token), undefined, { numeric: true }));
+  const chosen = ATS_TARGETS.find((x) => x.id === target) || ATS_TARGETS[0];
+
+  useEffect(() => {
+    if (!job?.id || job.status === "ready" || job.status === "failed") return undefined;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const next = await api.exportStatus(job.id);
+        if (stop) return;
+        setJob(next);
+        if (next.status === "ready" && next.download) {
+          try { await pullFile(next); } catch { downloadAts(drive, target, job.format); }
+        }
+      } catch {
+        if (!stop) setJob((p) => (p ? { ...p, status: "failed" } : p));
+      }
+    };
+    const id = setInterval(tick, 400);
+    tick();
+    return () => { stop = true; clearInterval(id); };
+  }, [job?.id, job?.status, job?.format, drive, target]);
+
+  async function start(format) {
+    setJob({ status: "starting", format, progress: 0 });
+    try {
+      const next = await api.exportStart({ driveId: drive.id, template: target, format });
+      setJob({ ...next, format });
+    } catch {
+      downloadAts(drive, target, format);
+      setJob(null);
+    }
+  }
+
+  const busy = job && job.status !== "ready" && job.status !== "failed";
   return (
     <div className="stack gap-24">
       <section className="card card-pad stack gap-16" aria-labelledby="rp-export">
@@ -42,16 +90,25 @@ export default function ReportTab({ drive }) {
           <div className="stack gap-4">
             <h2 id="rp-export" className="h-3">{t("console.report.export")}</h2>
             <p className="small muted" style={{ maxWidth: 560 }}>{t("console.report.helper")}</p>
+            {chosen.hint ? <p className="tiny muted" style={{ maxWidth: 560, margin: 0 }}>{chosen.hint}</p> : null}
           </div>
           <div className="row gap-8" style={{ flexWrap: "wrap" }}>
             <label className="sr-only" htmlFor="rp-target">{t("console.report.formatFor")}</label>
-            <select id="rp-target" className="select" style={{ width: "auto" }} value={target} onChange={(e) => setTarget(e.target.value)}>
+            <select id="rp-target" className="select" style={{ width: "auto" }} value={target} onChange={(e) => setTarget(e.target.value)} disabled={!!busy}>
               {ATS_TARGETS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
             </select>
-            <Btn icon={Download} onClick={() => downloadAts(drive, target, "csv")}>{t("console.report.csv")}</Btn>
-            <Btn variant="secondary" icon={FileSpreadsheet} onClick={() => downloadAts(drive, target, "xlsx")}>{t("console.report.xlsx")}</Btn>
+            <Btn icon={Download} disabled={!!busy} onClick={() => start("csv")}>{t("console.report.csv")}</Btn>
+            <Btn variant="secondary" icon={FileSpreadsheet} disabled={!!busy} onClick={() => start("xlsx")}>{t("console.report.xlsx")}</Btn>
+            <Btn variant="secondary" icon={FileArchive} disabled={!!busy} onClick={() => start("zip")}>{t("console.report.zip")}</Btn>
           </div>
         </div>
+        {job && job.status !== "ready" && (
+          <p className="small" role="status" style={{ margin: 0 }}>
+            {job.status === "failed" ? t("console.report.failed")
+              : job.status === "starting" ? t("console.report.starting")
+                : t("console.report.progress", { n: job.progress || 0 })}
+          </p>
+        )}
       </section>
 
       <section className="card card-pad stack gap-16" aria-labelledby="rp-funnel">

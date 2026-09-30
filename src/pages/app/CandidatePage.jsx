@@ -7,10 +7,11 @@ import { Blank, Field, Pill, SectionLabel, TopBar } from "../../components/ui.js
 import { DrivePosting } from "../../components/DrivePosting.jsx";
 import { KeepTokenLink } from "../../components/KeepTokenLink.jsx";
 import { useQueueAlert } from "../../hooks/useQueueAlert.js";
-import { rememberTicket, readTickets } from "../../lib/api.js";
+import { rememberTicket, readTickets, api } from "../../lib/api.js";
 import { gateCodeFrom, startQrScan } from "../../lib/scanner.js";
 import { t } from "../../i18n/strings.js";
 import { driveRoles, fieldAnswerOk } from "../../lib/library.js";
+import { checkResumeFile, emailOk, indianPhone, resumeIsRequired } from "../../lib/resume.js";
 import { DEFAULT_ROUNDS, firstRoundIdx, boundToday, code, driveStatus, currentServingToken, dupOf, hallChrome, inARound, isTerminal, joinBlockedReason, listingHost, liveDesk, livePass, listingPlace, queueAhead, resumeName, readResumeFile, roomName, roundLabel, scanEnabled, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
 
 export function Candidate({ store, back }) {
@@ -153,6 +154,7 @@ export function Candidate({ store, back }) {
       id: token, token, claim: code(6), name: profile.name, phone: profile.phone, email: profile.email, resume: profile.resume, room: null, state: "wait", at: now, pinged: false, calledAt: null, decidedAt: null,
       roundIdx: firstRoundIdx(live.rounds, role?.id), roundAssigned: false, notes: {}, checkedIn: !remote, arrivedAt: remote ? null : now,
       ...(role ? { roleId: role.id, roleCode: role.code } : {}), ...(Object.keys(answers).length ? { answers } : {}),
+      consentAt: extra.consentAt || now, phoneVerifiedAt: extra.phoneVerifiedAt || null,
     };
     setDrives((prev) => prev.map((x) => x.id === live.id ? { ...x, seq, candidates: [...x.candidates, cand] } : x));
     profile.applications.push(live.id);
@@ -171,7 +173,7 @@ export function Candidate({ store, back }) {
       <div className="pagepad" style={{ maxWidth: 720, margin: "0 auto", padding: 26 }}>
         {!profile ? <BuildProfile onDone={setProfile} />
           : result ? <Slip r={result} drives={drives} onAgain={resetJoin} />
-            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={(extra) => join(matched, extra)} joinErr={joinErr} remote={remote} />
+            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={(extra) => join(matched, extra)} joinErr={joinErr} remote={remote} apiOk={store.apiOk} />
               : tab === "profile" ? <MyProfile p={profile} setP={setProfile} />
                 : tab === "join" ? <JoinDrive drives={drives} left={left} onMatch={handleMatch} />
                   : <History p={profile} drives={drives} />}
@@ -242,23 +244,57 @@ function CheckinQuestions({ drive, roleId, setRoleId, answers, setAnswers, err }
   );
 }
 
-export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, remote }) {
+export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, remote, apiOk }) {
   const [deskIn, setDeskIn] = useState("");
   const [proveErr, setProveErr] = useState("");
   const roles = driveRoles(matched);
   const [roleId, setRoleId] = useState(roles.length === 1 ? roles[0].id : "");
   const [answers, setAnswers] = useState({});
   const [formErr, setFormErr] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(null);
+  const [verified, setVerified] = useState(!apiOk);
+  const [otpBusy, setOtpBusy] = useState(false);
+  const company = hallName(matched);
   function confirm() {
+    if (!emailOk(p.email)) { setFormErr(t("checkin.emailErr")); return; }
+    if (!indianPhone(p.phone)) { setFormErr(t("checkin.phoneErr")); return; }
+    if (resumeIsRequired(matched) && !resumeName(p.resume)) { setFormErr(t("checkin.resumeNeed")); return; }
     if (roles.length > 1 && !roles.some((r) => r.id === roleId)) { setFormErr(t("checkin.roleErr")); return; }
     if ((matched.fields || []).some((f) => !fieldAnswerOk(f, answers[f.id]))) { setFormErr(t("checkin.answerErr")); return; }
+    if (!consent) { setFormErr(t("checkin.consentErr")); return; }
+    if (apiOk && !verified) { setFormErr(t("checkin.otpNeed")); return; }
     setFormErr("");
-    onConfirm({ roleId: roles.length > 1 ? roleId : "", answers });
+    onConfirm({ roleId: roles.length > 1 ? roleId : "", answers, consentAt: Date.now(), phoneVerifiedAt: verified ? Date.now() : null });
   }
   async function uploadResume(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const bad = checkResumeFile(file);
+    if (bad.error === "size") { setFormErr(t("checkin.resumeSize")); return; }
+    if (bad.error === "type" || bad.error === "missing") { setFormErr(t("checkin.resumeType")); return; }
+    setFormErr("");
     setP({ ...p, resume: await readResumeFile(file) });
+  }
+  async function sendOtp() {
+    setOtpBusy(true);
+    setFormErr("");
+    try {
+      const r = await api.checkinStart({ phone: p.phone, driveId: matched.id });
+      setOtpSent(r);
+      setOtp("");
+    } catch (err) { setFormErr(err.message || t("remind.failed")); }
+    finally { setOtpBusy(false); }
+  }
+  async function verifyOtp() {
+    setOtpBusy(true);
+    setFormErr("");
+    try {
+      await api.checkinVerify({ phone: otpSent.phone, code: otp, driveId: matched.id });
+      setVerified(true);
+    } catch (err) { setFormErr(err.message || t("remind.failed")); }
+    finally { setOtpBusy(false); }
   }
   function submitProof() {
     const err = onProve(deskIn);
@@ -314,7 +350,28 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
                 </label>
               )} last />
           </div>
-          <CheckinQuestions drive={matched} roleId={roleId} setRoleId={(v) => { setRoleId(v); setFormErr(""); }} answers={answers} setAnswers={(v) => { setAnswers(v); setFormErr(""); }} err={formErr} />
+          <CheckinQuestions drive={matched} roleId={roleId} setRoleId={(v) => { setRoleId(v); setFormErr(""); }} answers={answers} setAnswers={(v) => { setAnswers(v); setFormErr(""); }} err={null} />
+          {formErr && <div role="alert" style={{ fontSize: 13, color: k.red, lineHeight: 1.5, marginBottom: 12 }}>{formErr}</div>}
+          <label className="check" style={{ alignItems: "flex-start", marginBottom: 14 }}>
+            <input type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); setFormErr(""); }} />
+            <span style={{ fontSize: 13, lineHeight: 1.45 }}>{t("checkin.consent", { company })}</span>
+          </label>
+          {apiOk && !verified && (
+            <div style={{ ...box, padding: 16, marginBottom: 14 }}>
+              {!otpSent ? (
+                <button type="button" onClick={sendOtp} disabled={otpBusy} style={{ ...outlineSm }}>{otpBusy ? t("checkin.otpSending") : t("checkin.otpSend")}</button>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {otpSent.demo && <div style={{ fontSize: 12.5, color: k.ink2 }}>{t("checkin.otpDemo", { code: otpSent.demoCode })}</div>}
+                  <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" maxLength={6} placeholder={t("checkin.otpLabel")} style={{ ...input, fontFamily: typ, letterSpacing: 4 }} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" onClick={verifyOtp} disabled={otpBusy || otp.length !== 6} style={solidTeal}>{t("checkin.otpVerify")}</button>
+                    <button type="button" onClick={sendOtp} disabled={otpBusy} style={outlineSm}>{t("checkin.otpResend")}</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {joinErr && <div style={{ fontSize: 13, color: k.red, margin: "0 0 10px", textAlign: "center" }}>{joinErr}</div>}
           <button onClick={confirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Get my token <ArrowRight size={15} /></>}</button>
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Save the token page. That’s your place in line.</div>
@@ -334,16 +391,17 @@ export function BuildProfile({ onDone }) {
   async function attachResume(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (checkResumeFile(file).error) return;
     const resume = await readResumeFile(file);
     setF((p) => ({ ...p, resume }));
   }
 
   function submit(e) {
     e.preventDefault();
-    if (!f.name.trim() || f.phone.trim().length !== 10) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return;
+    if (!f.name.trim() || !indianPhone(f.phone)) return;
+    if (!emailOk(f.email.trim())) return;
     onDone({
-      name: f.name.trim(), phone: f.phone, email: f.email.trim(), resume: f.resume,
+      name: f.name.trim(), phone: indianPhone(f.phone), email: f.email.trim(), resume: f.resume,
       id: `c_${Date.now()}`, applications: [], bound: {},
     });
   }
@@ -376,6 +434,7 @@ export function MyProfile({ p, setP }) {
   async function attachResume(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (checkResumeFile(file).error) return;
     setP({ ...p, resume: await readResumeFile(file) });
   }
   return (

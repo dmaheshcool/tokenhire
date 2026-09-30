@@ -191,10 +191,11 @@
   },
 
   "time": {
-    "range": "{{from}} to {{to}}",
+    "range": "{{from}} to {{to}} IST",
     "when": "{{day}}, {{hours}}",
     "am": "AM",
-    "pm": "PM"
+    "pm": "PM",
+    "zone": "IST"
   },
 
   "card": {
@@ -302,7 +303,7 @@
     "queueNow": "Queue right now",
     "inQueue": "in queue",
     "live": "Check-in is open. Scan the QR code on the lobby display at the venue to get your token.",
-    "closed": "Check-in opens on {{date}} at {{time}}. Save this walk-in so it's easy to find on the day.",
+    "closed": "Check-in opens on {{date}} at {{time}} IST. Save this walk-in so it's easy to find on the day.",
     "ended": "This walk-in has ended. See other walk-ins in {{city}}.",
     "endedLink": "See other walk-ins in {{city}}",
     "similar": "More walk-ins in {{city}}",
@@ -492,6 +493,25 @@
     "text": "{{role}} walk-in at {{company}}, {{dates}}, {{hours}}, {{place}}."
   },
 
+  "ats": {
+    "templates": {
+      "generic": "Generic",
+      "workday": "Workday",
+      "greenhouse": "Greenhouse",
+      "lever": "Lever",
+      "zoho": "Zoho Recruit",
+      "successfactors": "SAP SuccessFactors"
+    },
+    "hints": {
+      "generic": "Standard columns. Rename or reorder them in your ATS import.",
+      "workday": "Same columns, named for a Workday Recruiting spreadsheet import (EIB).",
+      "greenhouse": "Same columns, named for a Greenhouse bulk import.",
+      "lever": "Same columns, named for a Lever import.",
+      "zoho": "Same columns, named for a Zoho Recruit import.",
+      "successfactors": "Same columns, named for an SAP SuccessFactors import."
+    }
+  },
+
   "toast": {
     "saved": "Saved on this device.",
     "unsaved": "Removed from saved.",
@@ -508,7 +528,7 @@
       "title": "Today's drives",
       "empty": "No drives today. Create a drive and share the link with candidates.",
       "live": "Live",
-      "startsAt": "Starts at {{time}}",
+      "startsAt": "Starts at {{time}} IST",
       "inQueue": "{{n}} in queue",
       "inRound": "{{n}} in a round",
       "seen": "{{n}} seen",
@@ -556,6 +576,8 @@
       "docNone": "No documents added yet.",
       "fieldsTitle": "Questions at check-in",
       "fieldsHelp": "Candidates answer these when they check in. For example notice period, preferred shift or two-wheeler owned.",
+      "resumeRequired": "Ask for a resume file at check-in",
+      "resumeRequiredHelp": "PDF or Word, up to 5 MB. Tick this if they must attach a file to get a token.",
       "fieldLabel": "Question",
       "fieldLabelPlaceholder": "Notice period",
       "fieldType": "Answer type",
@@ -695,10 +717,15 @@
       "title": "Drive report",
       "funnel": { "registered": "Registered", "checkedIn": "Checked in", "interviewed": "Interviewed", "shortlisted": "Shortlisted" },
       "export": "Export for ATS",
-      "helper": "Includes name, phone, role, notes and the decision from every round.",
+      "helper": "Three sheets: candidates, rounds and a summary. CSV + resumes is a ZIP. Resume links expire in 7 days.",
       "formatFor": "Format for",
       "csv": "CSV",
       "xlsx": "Excel",
+      "zip": "CSV + resumes",
+      "starting": "Starting export…",
+      "progress": "{{n}} percent",
+      "ready": "Ready — downloading.",
+      "failed": "Export failed. Downloading a local copy instead.",
       "avgWait": "Average wait",
       "avgRound": "Average round",
       "onHold": "On hold",
@@ -769,7 +796,21 @@
     "yes": "Yes",
     "no": "No",
     "choose": "Choose one",
-    "answerErr": "Answer the questions marked Required."
+    "answerErr": "Answer the questions marked Required.",
+    "consent": "I agree to share my details and resume with {{company}} for this hiring drive.",
+    "consentErr": "Tick the box to share your details with this company.",
+    "resumeNeed": "Attach a PDF or Word resume (up to 5 MB).",
+    "resumeType": "Use a PDF or Word file (.pdf, .doc, .docx).",
+    "resumeSize": "That file is over 5 MB. Pick a smaller one.",
+    "emailErr": "Enter a valid email address.",
+    "phoneErr": "Enter a 10-digit Indian mobile number.",
+    "otpSend": "Send a code to this mobile",
+    "otpSending": "Sending…",
+    "otpLabel": "6-digit code",
+    "otpVerify": "Verify mobile",
+    "otpDemo": "Demo: no SMS is sent yet. Use code {{code}}.",
+    "otpNeed": "Verify the code sent to your mobile before you take a token.",
+    "otpResend": "Send a new code"
   },
 
   "desk": {

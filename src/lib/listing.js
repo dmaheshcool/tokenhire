@@ -1,6 +1,7 @@
 import { driveSchedule, driveStatus, driveWhen, fromMinutes, hoursLabel, datesLabel } from "./status.js";
 import { tat } from "./helpers.js";
 import { t } from "../i18n/strings.js";
+import { addDays, formatNumber } from "./time.js";
 
 export const HERO_CITIES = ["Hyderabad", "Bengaluru", "Pune", "Mumbai", "Chennai", "Delhi"];
 
@@ -17,7 +18,7 @@ export function cityFromSlug(slug, drives) {
 export const drivePath = (drive) => `/walk-ins/${encodeURIComponent(drive.id)}`;
 export const cityPath = (city) => `/walk-ins/${citySlug(city)}`;
 
-const rupees = (n) => Math.round(n).toLocaleString("en-IN");
+const rupees = (n) => formatNumber(Math.round(n));
 
 export const PAY_TYPES = ["month", "day", "hour", "task", "year", "fixed"];
 
@@ -149,7 +150,7 @@ function gcalStamp(date, minutes) {
 
 export function calendarUrl(drive, token) {
   const { start, open, close, overnight } = driveSchedule(drive);
-  const endDate = overnight ? new Date(Date.parse(`${start}T00:00:00Z`) + 864e5).toISOString().slice(0, 10) : start;
+  const endDate = overnight ? addDays(start, 1) : start;
   const p = new URLSearchParams({
     action: "TEMPLATE",
     text: `Walk-in: ${drive.role} at ${drive.company}${token ? ` (token ${tokenNumber(token)})` : ""}`,

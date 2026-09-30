@@ -1,20 +1,10 @@
 import { t } from "../i18n/strings.js";
+import { ISO_DATE, addDays, formatIST, fromIST, istNow, istDate } from "./time.js";
 
-// Drive times are entered and shown in India Standard Time, whatever the viewer's clock says.
+export { istNow, istDate, addDays, formatIST, fromIST };
 export const IST_OFFSET_MIN = 330;
 export const DEFAULT_START = "09:00";
 export const DEFAULT_END = "17:00";
-const DAY_MS = 24 * 60 * 60 * 1000;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-export function istNow(now = Date.now()) {
-  const d = new Date(now + IST_OFFSET_MIN * 60000);
-  return { date: d.toISOString().slice(0, 10), minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
-}
-
-export function istDate(offsetDays = 0, now = Date.now()) {
-  return istNow(now + offsetDays * DAY_MS).date;
-}
 
 export function toMinutes(hhmm, fallback) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
@@ -29,12 +19,8 @@ export function fromMinutes(total) {
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
-function addDays(iso, n) {
-  return new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
-}
-
 function daysBetween(a, b) {
-  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DAY_MS);
+  return Math.round((fromIST(b, "12:00") - fromIST(a, "12:00")) / 86400000);
 }
 
 /** The dates and the daily hours a drive runs. An end time at or before the start runs past midnight. */
@@ -47,6 +33,26 @@ export function driveSchedule(drive) {
   return { start, end, open, close, overnight: close <= open };
 }
 
+/** First open and last close as UTC ms. Prefer stored startsAt/endsAt when present. */
+export function windowUtc(drive) {
+  const { start, end, open, close, overnight } = driveSchedule(drive);
+  const lastCloseDate = overnight ? addDays(end, 1) : end;
+  const fromOpen = fromIST(start, fromMinutes(open));
+  const fromClose = fromIST(lastCloseDate, fromMinutes(close));
+  const storedStart = drive?.startsAt ? Date.parse(drive.startsAt) : NaN;
+  const storedEnd = drive?.endsAt ? Date.parse(drive.endsAt) : NaN;
+  return {
+    startsAt: Number.isNaN(storedStart) ? fromOpen : storedStart,
+    endsAt: Number.isNaN(storedEnd) ? fromClose : storedEnd,
+  };
+}
+
+export function utcWindowFields(drive) {
+  const { startsAt, endsAt } = windowUtc(drive);
+  if (Number.isNaN(startsAt) || Number.isNaN(endsAt)) return {};
+  return { startsAt: new Date(startsAt).toISOString(), endsAt: new Date(endsAt).toISOString() };
+}
+
 /**
  * Draft, scheduled, live, or wrapped — worked out from the dates and hours every time it
  * is read. Nothing stored can make a drive live, so a drive dated in the past never is.
@@ -56,6 +62,8 @@ export function driveStatus(drive, now = Date.now()) {
   const { start, end, open, close, overnight } = driveSchedule(drive);
   if (!ISO_DATE.test(start) || !String(drive.role || "").trim() || drive.listingPending || drive.draft) return "draft";
   const { date: today, minutes } = istNow(now);
+  const { endsAt } = windowUtc(drive);
+  if (!Number.isNaN(endsAt) && now >= endsAt) return "wrapped";
   const lastClose = overnight ? { date: addDays(end, 1), minutes: close } : { date: end, minutes: close };
   if (today > lastClose.date || (today === lastClose.date && minutes >= lastClose.minutes)) return "wrapped";
   if (drive.status === "closed") return "wrapped";
@@ -92,7 +100,7 @@ export function driveWhen(drive, now = Date.now()) {
 
 export function shortDate(iso) {
   if (!ISO_DATE.test(String(iso || ""))) return "";
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+  return formatIST(iso, { date: true });
 }
 
 export function clock(hhmm) {
@@ -121,7 +129,7 @@ export function startNowPatch(drive, now = Date.now()) {
   const patch = { date, startTime: fromMinutes(minutes), wrappedAt: null };
   if (!end || end < date) patch.endDate = date;
   if (!overnight && close <= minutes) patch.endTime = fromMinutes(Math.min(minutes + 240, 23 * 60 + 59));
-  return patch;
+  return { ...patch, ...utcWindowFields({ ...drive, ...patch }) };
 }
 
 /**

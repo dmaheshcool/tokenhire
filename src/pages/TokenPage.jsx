@@ -8,7 +8,8 @@ import { useQueueAlert } from "../hooks/useQueueAlert.js";
 import { useMeta } from "../hooks/useMeta.js";
 import { queueAhead, roomName, servingNow, tokenHref } from "../lib/helpers.js";
 import { aheadWait, calendarUrl, drivePath, mapsUrl, tokenNumber, venueLine } from "../lib/listing.js";
-import { clock, driveStatus, hoursLabel, datesLabel } from "../lib/status.js";
+import { driveStatus, hoursLabel, datesLabel } from "../lib/status.js";
+import { formatIST } from "../lib/time.js";
 import { t } from "../i18n/strings.js";
 
 export const GRACE_MINUTES = 10;
@@ -16,8 +17,7 @@ export const GRACE_MINUTES = 10;
 const digits = (token) => tokenNumber(token).replace(/^#/, "");
 
 function istClock(ms) {
-  const d = new Date(ms + 330 * 60000);
-  return clock(`${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`);
+  return formatIST(ms, { time: true });
 }
 
 function stageOf(cand) {

@@ -1,6 +1,7 @@
 import { k } from "../theme.js";
 import { INDIA_CITIES } from "../data/indiaCities.js";
-import { driveStatus, driveWhen, istDate } from "./status.js";
+import { driveStatus, driveWhen, istDate, istNow } from "./status.js";
+import { formatNumber } from "./time.js";
 
 export { INDIA_CITIES };
 export { driveStatus, driveWhen };
@@ -124,7 +125,7 @@ export const PLANS = [
   },
 ];
 export function inr(n) {
-  return `₹${Number(n || 0).toLocaleString("en-IN")}`;
+  return `₹${formatNumber(n)}`;
 }
 export function planPrice(plan) {
   if (plan.talk || plan.monthInr == null) return { label: plan.price || "Custom", unit: "", billed: "" };
@@ -140,13 +141,17 @@ export function planCycle(plan) {
   if (plan.bill === "year") return "year";
   return "month";
 }
-export function renewsOn(cycle = "month") {
-  const d = new Date();
+export function renewsOn(cycle = "month", now = Date.now()) {
   if (cycle === "drive") return "";
-  if (cycle === "year") d.setFullYear(d.getFullYear() + 1);
-  else if (cycle === "6month") d.setMonth(d.getMonth() + 6);
-  else d.setMonth(d.getMonth() + 1);
-  return d.toISOString().slice(0, 10);
+  const start = istNow(now).date;
+  const months = cycle === "year" ? 12 : cycle === "6month" ? 6 : 1;
+  const [y, m, d] = start.split("-").map(Number);
+  const monthIndex = m - 1 + months;
+  const year = y + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12;
+  const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const day = Math.min(d, last);
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 export const PUBLIC_PLANS = PLANS.filter((p) => p.listed);
 export function planIdOf(org) {
@@ -205,8 +210,9 @@ export function currentServingToken(candidates, cand) {
   return first?.token || servingNow(candidates)[0]?.token || "";
 }
 export function monthKey(dateStr) {
-  const d = dateStr ? new Date(`${dateStr}T12:00:00`) : new Date();
-  return `${d.getFullYear()}-${d.getMonth()}`;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || "")) ? dateStr : istNow().date;
+  const [y, m] = iso.split("-");
+  return `${y}-${Number(m) - 1}`;
 }
 export function orgDrivesInPlanWindow(org, drives) {
   const mine = (drives || []).filter((d) => d.orgId === org?.id);
@@ -574,6 +580,22 @@ export function roundLabel(rounds, c) {
 }
 export function occupantOf(drive, roomId) {
   return (drive?.candidates || []).find((x) => ["calling", "interviewing"].includes(x.state) && x.room?.id === roomId);
+}
+export function withRoundStart(c, roundId, room, at = Date.now()) {
+  if (!roundId) return c;
+  const prev = c.roundLog?.[roundId] || {};
+  return {
+    ...c,
+    roundLog: {
+      ...(c.roundLog || {}),
+      [roundId]: { ...prev, start: prev.start || at, room: room?.name || prev.room || "", interviewer: room?.interviewer || prev.interviewer || "" },
+    },
+  };
+}
+export function withRoundEnd(c, roundId, at = Date.now()) {
+  if (!roundId) return c;
+  const prev = c.roundLog?.[roundId] || {};
+  return { ...c, roundLog: { ...(c.roundLog || {}), [roundId]: { ...prev, end: at } } };
 }
 export function downloadFile(name, body, mime) {
   const a = document.createElement("a");

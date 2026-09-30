@@ -77,6 +77,10 @@ export const api = {
   remindStart: (body) => req("/api/reminders/start", { method: "POST", body }),
   remindVerify: (body) => req("/api/reminders/verify", { method: "POST", body }),
   remindStop: (body) => req("/api/reminders/stop", { method: "POST", body }),
+  checkinStart: (body) => req("/api/checkin/start", { method: "POST", body }),
+  checkinVerify: (body) => req("/api/checkin/verify", { method: "POST", body }),
+  exportStart: (body) => req("/api/exports", { method: "POST", body }),
+  exportStatus: (id) => req(`/api/exports/${encodeURIComponent(id)}`),
 };
 
 // Which walk-ins this phone has asked to be reminded about: { v: 1, items: [{ driveId, phone }] }.

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
-import { EXP_BANDS, ROTATE, cityNameOf, code, docsOf, isWorkEmail, memberEmail, memberRole, scrubDrive, todayStr } from "../src/lib/helpers.js";
+import { EXP_BANDS, ROTATE, cityNameOf, code, docsOf, isWorkEmail, memberEmail, memberRole, resumeDataUrl, scrubDrive, todayStr } from "../src/lib/helpers.js";
+import { publicResume } from "../src/lib/resume.js";
 import { blankSeed, boardOrgs, seedBoardDrives, seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../src/data/seed.js";
 import { driveStatus } from "../src/lib/status.js";
 import { mode, readState, settled, writeState } from "./persist.js";
@@ -19,6 +20,7 @@ function fresh() {
     pilots: [],
     reminders: [],
     otps: {},
+    resumes: {},
   };
 }
 
@@ -59,7 +61,7 @@ function refreshSeeds(stored, seeds) {
 function merge(raw) {
   if (!raw) return fresh();
   const base = fresh();
-  const next = { ...base, ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, candidates: raw.candidates || {}, pilots: raw.pilots || [], reminders: raw.reminders || [], otps: raw.otps || {} };
+  const next = { ...base, ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, candidates: raw.candidates || {}, pilots: raw.pilots || [], reminders: raw.reminders || [], otps: raw.otps || {}, resumes: raw.resumes || {} };
   const orgIds = new Set((next.orgs || []).map((o) => o.id));
   next.orgs = [...(next.orgs || []), ...base.orgs.filter((o) => !orgIds.has(o.id))];
   const boardIds = new Set(base.drives.filter((d) => d.board).map((d) => d.id));
@@ -93,6 +95,55 @@ export function getState() {
   return state;
 }
 
+function resumeKey(driveId, candId) {
+  return `${driveId}:${candId}`;
+}
+
+function stashResume(driveId, cand, prevCand) {
+  if (!cand) return cand;
+  const incoming = resumeDataUrl(cand.resume);
+  if (incoming) {
+    state.resumes = { ...(state.resumes || {}), [resumeKey(driveId, cand.id)]: { name: cand.resume.name, type: cand.resume.type, data: incoming } };
+    return { ...cand, resume: { ...publicResume(cand.resume), stored: true } };
+  }
+  const key = resumeKey(driveId, cand.id);
+  if (state.resumes?.[key]) {
+    const rec = state.resumes[key];
+    const meta = typeof cand.resume === "object" && cand.resume ? publicResume(cand.resume) : { name: rec.name, type: rec.type };
+    return { ...cand, resume: { ...meta, stored: true } };
+  }
+  const prevData = resumeDataUrl(prevCand?.resume);
+  if (prevData) {
+    state.resumes = { ...(state.resumes || {}), [key]: { name: prevCand.resume.name, type: prevCand.resume.type, data: prevData } };
+    return { ...cand, resume: { ...publicResume(cand.resume || prevCand.resume), stored: true } };
+  }
+  return cand;
+}
+
+function absorbDrive(next, prev) {
+  const d = next.id ? next : prev;
+  const prevBy = new Map((prev?.candidates || []).map((c) => [c.id, c]));
+  return { ...next, candidates: (next.candidates || []).map((c) => stashResume(d.id, c, prevBy.get(c.id))) };
+}
+
+export function storedResume(driveId, cand) {
+  const rec = state.resumes?.[resumeKey(driveId, cand?.id)];
+  if (rec) return rec;
+  if (resumeDataUrl(cand?.resume)) return cand.resume;
+  return null;
+}
+
+export function driveWithResumes(drive) {
+  if (!drive) return drive;
+  return {
+    ...drive,
+    candidates: (drive.candidates || []).map((c) => {
+      const rec = storedResume(drive.id, c);
+      return rec ? { ...c, resume: rec } : c;
+    }),
+  };
+}
+
 /**
  * Staff sessions may replace org and drive configuration. Candidate devices share the
  * same endpoint but are limited to the queue itself, so a phone can check itself in
@@ -124,7 +175,7 @@ export function setSnapshot({ orgs, drives, candidates }, { scope = "queue" } = 
       state.drives = [
         ...drives.map((d) => {
           const prev = prevById.get(d.id);
-          const next = scrubDrive(d);
+          const next = absorbDrive(scrubDrive(d), prev);
           if (!prev) return next;
           if (prev.listCode) next.listCode = prev.listCode;
           if (prev.listedEmail) next.listedEmail = prev.listedEmail;
@@ -142,7 +193,7 @@ export function setSnapshot({ orgs, drives, candidates }, { scope = "queue" } = 
     state.drives = state.drives.map((d) => {
       const next = incoming.get(d.id);
       if (!next || !Array.isArray(next.candidates)) return d;
-      return { ...d, candidates: next.candidates };
+      return absorbDrive({ ...d, candidates: next.candidates }, d);
     });
   }
   if (candidates && typeof candidates === "object") state.candidates = candidates;
@@ -333,6 +384,7 @@ export function publicSnapshot() {
     orgs: state.orgs.map(({ password, passwordHash, ...rest }) => ({ ...rest, hasPassword: !!(password || passwordHash) })),
     drives: state.drives.filter((d) => !(d.listingOnly && d.listingPending)).map((d) => {
       const pub = { ...scrubDrive(d), desk: deriveDesk(d.gate || d.id, index) };
+      pub.candidates = (pub.candidates || []).map((c) => (c ? { ...c, resume: publicResume(c.resume) } : c));
       delete pub.listCode;
       delete pub.listedEmail;
       delete pub.confirmToken;
@@ -499,4 +551,34 @@ export function stopReminder(body = {}) {
   state.reminders = (state.reminders || []).filter((r) => !(r.phone === phone && r.driveId === body.driveId));
   save();
   return { ok: true };
+}
+
+function checkinKey(phone, driveId) {
+  return `checkin:${phone}:${driveId}`;
+}
+
+export function startCheckin(body = {}) {
+  const phone = normalPhone(body.phone);
+  if (!phone) return { ok: false, error: "Enter a 10-digit mobile number." };
+  const drive = (state.drives || []).find((d) => d.id === body.driveId);
+  if (!drive) return { ok: false, error: "This walk-in isn't listed any more." };
+  state.otps = { ...(state.otps || {}), [checkinKey(phone, drive.id)]: { code: DEMO_SMS, exp: Date.now() + OTP_TTL, tries: 0, driveId: drive.id } };
+  save();
+  return { ok: true, phone, demo: true, demoCode: DEMO_SMS };
+}
+
+export function verifyCheckin(body = {}) {
+  const phone = normalPhone(body.phone);
+  const key = checkinKey(phone, body.driveId);
+  const rec = (state.otps || {})[key];
+  if (!phone || !rec || rec.exp < Date.now()) return { ok: false, error: "That code has expired. Send a new one." };
+  if (rec.tries >= OTP_TRIES) return { ok: false, error: "Too many wrong codes. Send a new one." };
+  if (String(body.code ?? "").trim() !== rec.code) {
+    rec.tries += 1;
+    save();
+    return { ok: false, error: "That code doesn't match. Check the SMS and try again." };
+  }
+  delete state.otps[key];
+  save();
+  return { ok: true, phone };
 }

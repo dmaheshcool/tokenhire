@@ -8,7 +8,7 @@ import { useMeta } from "../../hooks/useMeta.js";
 import { useLibrary } from "../../hooks/useLibrary.js";
 import { ROLE_TYPES } from "../../data/board.js";
 import { HERO_CITIES, PAY_TYPES, expLabel, payText } from "../../lib/listing.js";
-import { hoursLabel, datesLabel, istDate } from "../../lib/status.js";
+import { hoursLabel, datesLabel, istDate, utcWindowFields } from "../../lib/status.js";
 import {
   BRAND_COLORS, DEFAULT_ROOMS, DEFAULT_ROUNDS, code, driveSlotsLeft, newGate, newHost,
 } from "../../lib/helpers.js";
@@ -16,6 +16,7 @@ import {
   FIELD_TYPES, activeItems, addItem, driveDocuments, driveRoles, findItem, roleCode, rolesMirror, uid, withNewItems,
 } from "../../lib/library.js";
 import { t, tl } from "../../i18n/strings.js";
+import { resumeIsRequired } from "../../lib/resume.js";
 
 const CITIES = [...HERO_CITIES, "Noida", "Gurgaon", "Kolkata", "Ahmedabad", "Kochi", "Jaipur", "Coimbatore", "Indore"];
 const num = (v) => (v === "" || v == null ? "" : Number(v));
@@ -64,7 +65,7 @@ function blank(org, lib) {
     date: istDate(1), endDate: istDate(1), startTime: "10:00", endTime: "16:00",
     roles: [blankRole()],
     jd: "", documents: docs.map((d) => ({ id: uid("dd"), docId: d.id, label: d.label, required: false })),
-    fields: [], visibility: "public",
+    fields: [], visibility: "public", resumeRequired: true,
     rounds: roundsFrom(DEFAULT_ROUNDS, DEFAULT_ROOMS),
   };
 }
@@ -77,7 +78,7 @@ function fromDrive(d) {
     roles: driveRoles(d).map((r) => ({ ...blankRole(), ...r, id: r.id === "main" ? uid("dr") : r.id, payMin: r.payMin ?? "", payMax: r.payMax ?? "", openings: r.openings ?? "" })),
     jd: d.jd || "", documents: driveDocuments(d).map((x) => ({ ...x })),
     fields: (d.fields || []).map((x) => ({ ...x, optionsText: (x.options || []).join(", ") })),
-    visibility: d.visibility || "public",
+    visibility: d.visibility || "public", resumeRequired: resumeIsRequired(d),
     rounds: roundsFrom(d.rounds || [], d.rooms || []),
   };
 }
@@ -445,6 +446,7 @@ export default function DriveFormPage() {
       rounds: rounds.length ? rounds : DEFAULT_ROUNDS.map((r) => ({ ...r })),
       rooms: rooms.length ? rooms : DEFAULT_ROOMS.map((r) => ({ ...r })),
       draft: asDraft,
+      ...utcWindowFields({ date: f.date, endDate: f.endDate || f.date, startTime: f.startTime, endTime: f.endTime }),
     };
     if (drive) {
       setDrives((p) => p.map((d) => (d.id !== drive.id ? d : {
@@ -473,7 +475,8 @@ export default function DriveFormPage() {
     [steps[3], [
       ...f.documents.map((d) => (d.required ? `${d.label} (${t("console.form.docRequiredTag")})` : d.label)),
       ...f.fields.filter((x) => x.label.trim()).map((x) => `${t("console.form.fieldReview")}: ${x.label}${x.required ? ` (${t("console.form.docRequiredTag")})` : ""}`),
-    ]],
+      f.resumeRequired ? t("console.form.resumeRequired") : "",
+    ].filter(Boolean)],
   ];
 
   return (
@@ -576,6 +579,10 @@ export default function DriveFormPage() {
                 </div>
                 <FieldsEditor fields={f.fields} setFields={(fields) => setF((p) => ({ ...p, fields }))} error={errors.fields} />
               </section>
+              <label className="check" style={{ alignItems: "flex-start" }}>
+                <input type="checkbox" checked={!!f.resumeRequired} onChange={(e) => setF((p) => ({ ...p, resumeRequired: e.target.checked }))} />
+                <span><span className="strong">{t("console.form.resumeRequired")}</span><br /><span className="small muted">{t("console.form.resumeRequiredHelp")}</span></span>
+              </label>
             </div>
           )}
 

@@ -6,6 +6,7 @@ import { dsp, typ } from "../theme.js";
 import QrCode from "../components/QrCode.jsx";
 import { tokenDigits } from "../components/brand.jsx";
 import { bare6, gateUrl, hallName, liveDesk, mask, orgColor, roomName, scanEnabled, servingNow, waitingNow } from "../lib/helpers.js";
+import { formatIST } from "../lib/time.js";
 
 const BG = "#080B14";
 const PANEL = "#111629";
@@ -198,7 +199,7 @@ function Clock() {
   }, []);
   return (
     <span style={{ fontFamily: typ, fontSize: "clamp(14px, 1.4vw, 22px)", color: "#8A93AE" }}>
-      {now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+      {formatIST(now, { time: true })}
     </span>
   );
 }

@@ -28,7 +28,22 @@ export default [
       "no-unused-vars": ["warn", { args: "none", varsIgnorePattern: "^React$" }],
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      "no-restricted-syntax": ["error",
+        { selector: "CallExpression[callee.property.name='toLocaleDateString']", message: "Use formatIST from src/lib/time.js." },
+        { selector: "CallExpression[callee.property.name='toLocaleTimeString']", message: "Use formatIST from src/lib/time.js." },
+        { selector: "CallExpression[callee.property.name='toLocaleString']", message: "For dates use formatIST. For numbers use formatNumber." },
+        { selector: "CallExpression[callee.property.name='getHours']", message: "Device-local hour. Use formatIST or istNow." },
+        { selector: "CallExpression[callee.property.name='getMinutes']", message: "Device-local minute. Use formatIST or istNow." },
+      ],
     },
+  },
+  {
+    files: ["src/lib/time.js"],
+    rules: { "no-restricted-syntax": "off" },
+  },
+  {
+    files: ["src/**/*.test.js"],
+    languageOptions: { globals: globals.node },
   },
   {
     files: ["server/**/*.js", "scripts/**/*.mjs", "api/**/*.js"],

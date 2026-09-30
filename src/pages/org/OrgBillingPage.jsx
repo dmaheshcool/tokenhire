@@ -2,12 +2,11 @@ import { Link } from "react-router-dom";
 import { useStore } from "../../context/Store.jsx";
 import { driveSlotsLeft, planCycle, planLimits, planOf, planPrice, PUBLIC_PLANS, renewsOn } from "../../lib/helpers.js";
 import { box, dsp, k, outlineSm, solidSm, typ } from "../../theme.js";
+import { formatIST } from "../../lib/time.js";
 
 function fmtRenew(iso) {
   if (!iso) return "—";
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatIST(iso, { date: true, year: true }) || iso;
 }
 
 export default function OrgBillingPage() {

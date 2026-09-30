@@ -5,6 +5,7 @@ import { driveStatus, driveWhen, hoursLabel, datesLabel, shortDate } from "../li
 import { drivePath, expLabel, hasPay, isFresherFriendly, monogram, payText, queueStats, venueLine, waitLabel } from "../lib/listing.js";
 import { onSavedChange, readSaved, removeSaved, toggleSaved } from "../lib/saved.js";
 import { t } from "../i18n/strings.js";
+import { formatNumber } from "../lib/time.js";
 
 export const STROKE = 1.75;
 
@@ -121,7 +122,7 @@ export function Reveal({ as: Tag = "div", delay = 0, className = "", children, .
   return <Tag ref={ref} className={`reveal${shown ? " in" : ""} ${className}`} style={{ transitionDelay: `${delay}ms` }} {...rest}>{children}</Tag>;
 }
 
-export function CountUp({ value, format = (n) => n.toLocaleString("en-IN") }) {
+export function CountUp({ value, format = (n) => formatNumber(n) }) {
   const [shown, setShown] = useState(value);
   const from = useRef(value);
   useEffect(() => {
@@ -173,7 +174,7 @@ export function QueueLine({ drive }) {
   );
 }
 
-/** "Today, 10:00 AM to 4:00 PM" or "12 Oct, 10:00 AM to 4:00 PM". */
+/** "Today, 10:00 AM to 4:00 PM IST" or "12 Oct, 10:00 AM to 4:00 PM IST". */
 export function whenText(drive) {
   const w = driveWhen(drive);
   return t("time.when", { day: w.key === "today" || w.key === "tomorrow" ? w.label : datesLabel(drive), hours: hoursLabel(drive) });

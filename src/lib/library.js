@@ -1,4 +1,6 @@
 import { DEFAULT_ROUNDS, docNameOf, firstRoundIdx, nextRoundIdx, roundApplies } from "./helpers.js";
+import { utcWindowFields } from "./status.js";
+import { addDays } from "./time.js";
 import { payType } from "./listing.js";
 import { tl } from "../i18n/strings.js";
 
@@ -194,9 +196,6 @@ export function fieldAnswerOk(field, value) {
 
 /* ---------- Duplicate drive ---------- */
 
-const DAY = 86400000;
-const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY).toISOString().slice(0, 10);
-
 const DROP = ["gatePass", "wrappedAt", "status", "listCode", "listedEmail", "confirmToken", "listingPending", "listedBy", "listingOnly", "board", "demo"];
 
 /** Everything except the people: no candidates, no queue, no messages. Opens as a draft. */
@@ -204,9 +203,10 @@ export function duplicateDrive(d, { id, host, gate, desk, today }) {
   const next = { ...d, id, host, gate, desk, candidates: [], msgs: [], seq: 0, draft: true };
   for (const k of DROP) delete next[k];
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.date || "")) || d.date < today) {
-    const span = d.endDate && d.date ? Math.max(0, Math.round((Date.parse(d.endDate) - Date.parse(d.date)) / DAY)) : 0;
+    const span = d.endDate && d.date ? Math.max(0, Math.round((Date.parse(`${d.endDate}T00:00:00+05:30`) - Date.parse(`${d.date}T00:00:00+05:30`)) / 86400000)) : 0;
     next.date = addDays(today, 1);
     next.endDate = addDays(next.date, span);
   }
+  Object.assign(next, utcWindowFields(next));
   return next;
 }

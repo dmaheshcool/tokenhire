@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { bdy, dsp, typ, input, k, iconBtn, chromeStrip, outline } from "../theme.js";
 import { DOC_GROUPS, DOC_OPTIONS, INDIA_CITIES, cityKeywords, docNameOf } from "../lib/helpers.js";
+import { formatIST } from "../lib/time.js";
 import { Wordmark } from "./brand.jsx";
 
 let closeOpenMenu = null;
@@ -340,8 +341,7 @@ export function TopBar({ back, title, accent, tabs, tab, setTab }) {
 }
 export function fmtDate(iso) {
   if (!iso) return "—";
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatIST(iso, { date: true, year: true }) || "—";
 }
 export function StatusPill({ status }) {
   if (status === "live") return <Pill tone="teal">LIVE NOW</Pill>;

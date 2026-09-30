@@ -52,7 +52,7 @@ export default function DrivesPage() {
                     ? <Btn size="sm" icon={Play} onClick={() => nav(`/app/drives/${d.id}`)}>{t("buttons.runDrive")}</Btn>
                     : <Btn size="sm" variant="secondary" onClick={() => nav(`/app/drives/${d.id}`)}>{t("console.today.viewQueue")}</Btn>}
                   {!desk && <Btn size="sm" variant="ghost" icon={Pencil} onClick={() => nav(`/app/drives/${d.id}/edit`)}>{t("console.drives.edit")}</Btn>}
-                  {!desk && <Btn size="sm" variant="ghost" icon={Download} onClick={() => downloadAts(d, "standard", "csv")}>{t("console.drives.export")}</Btn>}
+                  {!desk && <Btn size="sm" variant="ghost" icon={Download} onClick={() => downloadAts(d, "generic", "csv")}>{t("console.drives.export")}</Btn>}
                 </div>
               </article>
             );

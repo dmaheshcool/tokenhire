@@ -1,159 +1,267 @@
-import { downloadFile, roundLabel } from "./helpers.js";
-import { xlsxBlob } from "./xlsx.js";
+import { downloadFile, listingPlace, resumeName } from "./helpers.js";
+import { roleOf } from "./library.js";
+import { resumeBytes, resumeExt, resumeHasFile, resumeZipPath } from "./resume.js";
+import { t } from "../i18n/strings.js";
+import { formatIST } from "./time.js";
+import { XLSX_MIME, ZIP_MIME, xlsxBytes, zipBytes } from "./xlsx.js";
 
-// These are the spreadsheets each system already knows how to import.
-// TokenHire does not sign in to the tenant — the company's HR uploads the file,
-// or connects the tenant API on their side.
-export const ATS_TARGETS = [
-  {
-    id: "standard",
-    label: "Any ATS (standard columns)",
-    hint: "One row per candidate with plain column names: token, name, phone, email, experience, status, round results and notes.",
-  },
-  {
-    id: "workday",
-    label: "Workday",
-    hint: "Candidate spreadsheet for Workday Recruiting. Upload it with the candidate import (EIB), and map Job Requisition to the open req if that column is still the role name.",
-  },
-  {
-    id: "greenhouse",
-    label: "Greenhouse",
-    hint: "Candidate CSV for Greenhouse bulk import: first name, last name, email, phone, job, source, and notes.",
-  },
-  {
-    id: "lever",
-    label: "Lever",
-    hint: "Candidate CSV for Lever’s import: full name, email, phone, posting, origin, and notes.",
-  },
-  {
-    id: "darwinbox",
-    label: "Darwinbox",
-    hint: "Candidate sheet for Darwinbox Hire bulk upload. Map the job title to the opening after import.",
-  },
-  {
-    id: "keka",
-    label: "Keka Hire",
-    hint: "Candidate sheet for Keka Hire bulk upload.",
-  },
+// Templates only rename or reorder the Generic columns. They do not add or drop fields.
+export const ATS_TEMPLATES = [
+  { id: "generic", labelKey: "ats.templates.generic", hintKey: "ats.hints.generic" },
+  { id: "workday", labelKey: "ats.templates.workday", hintKey: "ats.hints.workday",
+    rename: { "Drive ID": "Job Requisition ID", "Drive name": "Job Requisition", "Role applied": "Job Profile", "Full name": "Legal Name", "Final status": "Stage" } },
+  { id: "greenhouse", labelKey: "ats.templates.greenhouse", hintKey: "ats.hints.greenhouse",
+    rename: { "Full name": "Candidate Name", "Role applied": "Job", "Final status": "Application Status", "Resume file name": "Resume" } },
+  { id: "lever", labelKey: "ats.templates.lever", hintKey: "ats.hints.lever",
+    rename: { "Full name": "Full Name", "Role applied": "Posting", "Final status": "Stage" } },
+  { id: "zoho", labelKey: "ats.templates.zoho", hintKey: "ats.hints.zoho",
+    rename: { "Full name": "Candidate Name", "Role applied": "Job Opening", "Phone": "Mobile", "Final status": "Candidate Status" } },
+  { id: "successfactors", labelKey: "ats.templates.successfactors", hintKey: "ats.hints.successfactors",
+    rename: { "Drive ID": "Requisition ID", "Role applied": "Job Requisition", "Full name": "Candidate Full Name", "Final status": "Status" } },
 ];
 
-const STAGE = {
-  workday: { wait: "Review", calling: "Interview", interviewing: "Interview", selected: "Selected", onhold: "On Hold", rejected: "Declined", absent: "No Show" },
-  greenhouse: { wait: "Application Review", calling: "Interview", interviewing: "Interview", selected: "Selected", onhold: "On Hold", rejected: "Rejected", absent: "No Show" },
-  lever: { wait: "New applicant", calling: "Interview", interviewing: "Interview", selected: "Selected", onhold: "On hold", rejected: "Rejected", absent: "No show" },
-  darwinbox: { wait: "In Process", calling: "Interview", interviewing: "Interview", selected: "Selected", onhold: "On Hold", rejected: "Rejected", absent: "No Show" },
-  keka: { wait: "Applied", calling: "Interview", interviewing: "Interview", selected: "Selected", onhold: "On Hold", rejected: "Rejected", absent: "No Show" },
-};
+export const ATS_TARGETS = ATS_TEMPLATES.map((x) => ({ id: x.id, label: t(x.labelKey), hint: t(x.hintKey) }));
+
+const ROUND_PARTS = ["name", "room", "interviewer", "start", "end", "decision", "score", "notes"];
+const FINAL = { wait: "In queue", calling: "Called", interviewing: "In a round", selected: "Shortlisted", rejected: "Not selected", onhold: "On hold", absent: "No-show" };
+
+const CORE = [
+  "Drive ID", "Drive name", "Date (IST)", "Venue", "Process", "Token", "Full name", "Phone", "Email",
+  "Role applied", "Experience", "Current company", "Notice period", "Check-in time (IST)",
+  "Resume file name", "Resume link", "Final status", "Final decision reason",
+];
+
+function templateOf(id) {
+  return ATS_TEMPLATES.find((x) => x.id === id) || ATS_TEMPLATES[0];
+}
 
 function cell(v) {
   return `"${String(v ?? "").replace(/"/g, "\"\"")}"`;
 }
 
-function csv(rows) {
+export function csvText(rows) {
   return `\uFEFF${rows.map((r) => r.map(cell).join(",")).join("\n")}`;
 }
 
-function splitName(name) {
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return { first: "", last: "" };
-  if (parts.length === 1) return { first: parts[0], last: "." };
-  return { first: parts[0], last: parts.slice(1).join(" ") };
+function peopleOf(drive) {
+  return (drive?.candidates || []).filter((c) => !c.released);
 }
 
-function stageOf(target, state) {
-  return STAGE[target]?.[state] || "Review";
+function stamp(value, withTime) {
+  if (!value && value !== 0) return "";
+  return withTime ? formatIST(value, { date: true, time: true }) : formatIST(value, { date: true, year: true });
 }
 
-function notesOf(drive, c) {
+function fieldBy(drive, cand, re, fallback) {
+  if (fallback) return fallback;
+  for (const f of drive.fields || []) {
+    if (re.test(f.label || "")) return String(cand.answers?.[f.id] ?? "").trim();
+  }
+  return "";
+}
+
+function roundHeader(n, part) {
+  if (part === "start") return `Round ${n} start (IST)`;
+  if (part === "end") return `Round ${n} end (IST)`;
+  return `Round ${n} ${part}`;
+}
+
+function lastOutcomeIdx(drive, cand) {
   const rounds = drive.rounds || [];
-  const bits = [];
-  const exp = c.expBand || c.exp;
-  if (exp) bits.push(`Experience: ${exp}`);
-  const token = c.token || "";
-  if (token) bits.push(`Token ${token}`);
-  bits.push(`Walk-in status: ${roundLabel(rounds, c)}`);
-  for (const r of rounds) {
-    const outcome = c.roundOutcomes?.[r.id];
-    const note = c.notes?.[r.id];
-    if (!outcome && !note) continue;
-    bits.push(`${r.name}: ${[outcome, note].filter(Boolean).join(" — ")}`);
-  }
-  return bits.join(" | ");
+  for (let i = rounds.length - 1; i >= 0; i--) if (cand.roundOutcomes?.[rounds[i].id]) return i;
+  return -1;
 }
 
-const STANDARD_STATUS = { wait: "Waiting", calling: "Called", interviewing: "In interview", selected: "Selected", onhold: "On hold", rejected: "Not selected", absent: "No-show" };
+function roundTimes(drive, cand, round, index) {
+  const log = cand.roundLog?.[round.id] || {};
+  const current = cand.roundIdx === index;
+  const room = log.room || (current && cand.room?.name) || "";
+  const interviewer = log.interviewer || (current && cand.room?.interviewer) || "";
+  const start = log.start || (current && cand.calledAt) || "";
+  const end = log.end || (lastOutcomeIdx(drive, cand) === index && cand.decidedAt) || "";
+  return {
+    name: round.name || "",
+    room,
+    interviewer,
+    start: stamp(start, true),
+    end: stamp(end, true),
+    decision: cand.roundOutcomes?.[round.id] || "",
+    score: log.score || cand.roundScores?.[round.id] || "",
+    notes: cand.notes?.[round.id] || "",
+  };
+}
 
-function rowsFor(drive, target) {
-  const people = (drive.candidates || []).filter((c) => !c.released);
-  if (target === "standard") {
-    const rounds = drive.rounds || [];
-    return people.map((c) => [
-      c.token || "", c.name || "", c.phone || "", c.email || "", c.expBand || c.exp || "",
-      drive.role || "", drive.company || "", drive.city || "", [drive.venue, drive.area].filter(Boolean).join(", "), drive.date || "",
-      c.checkedIn === false ? "No" : "Yes", roundLabel(rounds, c), STANDARD_STATUS[c.state] || c.state || "",
-      rounds.map((r) => (c.roundOutcomes?.[r.id] ? `${r.name}: ${c.roundOutcomes[r.id]}` : "")).filter(Boolean).join("; "),
-      rounds.map((r) => (c.notes?.[r.id] ? `${r.name}: ${c.notes[r.id]}` : "")).filter(Boolean).join(" | "),
-    ]);
+function resumeFileName(drive, cand) {
+  const name = resumeName(cand.resume);
+  if (!name && !resumeHasFile(cand.resume)) return "";
+  const ext = resumeExt(name, cand.resume?.type) || (name.includes(".") ? name.split(".").pop() : "pdf");
+  return resumeZipPath(cand.token, cand.name, ext).slice("resumes/".length);
+}
+
+function reasonOf(drive, cand) {
+  const rounds = drive.rounds || [];
+  for (let i = rounds.length - 1; i >= 0; i--) {
+    const id = rounds[i].id;
+    const note = cand.notes?.[id];
+    if (note) return note;
+    if (cand.roundOutcomes?.[id]) return cand.roundOutcomes[id];
   }
-  const role = drive.role || "";
-  const place = [drive.city, drive.venue].filter(Boolean).join(", ");
-  return people.map((c) => {
-    const { first, last } = splitName(c.name);
-    const notes = notesOf(drive, c);
-    const stage = stageOf(target, c.state);
-    const phone = c.phone || "";
-    const email = c.email || "";
-    if (target === "workday") {
-      return ["India", first, last, email, phone, role, "TokenHire walk-in", stage, c.expBand || c.exp || "", notes];
-    }
-    if (target === "greenhouse") {
-      return [first, last, email, phone, drive.company || "", role, "TokenHire walk-in", role, stage, notes];
-    }
-    if (target === "lever") {
-      return [c.name || `${first} ${last}`.trim(), email, phone, drive.company || "", role, place, "TokenHire walk-in", stage, notes];
-    }
-    if (target === "darwinbox") {
-      return [c.name || "", email, phone, c.expBand || c.exp || "", drive.city || "", "TokenHire walk-in", role, stage, notes];
-    }
-    return [first, last, email, phone, c.expBand || c.exp || "", drive.city || "", "TokenHire walk-in", role, stage, notes];
+  return cand.reason || "";
+}
+
+function candidateRecord(drive, cand, resumeLink) {
+  const role = roleOf(drive, cand);
+  const file = resumeFileName(drive, cand);
+  const rec = {
+    "Drive ID": drive.id || "",
+    "Drive name": drive.role || "",
+    "Date (IST)": stamp(drive.startsAt || drive.date, false),
+    "Venue": listingPlace(drive) || [drive.venue, drive.city].filter(Boolean).join(" · "),
+    "Process": drive.clientName || "",
+    "Token": cand.token || "",
+    "Full name": cand.name || "",
+    "Phone": cand.phone || "",
+    "Email": cand.email || "",
+    "Role applied": role?.title || drive.role || "",
+    "Experience": cand.expBand || cand.exp || "",
+    "Current company": fieldBy(drive, cand, /current company|employer/i, cand.company || cand.currentCompany || ""),
+    "Notice period": fieldBy(drive, cand, /notice/i, cand.notice || ""),
+    "Check-in time (IST)": cand.checkedIn === false ? "" : stamp(cand.arrivedAt || cand.at, true),
+    "Resume file name": file,
+    "Resume link": resumeLink || "",
+    "Final status": FINAL[cand.state] || cand.state || "",
+    "Final decision reason": reasonOf(drive, cand),
+  };
+  (drive.rounds || []).forEach((round, i) => {
+    const times = roundTimes(drive, cand, round, i);
+    for (const part of ROUND_PARTS) rec[roundHeader(i + 1, part)] = times[part] || "";
   });
+  for (const f of drive.fields || []) rec[f.label] = String(cand.answers?.[f.id] ?? "").trim();
+  return rec;
 }
 
-const HEADERS = {
-  standard: ["Token", "Full name", "Phone", "Email", "Experience", "Role", "Company", "City", "Venue", "Drive date", "Checked in", "Current round", "Status", "Round results", "Interview notes"],
-  workday: ["Country", "First Name", "Last Name", "Email", "Phone", "Job Requisition", "Source", "Stage", "Experience", "Notes"],
-  greenhouse: ["First Name", "Last Name", "Email", "Phone", "Company", "Title", "Source", "Job", "Stage", "Notes"],
-  lever: ["Full Name", "Email", "Phone", "Company", "Position", "Location", "Origin", "Stage", "Notes"],
-  darwinbox: ["Candidate Name", "Email", "Contact Number", "Experience", "Current Location", "Source", "Job Title", "Status", "Notes"],
-  keka: ["First Name", "Last Name", "Email", "Mobile", "Experience", "Current Location", "Source", "Job Title", "Stage", "Notes"],
-};
+function headersFor(drive) {
+  const roundCols = (drive.rounds || []).flatMap((_, i) => ROUND_PARTS.map((p) => roundHeader(i + 1, p)));
+  const custom = (drive.fields || []).map((f) => f.label).filter(Boolean);
+  return [...CORE, ...roundCols, ...custom];
+}
 
-const targetId = (target) => (ATS_TARGETS.some((t) => t.id === target) ? target : "standard");
+function applyTemplate(headers, records, template) {
+  const rename = template.rename || {};
+  const extras = headers.filter((h) => !(template.order || []).includes(h));
+  const keys = template.order ? [...template.order, ...extras] : headers;
+  const head = keys.map((k) => rename[k] || k);
+  const rows = records.map((rec) => keys.map((k) => rec[k] ?? ""));
+  return [head, ...rows];
+}
 
-/** Header row plus one row per candidate, for the chosen ATS. */
+function waitMins(cand) {
+  if (!cand.calledAt || !cand.at || cand.calledAt < cand.at) return null;
+  const m = (cand.calledAt - cand.at) / 60000;
+  return m >= 0 && m < 12 * 60 ? m : null;
+}
+
+function summaryRows(drive, people) {
+  const rounds = drive.rounds || [];
+  const checkedIn = people.filter((c) => c.checkedIn !== false).length;
+  const shortlisted = people.filter((c) => c.state === "selected").length;
+  const noShows = people.filter((c) => c.state === "absent").length;
+  const waits = people.map(waitMins).filter((n) => n != null);
+  const avgWait = waits.length ? `${Math.round(waits.reduce((a, b) => a + b, 0) / waits.length)} min` : "";
+  const head = ["Drive ID", "Drive name", "Date (IST)", "Registered", "Checked in", ...rounds.map((r, i) => `Interviewed (round ${i + 1}: ${r.name})`), "Shortlisted", "No-shows", "Average wait"];
+  const interviewed = rounds.map((r, i) => people.filter((c) => roundTimes(drive, c, r, i).start || c.roundOutcomes?.[r.id]).length);
+  const row = [drive.id || "", drive.role || "", stamp(drive.startsAt || drive.date, false), people.length, checkedIn, ...interviewed, shortlisted, noShows, avgWait];
+  return [head, row];
+}
+
+function roundsSheet(drive, people) {
+  const head = ["Drive ID", "Token", "Round", "Round name", "Room", "Interviewer", "Start (IST)", "End (IST)", "Decision", "Score", "Notes"];
+  const rows = [];
+  for (const cand of people) {
+    (drive.rounds || []).forEach((round, i) => {
+      const x = roundTimes(drive, cand, round, i);
+      if (!x.start && !x.end && !x.decision && !x.notes && !x.score) return;
+      rows.push([drive.id || "", cand.token || "", i + 1, x.name, x.room, x.interviewer, x.start, x.end, x.decision, x.score, x.notes]);
+    });
+  }
+  return [head, ...rows];
+}
+
+function packResumes(drive, people) {
+  const files = [];
+  for (const cand of people) {
+    const decoded = resumeBytes(cand.resume);
+    if (!decoded) continue;
+    const ext = resumeExt(resumeName(cand.resume), cand.resume?.type || decoded.type) || "pdf";
+    files.push({ name: resumeZipPath(cand.token, cand.name, ext), data: decoded.bytes });
+  }
+  return files;
+}
+
+/** Three sheets plus resume zip members. `resumeUrl(cand)` supplies the 7-day signed link. */
+export function buildAtsReport(drive, target, { resumeUrl } = {}) {
+  const tmpl = templateOf(target);
+  const people = peopleOf(drive);
+  const headers = headersFor(drive);
+  const records = people.map((c) => candidateRecord(drive, c, resumeUrl ? resumeUrl(c) : ""));
+  const candidates = applyTemplate(headers, records, tmpl);
+  const rounds = roundsSheet(drive, people);
+  const summary = summaryRows(drive, people);
+  const resumes = packResumes(drive, people);
+  return {
+    template: tmpl.id,
+    sheets: [
+      { name: "Candidates", rows: candidates },
+      { name: "Rounds", rows: rounds },
+      { name: "Summary", rows: summary },
+    ],
+    resumes,
+    people,
+  };
+}
+
 export function atsRows(drive, target) {
-  const id = targetId(target);
-  return [HEADERS[id], ...rowsFor(drive, id)];
+  return buildAtsReport(drive, target).sheets[0].rows;
 }
 
 export function buildAts(drive, target) {
-  return csv(atsRows(drive, target));
+  return csvText(atsRows(drive, target));
 }
 
-function fileBase(drive, id) {
+export function fileBase(drive, id) {
   const slug = String(drive?.company || "walkin").replace(/[^\w]+/g, "_");
   return `${slug}_${drive?.date || "drive"}_${id}`;
 }
 
-export function downloadAts(drive, target, format = "csv") {
-  const id = targetId(target);
+export function atsBytes(drive, target, format, opts) {
+  const report = buildAtsReport(drive, target, opts);
+  const id = report.template;
+  const base = fileBase(drive, id);
   if (format === "xlsx") {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(xlsxBlob(atsRows(drive, id)));
-    a.download = `${fileBase(drive, id)}.xlsx`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 500);
-    return;
+    return { filename: `${base}.xlsx`, mime: XLSX_MIME, bytes: xlsxBytes(report.sheets) };
   }
-  downloadFile(`${fileBase(drive, id)}.csv`, buildAts(drive, id), "text/csv");
+  if (format === "zip") {
+    const files = [
+      { name: `${base}_candidates.csv`, data: csvText(report.sheets[0].rows) },
+      { name: `${base}_rounds.csv`, data: csvText(report.sheets[1].rows) },
+      { name: `${base}_summary.csv`, data: csvText(report.sheets[2].rows) },
+      ...report.resumes,
+    ];
+    return { filename: `${base}_resumes.zip`, mime: ZIP_MIME, bytes: zipBytes(files) };
+  }
+  return { filename: `${base}.csv`, mime: "text/csv", bytes: new TextEncoder().encode(csvText(report.sheets[0].rows)) };
+}
+
+function saveBytes(filename, bytes, mime) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([bytes], { type: mime }));
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+}
+
+export function downloadAts(drive, target, format = "csv", opts) {
+  const file = atsBytes(drive, target, format, opts);
+  if (format === "csv") downloadFile(file.filename, csvText(buildAtsReport(drive, target, opts).sheets[0].rows), "text/csv");
+  else saveBytes(file.filename, file.bytes, file.mime);
 }

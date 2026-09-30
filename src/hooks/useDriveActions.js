@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { inARound, nextRoundIdx, occupantOf, roundIndexOfRoom, waitingRoundIdx } from "../lib/helpers.js";
+import { inARound, nextRoundIdx, occupantOf, roundIndexOfRoom, waitingRoundIdx, withRoundEnd, withRoundStart } from "../lib/helpers.js";
 
 /** Queue moves for one drive: call, skip, no-show, back to queue, decide, notes, rooms and rounds. */
 export function useDriveActions(drive, setDrives) {
@@ -22,7 +22,8 @@ export function useDriveActions(drive, setDrives) {
       const taken = occupantOf(drive, roomId);
       if (taken && taken.id !== cid) return false;
       const idx = waitingRoundIdx(drive.rounds, cand);
-      mapCand(cid, (x) => ({ ...x, state: "calling", calledAt: Date.now(), room, roundAssigned: true, roundIdx: idx }));
+      const rid = (drive.rounds || [])[idx]?.id;
+      mapCand(cid, (x) => withRoundStart({ ...x, state: "calling", calledAt: Date.now(), room, roundAssigned: true, roundIdx: idx }, rid, room));
       return true;
     },
 
@@ -68,12 +69,14 @@ export function useDriveActions(drive, setDrives) {
           candidates: d.candidates.map((x) => {
             if (x.id !== cid) return x;
             const roundOutcomes = { ...(x.roundOutcomes || {}), [rid]: outcome };
-            if (outcome === "rejected") return { ...x, state: "rejected", decidedAt: Date.now(), roundOutcomes, room: null };
-            if (outcome === "onhold") return { ...x, state: "onhold", decidedAt: Date.now(), roundOutcomes, room: null };
-            if (last) return { ...x, state: "selected", decidedAt: Date.now(), roundOutcomes, room: null };
+            const now = Date.now();
+            const base = withRoundEnd({ ...x, roundOutcomes, decidedAt: now, room: null }, rid, now);
+            if (outcome === "rejected") return { ...base, state: "rejected" };
+            if (outcome === "onhold") return { ...base, state: "onhold" };
+            if (last) return { ...base, state: "selected" };
             const peers = d.candidates.filter((p) => p.id !== cid && p.state === "wait" && (p.roundIdx || 0) === nextIdx);
             const at = peers.length ? Math.min(...peers.map((p) => p.at)) - 1 : Date.now();
-            return { ...x, roundIdx: nextIdx, state: "wait", calledAt: null, at, pinged: false, roundOutcomes, decidedAt: Date.now(), room: null, roundAssigned: true };
+            return { ...base, roundIdx: nextIdx, state: "wait", calledAt: null, at, pinged: false, roundAssigned: true };
           }),
         };
       });

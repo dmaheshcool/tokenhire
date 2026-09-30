@@ -12,8 +12,9 @@ import {
   isAgencyOrg, isTerminal, listingPlace, livePass, memberEmail, memberName, memberRole, newGate, newHost, newPass,
   occupantOf, orgColor, orgCities, passLabel, planLimits, planOf, recruitersOf, roundLabel, scanEnabled, siteOf, tat, todayStr, downloadFile,
   gateUrl, mask, pc, roomsForRound, roomRoundLabel, roundIndexOfRoom, roundOutcomeOf, waitingRoundIdx, bindRoomsToRounds,
-  atSeatCap, roomName, resumeName, resumeDataUrl, isPdfResume,
+  atSeatCap, roomName, resumeName, resumeDataUrl, isPdfResume, withRoundEnd, withRoundStart,
 } from "../../lib/helpers.js";
+import { readSession } from "../../lib/api.js";
 import { HIDE_PRICING } from "../../lib/flags.js";
 import { ATS_TARGETS, downloadAts } from "../../lib/ats.js";
 import QrCode from "../../components/QrCode.jsx";
@@ -141,14 +142,15 @@ export function Employer({ store, back, initialDriveId }) {
     const taken = occupantOf(drive, roomId);
     if (taken && taken.id !== cid) return;
     const idx = waitingRoundIdx(drive.rounds, cand);
-    upd(drive.id, (d) => ({ ...d, candidates: d.candidates.map((x) => (x.id === cid ? {
+    const rid = (drive.rounds || [])[idx]?.id;
+    upd(drive.id, (d) => ({ ...d, candidates: d.candidates.map((x) => (x.id === cid ? withRoundStart({
       ...x,
       state: "calling",
       calledAt: Date.now(),
       room,
       roundAssigned: true,
       roundIdx: idx,
-    } : x)) }));
+    }, rid, room) : x)) }));
     setFocusCid(cid);
     setTab("live");
   }
@@ -197,14 +199,16 @@ export function Employer({ store, back, initialDriveId }) {
         ...d,
         candidates: d.candidates.map((x) => {
           if (x.id !== cid) return x;
-          const roundOutcomes = { ...(x.roundOutcomes || {}), [rid]: outcome };
-          if (outcome === "rejected") return { ...x, state: "rejected", decidedAt: Date.now(), roundOutcomes, room: null };
-          if (outcome === "onhold") return { ...x, state: "onhold", decidedAt: Date.now(), roundOutcomes, room: null };
-          if (last) return { ...x, state: "selected", decidedAt: Date.now(), roundOutcomes, room: null };
-          const nextIdx = (x.roundIdx || 0) + 1;
-          const peers = d.candidates.filter((p) => p.id !== cid && p.state === "wait" && (p.roundIdx || 0) === nextIdx);
-          const at = peers.length ? Math.min(...peers.map((p) => p.at)) - 1 : Date.now();
-          return { ...x, roundIdx: nextIdx, state: "wait", calledAt: null, at, pinged: false, roundOutcomes, decidedAt: Date.now(), room: null, roundAssigned: true };
+            const roundOutcomes = { ...(x.roundOutcomes || {}), [rid]: outcome };
+            const now = Date.now();
+            const base = withRoundEnd({ ...x, roundOutcomes, decidedAt: now, room: null }, rid, now);
+            if (outcome === "rejected") return { ...base, state: "rejected" };
+            if (outcome === "onhold") return { ...base, state: "onhold" };
+            if (last) return { ...base, state: "selected" };
+            const nextIdx = (x.roundIdx || 0) + 1;
+            const peers = d.candidates.filter((p) => p.id !== cid && p.state === "wait" && (p.roundIdx || 0) === nextIdx);
+            const at = peers.length ? Math.min(...peers.map((p) => p.at)) - 1 : Date.now();
+            return { ...base, roundIdx: nextIdx, state: "wait", calledAt: null, at, pinged: false, roundAssigned: true };
         }),
       };
     });
@@ -313,7 +317,7 @@ export function Employer({ store, back, initialDriveId }) {
       {tab === "today" && !desk && <Today s={s} wait={wait} active={active} setTab={setTab} drive={drive} lim={planLimits(org)} callTo={callTo} onFind={(c) => { setFindQ(c.token); setTab("queue"); }} />}
       {tab === "live" && <LiveQueue drive={drive} wait={wait} active={active} s={s} eta={eta} callTo={callTo} skip={skip} recall={recall} move={move} decide={decide} deskMode={desk} saveNote={saveNote} focusCid={focusCid} issuePass={() => upd(drive.id, (d) => ({ ...d, gatePass: { code: newPass(), exp: Date.now() + PASS_TTL, used: false } }))} />}
       {tab === "screen" && (scanEnabled(org) ? <Screen driveId={drive.id} gate={drive.gate} desk={drive.desk || drive.code} left={left} active={callingNow} wait={wait} eta={eta} rounds={drive.rounds} brand={face} clientName={clientOf(drive)} branch={siteOf(drive)} role={drive.role} credit={planLimits(org).credit} /> : <ScanOff onPay={HIDE_PRICING ? null : () => nav("/app/billing")} />)}
-      {tab === "queue" && !desk && <Queue rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} initialQ={findQ} />}
+      {tab === "queue" && !desk && <Queue driveId={drive.id} rows={drive.candidates} eta={eta} move={move} decide={decide} rounds={drive.rounds} rooms={drive.rooms || []} saveNote={saveNote} callTo={callTo} initialQ={findQ} />}
       {tab === "rounds" && !desk && <RoundsTab rounds={drive.rounds} setRounds={setRounds} />}
       {tab === "rooms" && !desk && <RoomsTab rooms={drive.rooms || []} setRooms={setRooms} org={org} setOrgs={setOrgs} drive={drive} />}
       {tab === "branding" && !desk && <BrandingTab brand={drive.brand || { name: org.short || org.name, color: org.color, logo: org.logo }} setBrand={setBrand} drive={drive} org={org} />}
@@ -1020,10 +1024,33 @@ function escHtml(s) {
   return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-export function ResumeView({ cand, tall = 420 }) {
-  const url = resumeDataUrl(cand?.resume);
+export function ResumeView({ cand, driveId, tall = 420 }) {
+  const local = resumeDataUrl(cand?.resume);
+  const [remoteUrl, setRemoteUrl] = useState("");
+  useEffect(() => {
+    if (local || !driveId || !cand?.id || !cand?.resume) { setRemoteUrl(""); return undefined; }
+    const session = readSession();
+    if (!session?.token) return undefined;
+    let gone = false;
+    let href = "";
+    fetch(`/api/resumes/${encodeURIComponent(driveId)}/${encodeURIComponent(cand.id)}`, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => {
+        if (gone || !b || !b.size) return;
+        href = URL.createObjectURL(b);
+        setRemoteUrl(href);
+      })
+      .catch(() => {});
+    return () => { gone = true; if (href) URL.revokeObjectURL(href); };
+  }, [local, driveId, cand?.id, cand?.resume]);
+  const url = local || remoteUrl;
   const file = resumeName(cand?.resume);
-  const pdf = url && isPdfResume(cand?.resume);
+  const pdf = !!url && (
+    isPdfResume(cand?.resume)
+    || /\.pdf$/i.test(file)
+    || (cand?.resume?.type || "").includes("pdf")
+    || (!!remoteUrl && !/\.docx?$/i.test(file))
+  );
   const phone = cand?.phone || "";
   const email = cand?.email || "";
   const exp = cand?.expBand || cand?.exp || "";
@@ -1071,13 +1098,13 @@ export function ResumeView({ cand, tall = 420 }) {
   );
 }
 
-export function InterviewDesk({ cand, rounds, saveNote, move, decide, skip }) {
+export function InterviewDesk({ cand, rounds, saveNote, move, decide, skip, driveId }) {
   const round = (rounds || [])[cand.roundIdx || 0];
   const noteKey = round?.id || "floor";
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1.15fr .85fr", gap: 0 }} className="g2">
       <div style={{ padding: 18, borderRight: `1px solid ${k.line}`, background: k.cream2, minHeight: 360 }}>
-        <ResumeView cand={cand} tall={480} />
+        <ResumeView cand={cand} driveId={driveId} tall={480} />
       </div>
       <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
@@ -1187,7 +1214,7 @@ export function LiveQueue({ drive, wait, active, s, eta, callTo, skip, recall, m
             )}
           </div>
           {!deskCand ? <div style={{ padding: 22 }}><Blank text="Call someone to open their resume and notes." /></div>
-            : <InterviewDesk cand={deskCand} rounds={rounds} saveNote={saveNote} move={move} decide={decide} skip={skip} />}
+            : <InterviewDesk cand={deskCand} driveId={drive.id} rounds={rounds} saveNote={saveNote} move={move} decide={decide} skip={skip} />}
         </div>
       )}
 
@@ -1503,7 +1530,7 @@ export function Screen({ driveId, gate, desk, left, active, wait, eta, rounds, b
   );
 }
 
-export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms: rawRooms = [], callTo, initialQ = "" }) {
+export function Queue({ driveId, rows, eta, move, decide, rounds, saveNote, rooms: rawRooms = [], callTo, initialQ = "" }) {
   const rooms = bindRoomsToRounds(rawRooms, rounds);
   const phone = useNarrow();
   const [q, setQ] = useState(initialQ);
@@ -1643,7 +1670,7 @@ export function Queue({ rows, eta, move, decide, rounds, saveNote, rooms: rawRoo
               <button onClick={() => setResumeFor(null)} style={{ ...ghostSm, padding: "6px 12px" }}>Close</button>
             </div>
             <div style={{ overflow: "auto", flex: 1, padding: 16 }}>
-              <ResumeView cand={rows.find((r) => r.id === resumeFor.id) || resumeFor} tall={560} />
+              <ResumeView cand={rows.find((r) => r.id === resumeFor.id) || resumeFor} driveId={driveId} tall={560} />
             </div>
           </div>
         </div>
