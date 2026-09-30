@@ -1,0 +1,1 @@
+import{q as a,r as t,j as o,N as u}from"./index-DrgVZCkY.js";function f(){const{signOut:e}=a(),[s,r]=t.useState(!1);return t.useEffect(()=>{e().finally(()=>r(!0))},[]),s?o.jsx(u,{to:"/",replace:!0}):null}export{f as default};

@@ -1,0 +1,9 @@
+{
+  "name": "TokenHire",
+  "short_name": "TokenHire",
+  "start_url": "/app/join",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#2C6BF5",
+  "icons": [{ "src": "/logo.png", "sizes": "192x192", "type": "image/png" }]
+}
