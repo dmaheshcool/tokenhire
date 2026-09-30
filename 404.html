@@ -1,18 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-IN" data-theme="light">
   <head>
-    <script>if(location.pathname.indexOf("/tokenhire/new/")===0){sessionStorage.redirect=location.pathname+location.search+location.hash;location.replace("/tokenhire/new/")}</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>TokenHire</title>
     <link rel="icon" type="image/png" href="/tokenhire/logo.png" />
     <link rel="manifest" href="/tokenhire/manifest.webmanifest" />
-    <meta name="theme-color" content="#2C6BF5" />
+    <meta name="theme-color" content="#2F5BFF" />
+    <meta name="description" content="Find walk-in interviews near you, get a token at the venue and see how many people are ahead of you." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="TokenHire" />
     <link rel="apple-touch-icon" href="/tokenhire/logo.png" />
-    <script type="module" crossorigin src="/tokenhire/assets/index-xHybAbhc.js"></script>
-    <link rel="stylesheet" crossorigin href="/tokenhire/assets/index-BrZIaWOK.css">
+    <script>
+      try {
+        document.documentElement.dataset.theme = localStorage.getItem("th-theme") === "dark" ? "dark" : "light";
+      } catch (e) {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
+    <script type="module" crossorigin src="/tokenhire/assets/index-DvbaYIHk.js"></script>
+    <link rel="stylesheet" crossorigin href="/tokenhire/assets/index-nibHpUKP.css">
   </head>
   <body>
     <div id="root"></div>
