@@ -1,0 +1,1 @@
+import{n as r,r as t,j as a,N as n}from"./index-CAKGFq84.js";function f(){const{signOut:e}=r(),[s,o]=t.useState(!1);return t.useEffect(()=>{e().finally(()=>o(!0))},[]),s?a.jsx(n,{to:"/login",replace:!0}):null}export{f as default};
