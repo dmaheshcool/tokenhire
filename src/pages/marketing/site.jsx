@@ -1048,7 +1048,7 @@ export function Contact() {
     company: { org: "Company name", msgPh: "Tell us about your walk-in drives — roles, volume, cities…" },
     agency: { org: "Agency name", msgPh: "Tell us how many client companies you run drives for…" },
     candidate: { org: "Which company's drive?", msgPh: "What's the issue — a code not working, a status question…" },
-    other: { org: "Organization (optional)", msgPh: "What can we help with?" },
+    other: { org: "Organisation (optional)", msgPh: "What can we help with?" },
   };
   const rc = roleCopy[f.role];
   return (

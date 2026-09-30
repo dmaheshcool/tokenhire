@@ -3,7 +3,7 @@ import { isWorkEmail } from "../src/lib/helpers.js";
 import {
   addPilot, candidateByPhone, checkOrgPassword, consumeReset, createSession, DEMO_RESET, dropSession, findOrgByEmail,
   confirmListing, flushWrites, getState, publicSnapshot, publishListing, ready, roleFor, saveCandidate, sessionOf, setOrgPassword, setReset,
-  setSnapshot, storageMode, upsertOrg,
+  setSnapshot, storageMode, upsertOrg, normalPhone, startReminder, stopReminder, verifyReminder,
 } from "./db.js";
 
 const app = express();
@@ -110,6 +110,31 @@ app.post("/api/pilot", async (req, res) => {
   if (looseThrottle(`pilot:${ip}`, 10)) return res.status(429).json({ ok: false, error: "Too many requests from this network. Try again in a few minutes." });
   const result = addPilot(req.body || {});
   if (!result.ok) return res.status(400).json(result);
+  await flushWrites();
+  res.json(result);
+});
+
+app.post("/api/reminders/start", async (req, res) => {
+  const ip = req.ip || req.headers["x-forwarded-for"] || "local";
+  const phone = normalPhone(req.body?.phone);
+  if (looseThrottle(`remind-ip:${ip}`, 20) || (phone && looseThrottle(`remind:${phone}`, 3))) {
+    return res.status(429).json({ ok: false, error: "Too many codes sent. Wait 10 minutes and try again." });
+  }
+  const result = startReminder(req.body || {});
+  if (!result.ok) return res.status(400).json(result);
+  await flushWrites();
+  res.json(result);
+});
+
+app.post("/api/reminders/verify", async (req, res) => {
+  const result = verifyReminder(req.body || {});
+  if (!result.ok) return res.status(400).json(result);
+  await flushWrites();
+  res.json(result);
+});
+
+app.post("/api/reminders/stop", async (req, res) => {
+  const result = stopReminder(req.body || {});
   await flushWrites();
   res.json(result);
 });
@@ -240,6 +265,7 @@ app.patch("/api/org", requireStaff, async (req, res) => {
     email: patch.email ?? org.email,
     members: patch.members ?? org.members,
     clients: patch.clients ?? org.clients,
+    library: patch.library ?? org.library,
     branches: patch.branches ?? org.branches,
     plan: patch.plan ?? org.plan,
     billingCycle: patch.billingCycle ?? org.billingCycle,

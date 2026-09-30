@@ -17,6 +17,8 @@ function fresh() {
     resets: {},
     candidates: {},
     pilots: [],
+    reminders: [],
+    otps: {},
   };
 }
 
@@ -36,6 +38,15 @@ function refreshSeeds(stored, seeds) {
       const real = (d.candidates || []).filter((c) => !c.synthetic);
       return { ...seed, candidates: [...seed.candidates, ...real], seq: Math.max(seed.seq, d.seq || 0) };
     }
+    // Older stored copies predate per-drive roles, documents and check-in fields.
+    if (seed.roles && !d.roles) {
+      d = {
+        ...d,
+        roles: seed.roles, role: seed.role, documents: seed.documents, docs: seed.docs,
+        fields: seed.fields, rounds: seed.rounds, openings: seed.openings,
+        expMin: seed.expMin, expMax: seed.expMax, payType: seed.payType, payMin: seed.payMin, payMax: seed.payMax,
+      };
+    }
     if (driveStatus(d) !== "wrapped" || d.wrappedAt) return d;
     const next = { ...d };
     for (const key of SCHEDULE_KEYS) next[key] = seed[key];
@@ -48,7 +59,7 @@ function refreshSeeds(stored, seeds) {
 function merge(raw) {
   if (!raw) return fresh();
   const base = fresh();
-  const next = { ...base, ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, candidates: raw.candidates || {}, pilots: raw.pilots || [] };
+  const next = { ...base, ...raw, sessions: raw.sessions || {}, resets: raw.resets || {}, candidates: raw.candidates || {}, pilots: raw.pilots || [], reminders: raw.reminders || [], otps: raw.otps || {} };
   const orgIds = new Set((next.orgs || []).map((o) => o.id));
   next.orgs = [...(next.orgs || []), ...base.orgs.filter((o) => !orgIds.has(o.id))];
   const boardIds = new Set(base.drives.filter((d) => d.board).map((d) => d.id));
@@ -433,3 +444,59 @@ export function candidateByPhone(phone) {
 }
 
 export const DEMO_RESET = "482911";
+
+// Walk-in reminders by SMS. No SMS provider is wired in yet, so no text is sent:
+// the code is the fixed demo code and the API says so. Once a provider is approved,
+// generate a random code here and send it instead of returning `demo: true`.
+export const DEMO_SMS = "482911";
+const OTP_TTL = 10 * 60 * 1000;
+const OTP_TRIES = 5;
+
+export const normalPhone = (v) => {
+  const d = String(v ?? "").replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+  return /^[6-9]\d{9}$/.test(d) ? d : "";
+};
+
+function reminderDrive(driveId) {
+  const d = (state.drives || []).find((x) => x.id === driveId && x.visibility !== "private");
+  if (!d) return { error: "This walk-in isn't listed any more." };
+  if (driveStatus(d) === "wrapped") return { error: "This walk-in has ended." };
+  return { drive: d };
+}
+
+export function startReminder(body = {}) {
+  const phone = normalPhone(body.phone);
+  if (!phone) return { ok: false, error: "Enter a 10-digit mobile number." };
+  const { error } = reminderDrive(body.driveId);
+  if (error) return { ok: false, error };
+  state.otps = { ...(state.otps || {}), [`remind:${phone}`]: { code: DEMO_SMS, exp: Date.now() + OTP_TTL, tries: 0, driveId: body.driveId } };
+  save();
+  return { ok: true, phone, demo: true, demoCode: DEMO_SMS };
+}
+
+export function verifyReminder(body = {}) {
+  const phone = normalPhone(body.phone);
+  const key = `remind:${phone}`;
+  const rec = (state.otps || {})[key];
+  if (!phone || !rec || rec.driveId !== body.driveId || rec.exp < Date.now()) return { ok: false, error: "That code has expired. Send a new one." };
+  if (rec.tries >= OTP_TRIES) return { ok: false, error: "Too many wrong codes. Send a new one." };
+  if (String(body.code ?? "").trim() !== rec.code) {
+    rec.tries += 1;
+    save();
+    return { ok: false, error: "That code doesn't match. Check the SMS and try again." };
+  }
+  const { drive, error } = reminderDrive(body.driveId);
+  if (error) return { ok: false, error };
+  delete state.otps[key];
+  const others = (state.reminders || []).filter((r) => !(r.phone === phone && r.driveId === drive.id));
+  state.reminders = [...others, { id: `rm_${Date.now()}_${code(4)}`, phone, driveId: drive.id, at: Date.now() }].slice(-5000);
+  save();
+  return { ok: true };
+}
+
+export function stopReminder(body = {}) {
+  const phone = normalPhone(body.phone);
+  state.reminders = (state.reminders || []).filter((r) => !(r.phone === phone && r.driveId === body.driveId));
+  save();
+  return { ok: true };
+}

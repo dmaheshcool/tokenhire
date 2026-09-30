@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
-import { Download, Handshake, MapPin, Plus, Search, Trash2, UserRound, Users } from "lucide-react";
+import { Navigate, NavLink } from "react-router-dom";
+import { Archive, ArchiveRestore, BookOpen, Download, MapPin, Merge, Pencil, Plus, Search, Trash2, UserRound, Users } from "lucide-react";
 import { Btn, EmptyState, Monogram, STROKE, useToast } from "../../components/ds.jsx";
 import { PageHead, useConsole } from "../../layouts/ConsoleLayout.jsx";
 import { useMeta } from "../../hooks/useMeta.js";
+import { useLibrary } from "../../hooks/useLibrary.js";
+import { LIBRARY_KINDS, addItem, mergeItems, nameOf, relinkDrives, renameItem, setActive, usesOf, withNewItems } from "../../lib/library.js";
+import { payText } from "../../lib/listing.js";
 import { BrandPanel } from "../app/EmployerPage.jsx";
 import { atSeatCap, downloadFile, isWorkEmail, memberEmail, memberName, memberRole, planLimits } from "../../lib/helpers.js";
 import { shortDate } from "../../lib/status.js";
@@ -86,49 +89,163 @@ function VenuesInner() {
 }
 export function VenuesPage() { return <RecruiterOnly><VenuesInner /></RecruiterOnly>; }
 
-/* ---------- Hiring teams ---------- */
-function TeamsInner() {
-  const { org, mine } = useConsole();
-  const patch = useOrgPatch();
-  const clients = org.clients || [];
-  const [name, setName] = useState("");
-  useMeta({ title: t("console.nav.teams") });
+/* ---------- Settings > Library ---------- */
+function SettingsTabs() {
+  return (
+    <nav className="tabs settings-tabs" aria-label={t("console.nav.settings")}>
+      <NavLink to="/app/settings" end className={({ isActive }) => (isActive ? "active" : "")}>{t("settings.tabs.company")}</NavLink>
+      <NavLink to="/app/settings/library" className={({ isActive }) => (isActive ? "active" : "")}>{t("settings.tabs.library")}</NavLink>
+    </nav>
+  );
+}
+
+function LibraryRow({ kind, item, uses, others, hint, onRename, onMerge, onArchive }) {
+  const [mode, setMode] = useState("");
+  const [text, setText] = useState(nameOf(kind, item));
+  const [into, setInto] = useState("");
+  const [err, setErr] = useState("");
+  const name = nameOf(kind, item);
+  const archived = item.active === false;
+  const rename = (e) => {
+    e.preventDefault();
+    const error = onRename(text);
+    if (error) setErr(error);
+    else { setMode(""); setErr(""); }
+  };
+  return (
+    <div className={`lib-row${archived ? " archived" : ""}`}>
+      {mode === "rename" ? (
+        <form className="row gap-8 grow" onSubmit={rename} style={{ flexWrap: "wrap" }}>
+          <label className="sr-only" htmlFor={`ren-${item.id}`}>{t("library.renameLabel", { name })}</label>
+          <input id={`ren-${item.id}`} className="input grow" style={{ minWidth: 180 }} value={text} onChange={(e) => { setText(e.target.value); setErr(""); }} autoFocus aria-invalid={!!err} />
+          <Btn type="submit" size="sm">{t("library.save")}</Btn>
+          <Btn size="sm" variant="ghost" onClick={() => { setMode(""); setText(name); setErr(""); }}>{t("buttons.cancel")}</Btn>
+          {err && <p className="tiny span-12" role="alert" style={{ color: "var(--danger)", margin: 0, flexBasis: "100%" }}>{err}</p>}
+        </form>
+      ) : mode === "merge" ? (
+        <div className="row gap-8 grow" style={{ flexWrap: "wrap" }}>
+          <label className="small strong" htmlFor={`mrg-${item.id}`}>{t("library.mergeLabel", { name })}</label>
+          <select id={`mrg-${item.id}`} className="select" style={{ width: "auto", minWidth: 180 }} value={into} onChange={(e) => setInto(e.target.value)}>
+            <option value="">{t("library.mergePick")}</option>
+            {others.map((o) => <option key={o.id} value={o.id}>{nameOf(kind, o)}</option>)}
+          </select>
+          <Btn size="sm" disabled={!into} onClick={() => { onMerge(into); setMode(""); }}>{t("library.mergeGo")}</Btn>
+          <Btn size="sm" variant="ghost" onClick={() => setMode("")}>{t("buttons.cancel")}</Btn>
+        </div>
+      ) : (
+        <>
+          <div className="lib-name">
+            {name}
+            {archived && <span className="tag" style={{ marginLeft: 8 }}>{t("library.archived")}</span>}
+            {hint && <p className="tiny muted" style={{ margin: "2px 0 0", fontWeight: 400 }}>{hint}</p>}
+          </div>
+          <span className="tiny muted">{uses === 1 ? t("library.usesOne") : t("library.uses", { n: uses })}</span>
+          <div className="lib-actions">
+            {!archived && <Btn size="sm" variant="ghost" icon={Pencil} onClick={() => setMode("rename")}>{t("library.rename")}</Btn>}
+            {!archived && others.length > 0 && <Btn size="sm" variant="ghost" icon={Merge} onClick={() => setMode("merge")}>{t("library.merge")}</Btn>}
+            <Btn size="sm" variant="ghost" icon={archived ? ArchiveRestore : Archive} onClick={() => onArchive(archived)}>{archived ? t("library.restore") : t("library.archive")}</Btn>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function LibraryInner() {
+  const toast = useToast();
+  const { lib, update, drives, setDrives, orgId } = useLibrary();
+  const [kind, setKind] = useState("processes");
+  const [text, setText] = useState("");
+  const [err, setErr] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  useMeta({ title: t("library.title") });
+
+  const items = lib[kind] || [];
+  const active = items.filter((x) => x.active !== false);
+  const archived = items.filter((x) => x.active === false);
+  const procName = (id) => lib.processes.find((p) => p.id === id)?.name || "";
+  const hintFor = (x) => {
+    if (kind !== "roles") return "";
+    const bits = [procName(x.processId)];
+    if (x.payType && (x.payMin !== "" || x.payMax !== "")) bits.push(payText(x));
+    return bits.filter(Boolean).join(" · ");
+  };
+
   function add(e) {
     e.preventDefault();
-    const v = name.trim();
-    if (!v || clients.some((c) => c.name.toLowerCase() === v.toLowerCase())) return;
-    patch({ clients: [...clients, { id: `cl_${Date.now()}`, name: v }] });
-    setName("");
+    const r = addItem(lib, kind, text);
+    if (!r.item) { setErr(t(kind === "documents" ? "console.form.docBad" : "library.empty")); return; }
+    update((cur) => withNewItems(cur, r.lib));
+    setText("");
+    setErr("");
+    toast(t("library.added"));
   }
-  const count = (c) => mine.filter((d) => d.clientId === c.id).length;
+  function rename(item, value) {
+    const r = renameItem(lib, kind, item.id, value);
+    if (r.error) return t(r.error === "taken" ? "library.taken" : kind === "documents" ? "console.form.docBad" : "library.empty");
+    update((cur) => renameItem(cur, kind, item.id, value).lib);
+    setDrives((p) => relinkDrives(p, orgId, kind, item.id, { ...item, [kind === "roles" ? "title" : kind === "documents" ? "label" : "name"]: r.name }));
+    toast(t("library.renamed"));
+    return "";
+  }
+  function merge(item, intoId) {
+    const into = items.find((x) => x.id === intoId);
+    if (!into) return;
+    update((cur) => mergeItems(cur, kind, item.id, intoId));
+    setDrives((p) => relinkDrives(p, orgId, kind, item.id, into));
+    toast(t("library.merged", { from: nameOf(kind, item), into: nameOf(kind, into) }));
+  }
+  function archive(item, restore) {
+    update((cur) => setActive(cur, kind, item.id, restore));
+    toast(t(restore ? "library.restored" : "library.archivedToast"));
+  }
+
+  const row = (x) => (
+    <LibraryRow key={x.id} kind={kind} item={x} uses={usesOf(drives, orgId, kind, x)} hint={hintFor(x)}
+      others={active.filter((o) => o.id !== x.id)}
+      onRename={(v) => rename(x, v)} onMerge={(into) => merge(x, into)} onArchive={(restore) => archive(x, restore)} />
+  );
+
   return (
     <>
-      <PageHead title={t("console.nav.teams")} lede="The teams or client companies you hire for. Pick one on each drive." />
+      <PageHead title={t("console.nav.settings")} lede={t("library.lede")} />
+      <SettingsTabs />
+      <div className="chips-scroll" role="tablist" aria-label={t("library.title")} style={{ marginBottom: 16 }}>
+        {LIBRARY_KINDS.map((k) => (
+          <button key={k} type="button" role="tab" className="chip" aria-selected={kind === k} aria-pressed={kind === k}
+            onClick={() => { setKind(k); setText(""); setErr(""); setShowArchived(false); }}>
+            {t(`library.kinds.${k}`)} <span className="mono" style={{ opacity: 0.6, marginLeft: 4 }}>{(lib[k] || []).filter((x) => x.active !== false).length}</span>
+          </button>
+        ))}
+      </div>
       <div className="grid-12" style={{ alignItems: "start", rowGap: 24 }}>
-        <div className="span-7 stack gap-8">
-          {clients.length ? clients.map((c) => (
-            <Row key={c.id}>
-              <div className="row gap-12"><Monogram name={c.name} size={36} /><span className="strong">{c.name}</span></div>
-              <div className="row gap-8">
-                <span className="tiny muted">{count(c)} drive{count(c) === 1 ? "" : "s"}</span>
-                <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={() => patch({ clients: clients.filter((x) => x.id !== c.id) })} aria-label={`Remove ${c.name}`}><Trash2 size={16} strokeWidth={STROKE} /></button>
-              </div>
-            </Row>
-          )) : <EmptyState icon={Handshake} title="No hiring teams yet." body="Add one for each business unit or client you run drives for." />}
+        <div className="span-7 stack gap-12" role="tabpanel">
+          <p className="small muted" style={{ margin: 0 }}>{t(`library.help.${kind}`)}</p>
+          {active.length ? <div className="card" style={{ padding: 0 }}>{active.map(row)}</div>
+            : <EmptyState icon={BookOpen} title={t("library.none")} body={t("library.noneBody")} />}
+          {archived.length > 0 && (
+            <div className="stack gap-8">
+              <button type="button" className="link small" style={{ alignSelf: "flex-start" }} aria-expanded={showArchived} onClick={() => setShowArchived((s) => !s)}>
+                {t(showArchived ? "library.hideArchived" : "library.showArchived", { n: archived.length })}
+              </button>
+              {showArchived && <div className="card" style={{ padding: 0 }}>{archived.map(row)}</div>}
+            </div>
+          )}
         </div>
-        <form className="card card-pad stack gap-12 span-5" onSubmit={add}>
-          <h2 className="h-4">Add a hiring team</h2>
+        <form className="card card-pad stack gap-12 span-5" onSubmit={add} noValidate>
+          <h2 className="h-4">{t(`library.addTitle.${kind}`)}</h2>
           <div className="field">
-            <label className="label" htmlFor="ht-name">Team or client name</label>
-            <input id="ht-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Inbound voice support" />
+            <label className="label" htmlFor="lib-add">{t("library.name")}</label>
+            <input id="lib-add" className="input" value={text} onChange={(e) => { setText(e.target.value); setErr(""); }} placeholder={t(`library.placeholder.${kind}`)} aria-invalid={!!err} />
+            {err && <p className="tiny" role="alert" style={{ color: "var(--danger)", margin: 0 }}>{err}</p>}
           </div>
-          <Btn type="submit" icon={Plus}>Add team</Btn>
+          <Btn type="submit" icon={Plus}>{t("library.add")}</Btn>
         </form>
       </div>
     </>
   );
 }
-export function HiringTeamsPage() { return <RecruiterOnly><TeamsInner /></RecruiterOnly>; }
+export function LibraryPage() { return <RecruiterOnly><LibraryInner /></RecruiterOnly>; }
 
 /* ---------- Team ---------- */
 const ROLES = [["recruiter", "Recruiter"], ["frontdesk", "Front desk"]];
@@ -226,7 +343,8 @@ function SettingsInner() {
   }
   return (
     <>
-      <PageHead title="Settings" lede="Company details and how your drives look on the lobby display." />
+      <PageHead title={t("console.nav.settings")} lede="Company details and how your drives look on the lobby display." />
+      <SettingsTabs />
       <div className="grid-12" style={{ alignItems: "start", rowGap: 24 }}>
         <form className="card card-pad stack gap-12 span-5" onSubmit={save} noValidate>
           <h2 className="h-4">Company</h2>

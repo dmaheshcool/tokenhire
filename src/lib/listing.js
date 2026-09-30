@@ -19,26 +19,41 @@ export const cityPath = (city) => `/walk-ins/${citySlug(city)}`;
 
 const rupees = (n) => Math.round(n).toLocaleString("en-IN");
 
-function payRange(drive) {
+export const PAY_TYPES = ["month", "day", "hour", "task", "year", "fixed"];
+
+// Rough monthly equivalents so the pay filter and sort can compare across types:
+// 26 working days, 8-hour days. Per-task pay has no fair monthly figure.
+const PER_MONTH = { month: 1, day: 26, hour: 26 * 8, year: 1 / 12, fixed: 1 };
+
+export const payType = (drive) => (PAY_TYPES.includes(drive?.payType) ? drive.payType : "month");
+
+function payAmount(drive) {
   const lo = Number(drive?.payMin) || 0;
   const hi = Number(drive?.payMax) || 0;
-  if (!lo && !hi) return null;
-  if (lo && hi && hi !== lo) return { min: rupees(lo), max: rupees(hi) };
-  return { min: rupees(lo || hi) };
+  if (!lo && !hi) return "";
+  if (lo && hi && hi !== lo) return t("card.payRange", { min: rupees(lo), max: rupees(hi) });
+  return t("card.payOne", { min: rupees(lo || hi) });
 }
 
-/** "₹16,000 to ₹24,000", for tight spots. */
+export const hasPay = (drive) => Boolean(payAmount(drive));
+
+/** Top of the range as ₹ per month, or null when pay isn't listed or can't be compared. */
+export function monthlyPay(drive) {
+  const top = Number(drive?.payMax) || Number(drive?.payMin) || 0;
+  const k = PER_MONTH[payType(drive)];
+  return top && k ? Math.round(top * k) : null;
+}
+
+/** "₹700 to ₹900 per day", for tight spots. Empty when pay isn't listed. */
 export function payLabel(drive) {
-  const r = payRange(drive);
-  if (!r) return "";
-  return r.max ? t("card.payShort", r) : t("card.payShortOne", r);
+  const amount = payAmount(drive);
+  return amount ? t("card.payShort", { amount, unit: t(`card.payUnit.${payType(drive)}`) }) : "";
 }
 
-/** "Pay: ₹16,000 to ₹24,000 per month", as on a listing card. */
+/** "Pay: ₹16,000 to ₹24,000 per month", or "Pay discussed at interview". */
 export function payText(drive) {
-  const r = payRange(drive);
-  if (!r) return "";
-  return r.max ? t("card.pay", r) : t("card.payOne", r);
+  const amount = payAmount(drive);
+  return amount ? t("card.pay", { amount, unit: t(`card.payUnit.${payType(drive)}`) }) : t("card.payNone");
 }
 
 export function isFresherFriendly(drive) {
@@ -159,6 +174,40 @@ export function boardStats(drives, now = Date.now()) {
   const inQueue = live.reduce((s, d) => s + queueStats(d).waiting, 0);
   const cities = new Set(pub.filter((d) => driveStatus(d, now) !== "wrapped").map((d) => d.city).filter(Boolean));
   return { today: today.length, live: live.length, inQueue, cities: cities.size };
+}
+
+export function matchesQuery(d, q) {
+  if (!q) return true;
+  const hay = [d.role, d.company, d.city, d.area, d.venue, d.roleType, d.branch].filter(Boolean).join(" ").toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
+}
+
+/** Drives worth showing to someone searching: public and not over yet. */
+export function searchableDrives(drives, now = Date.now()) {
+  return sortForBoard(publicDrives(drives).filter((d) => driveStatus(d, now) !== "wrapped"), now);
+}
+
+export function searchDrives(drives, q, now = Date.now()) {
+  return searchableDrives(drives, now).filter((d) => matchesQuery(d, q.trim()));
+}
+
+/** Grouped suggestions for a partial query; prefix matches rank first. */
+export function searchSuggestions(drives, q, now = Date.now(), perGroup = 6) {
+  const needle = q.trim().toLowerCase();
+  const groups = { roles: new Map(), companies: new Map(), cities: new Map() };
+  if (!needle) return { roles: [], companies: [], cities: [] };
+  for (const d of searchableDrives(drives, now)) {
+    for (const [key, value] of [["roles", d.role], ["companies", d.company], ["cities", d.city]]) {
+      const v = String(value || "").trim();
+      if (!v || !v.toLowerCase().includes(needle)) continue;
+      groups[key].set(v, (groups[key].get(v) || 0) + 1);
+    }
+  }
+  const rank = (map) => [...map.entries()]
+    .sort(([a, na], [b, nb]) => Number(b.toLowerCase().startsWith(needle)) - Number(a.toLowerCase().startsWith(needle)) || nb - na || a.localeCompare(b))
+    .slice(0, perGroup)
+    .map(([label, count]) => ({ label, count }));
+  return { roles: rank(groups.roles), companies: rank(groups.companies), cities: rank(groups.cities) };
 }
 
 export function sortForBoard(list, now = Date.now()) {

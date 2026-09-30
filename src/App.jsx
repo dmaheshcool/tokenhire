@@ -19,6 +19,7 @@ const ForCompaniesPage = lazy(() => import("./pages/ForCompaniesPage.jsx"));
 const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage.jsx"));
 const GuidesPage = lazy(() => import("./pages/GuidesPage.jsx"));
 const WalkInsPage = lazy(() => import("./pages/WalkInsPage.jsx"));
+const SavedPage = lazy(() => import("./pages/SavedPage.jsx"));
 const ListWalkInPage = lazy(() => import("./pages/ListWalkInPage.jsx"));
 const ConfirmWalkInPage = lazy(() => import("./pages/ListWalkInPage.jsx").then((m) => ({ default: m.ConfirmWalkInPage })));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage.jsx"));
@@ -42,7 +43,7 @@ const DrivePage = lazy(() => import("./pages/console/DrivePage.jsx"));
 const DeskPage = lazy(() => import("./pages/console/DeskPage.jsx"));
 const orgPage = (name) => lazy(() => import("./pages/console/OrgPages.jsx").then((m) => ({ default: m[name] })));
 const VenuesPage = orgPage("VenuesPage");
-const HiringTeamsPage = orgPage("HiringTeamsPage");
+const LibraryPage = orgPage("LibraryPage");
 const TalentPage = orgPage("TalentPage");
 const TeamPage = orgPage("TeamPage");
 const SettingsPage = orgPage("SettingsPage");
@@ -76,6 +77,7 @@ export default function App() {
               <Route path="/walk-ins/list" element={<ListWalkInPage />} />
               <Route path="/walk-ins/confirm" element={<ConfirmWalkInPage />} />
               <Route path="/walk-ins/:slug" element={<WalkInsPage />} />
+              <Route path="/saved" element={<SavedPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/legal" element={<LegalHubPage />} />
@@ -95,7 +97,8 @@ export default function App() {
               <Route path="/app/drives/:id" element={<DrivePage />} />
               <Route path="/app/drives/:id/edit" element={<DriveFormPage />} />
               <Route path="/app/venues" element={<VenuesPage />} />
-              <Route path="/app/teams" element={<HiringTeamsPage />} />
+              <Route path="/app/teams" element={<Navigate to="/app/settings/library" replace />} />
+              <Route path="/app/settings/library" element={<LibraryPage />} />
               <Route path="/app/talent" element={<TalentPage />} />
               <Route path="/app/team" element={<TeamPage />} />
               <Route path="/app/settings" element={<SettingsPage />} />

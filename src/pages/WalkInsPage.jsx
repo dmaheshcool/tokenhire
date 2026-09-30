@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Bookmark, BookmarkCheck, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, FileText, IndianRupee, Landmark, Lightbulb, ListOrdered, Search, Share2, SlidersHorizontal, X } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
 import { Btn, CardSkeleton, DriveCard, EmptyState, Monogram, QueueLine, STROKE, WhenChip, joinPath, useSaved, useToast, whenText } from "../components/ds.jsx";
-import { EXP_FILTERS, cityFromSlug, cityPath, expLabel, expRange, mapsUrl, payText, publicDrives, queueStats, sortForBoard, venueLine, waitLabel } from "../lib/listing.js";
+import { EXP_FILTERS, matchesQuery, cityFromSlug, cityPath, expLabel, expRange, hasPay, mapsUrl, monthlyPay, payText, payType, publicDrives, queueStats, sortForBoard, venueLine, waitLabel } from "../lib/listing.js";
 import { clock, driveStatus, driveWhen, hoursLabel, datesLabel, driveSchedule, fromMinutes, istDate, shortDate } from "../lib/status.js";
 import { ROLE_TYPES } from "../data/board.js";
+import { driveRoles } from "../lib/library.js";
+import { shareDrive } from "../lib/share.js";
+import RemindMe from "../components/RemindMe.jsx";
 import { useMeta } from "../hooks/useMeta.js";
 import { t, tl } from "../i18n/strings.js";
 
@@ -15,12 +18,6 @@ const PAY_KEYS = ["any", "15", "25", "40", "60"];
 const SORT_KEYS = ["soonest", "pay", "queue"];
 const PAGE_SIZE = 20;
 
-function matchesQuery(d, q) {
-  if (!q) return true;
-  const hay = [d.role, d.company, d.city, d.area, d.venue, d.roleType, d.branch].filter(Boolean).join(" ").toLowerCase();
-  return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
-}
-
 function matchesDate(d, key, now) {
   if (key === "any") return true;
   if (key === "month") return driveStatus(d, now) !== "wrapped" && String(d.date) <= istDate(30, now);
@@ -29,20 +26,25 @@ function matchesDate(d, key, now) {
   return w === key;
 }
 
-function applyFilters(list, f, now, skip, saved) {
+function matchesPay(d, key, includeNone) {
+  if (key === "any") return true;
+  const m = monthlyPay(d);
+  return m == null ? includeNone : m >= Number(key) * 1000;
+}
+
+function applyFilters(list, f, now, skip) {
   return list.filter((d) =>
     (skip === "city" || !f.city || d.city === f.city)
     && (skip === "type" || !f.type || d.roleType === f.type)
     && (skip === "exp" || f.exp === "any" || EXP_FILTERS[f.exp]?.(expRange(d)))
     && (skip === "date" || matchesDate(d, f.date, now))
-    && (skip === "pay" || f.pay === "any" || (Number(d.payMax) || 0) >= Number(f.pay) * 1000)
-    && (!f.saved || saved?.has(d.id))
+    && (skip === "pay" || matchesPay(d, f.pay, f.payNone))
     && matchesQuery(d, f.q));
 }
 
 function sortList(list, key, now) {
   const base = sortForBoard(list, now);
-  if (key === "pay") return [...base].sort((a, b) => (Number(b.payMax) || 0) - (Number(a.payMax) || 0));
+  if (key === "pay") return [...base].sort((a, b) => (monthlyPay(b) ?? -1) - (monthlyPay(a) ?? -1));
   if (key === "queue") {
     const q = (d) => (driveStatus(d, now) === "live" ? queueStats(d).waiting : Infinity);
     return [...base].sort((a, b) => q(a) - q(b));
@@ -80,13 +82,24 @@ function Filters({ open, pool, f, set, cityLocked, now }) {
           options={[{ key: "", label: t("browse.allCities") }, ...cities.slice(0, open ? 30 : 10).map(([c, n]) => ({ key: c, label: c, count: n }))]} />
       )}
       <FilterGroup title={t("browse.roleType")} value={f.type || ""} onPick={(v) => set({ type: v })}
-        options={[{ key: "", label: t("browse.any") }, ...ROLE_TYPES.map((rt) => ({ key: rt, label: rt, count: count("type", (d) => d.roleType === rt) })).filter((o) => o.count)]} />
+        options={[{ key: "", label: t("browse.any") }, ...[...new Set([...ROLE_TYPES, ...pool.map((d) => d.roleType).filter(Boolean)])].map((rt) => ({ key: rt, label: rt, count: count("type", (d) => d.roleType === rt) })).filter((o) => o.count)]} />
       <FilterGroup title={t("browse.experience")} value={f.exp} onPick={(v) => set({ exp: v })}
         options={EXP_KEYS.map((k) => ({ key: k, label: t(`browse.exp.${k}`), count: k === "any" ? null : count("exp", (d) => EXP_FILTERS[k](expRange(d))) }))} />
       <FilterGroup title={t("browse.date")} value={f.date} onPick={(v) => set({ date: v })}
         options={DATE_KEYS.map((k) => ({ key: k, label: t(`browse.dates.${k}`), count: k === "any" ? null : count("date", (d) => matchesDate(d, k, now)) }))} />
-      <FilterGroup title={t("browse.pay")} value={f.pay} onPick={(v) => set({ pay: v })}
-        options={PAY_KEYS.map((k) => ({ key: k, label: t(`browse.payOpts.${k}`), count: k === "any" ? null : count("pay", (d) => (Number(d.payMax) || 0) >= Number(k) * 1000) }))} />
+      <div>
+        <FilterGroup title={t("browse.pay")} value={f.pay} onPick={(v) => set({ pay: v })}
+          options={PAY_KEYS.map((k) => ({ key: k, label: t(`browse.payOpts.${k}`), count: k === "any" ? null : count("pay", (d) => matchesPay(d, k, f.payNone)) }))} />
+        {f.pay !== "any" && (
+          <>
+            <label className="filter-check">
+              <input type="checkbox" checked={f.payNone} onChange={(e) => set({ nopay: e.target.checked ? "" : "0" })} />
+              <span>{t("browse.payIncludeNone")}</span>
+            </label>
+            <p className="small muted" style={{ margin: "6px 0 0" }}>{t("browse.payHint")}</p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -106,7 +119,7 @@ function Browse({ city }) {
     exp: EXP_KEYS.includes(params.get("exp")) ? params.get("exp") : "any",
     date: DATE_KEYS.includes(params.get("date")) ? params.get("date") : "any",
     pay: PAY_KEYS.includes(params.get("pay")) ? params.get("pay") : "any",
-    saved: params.get("saved") === "1",
+    payNone: params.get("nopay") !== "0",
   };
   const sort = SORT_KEYS.includes(params.get("sort")) ? params.get("sort") : "soonest";
   const page = Math.max(1, Number(params.get("page")) || 1);
@@ -132,13 +145,13 @@ function Browse({ city }) {
   const clear = () => nav(city ? cityPath(city) : "/walk-ins");
 
   const pool = useMemo(() => publicDrives(drives), [drives]);
-  const hits = applyFilters(pool, f, now, null, saved);
+  const hits = applyFilters(pool, f, now, null);
   const open = sortList(hits.filter((d) => driveStatus(d, now) !== "wrapped"), sort, now);
   const ended = sortForBoard(hits.filter((d) => driveStatus(d, now) === "wrapped"), now).slice(0, 6);
   const pages = Math.max(1, Math.ceil(open.length / PAGE_SIZE));
   const pageNo = Math.min(page, pages);
   const shown = open.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
-  const activeCount = [f.type, f.exp !== "any", f.date !== "any", f.pay !== "any", f.saved, !city && f.city].filter(Boolean).length;
+  const activeCount = [f.type, f.exp !== "any", f.date !== "any", f.pay !== "any", !city && f.city].filter(Boolean).length;
   const loading = !hydrated && apiOk !== false && !pool.length;
 
   const cityPool = pool.filter((d) => !city || d.city === city);
@@ -151,7 +164,7 @@ function Browse({ city }) {
     : { title: t("browse.meta.title"), description: t("browse.meta.description", { count: open.length }) });
 
   const submitQ = (e) => { e.preventDefault(); set({ q: qDraft.trim() }); };
-  const empty = f.saved ? "noSaved" : city && !activeCount && !f.q ? "noCity" : "noResults";
+  const empty = city && !activeCount && !f.q ? "noCity" : "noResults";
 
   return (
     <>
@@ -188,9 +201,9 @@ function Browse({ city }) {
                   : t("browse.resultsNone")}
               </p>
               <div className="row gap-8" style={{ flexWrap: "wrap" }}>
-                <button type="button" className="chip" aria-pressed={f.saved} onClick={() => set({ saved: f.saved ? "" : "1" })}>
-                  {saved.ids.length ? t("browse.savedCount", { n: saved.ids.length }) : t("browse.saved")}
-                </button>
+                <Link to="/saved" className="chip">
+                  {saved.count ? t("browse.savedCount", { n: saved.count }) : t("browse.saved")}
+                </Link>
                 <label className="sr-only" htmlFor="browse-sort">{t("browse.sort")}</label>
                 <select id="browse-sort" className="select" style={{ width: "auto", minHeight: 36 }} value={sort} onChange={(e) => set({ sort: e.target.value })}>
                   {SORT_KEYS.map((k) => <option key={k} value={k}>{t(`browse.sorts.${k}`)}</option>)}
@@ -216,7 +229,7 @@ function Browse({ city }) {
                 <Btn variant="secondary" size="sm" iconRight={ChevronRight} disabled={pageNo >= pages} onClick={() => { set({ page: pageNo + 1 }); window.scrollTo(0, 0); }}>{t("browse.next")}</Btn>
               </nav>
             )}
-            {ended.length > 0 && !f.saved && (
+            {ended.length > 0 && (
               <div style={{ marginTop: 40 }}>
                 <h2 className="h-3" style={{ marginBottom: 16 }}>{t("browse.ended")}</h2>
                 <div className="cards-2" style={{ opacity: 0.85 }}>{ended.map((d) => <DriveCard key={d.id} drive={d} />)}</div>
@@ -270,8 +283,9 @@ function jobPosting(d) {
       address: { "@type": "PostalAddress", streetAddress: [d.venue, d.area].filter(Boolean).join(", "), addressLocality: d.city, addressCountry: "IN" },
     },
   };
-  if (d.payMin || d.payMax) {
-    ld.baseSalary = { "@type": "MonetaryAmount", currency: "INR", value: { "@type": "QuantitativeValue", minValue: d.payMin || d.payMax, maxValue: d.payMax || d.payMin, unitText: "MONTH" } };
+  const unitText = { month: "MONTH", fixed: "MONTH", day: "DAY", hour: "HOUR", year: "YEAR" }[payType(d)];
+  if (hasPay(d) && unitText) {
+    ld.baseSalary = { "@type": "MonetaryAmount", currency: "INR", value: { "@type": "QuantitativeValue", minValue: d.payMin || d.payMax, maxValue: d.payMax || d.payMin, unitText } };
   }
   const [lo] = expRange(d);
   ld.experienceRequirements = lo === 0 ? "No experience needed" : { "@type": "OccupationalExperienceRequirements", monthsOfExperience: lo * 12 };
@@ -308,13 +322,7 @@ function Detail({ drive }) {
   });
 
   const toggleSave = () => { toast(t(isSaved ? "toast.unsaved" : "toast.saved")); saved.toggle(drive.id); };
-  const share = async () => {
-    const url = window.location.href;
-    try {
-      if (navigator.share) await navigator.share({ title: t("detail.sticky", { company: drive.company, role: drive.role }), url });
-      else { await navigator.clipboard.writeText(url); toast(t("toast.copied")); }
-    } catch { /* dismissed */ }
-  };
+  const share = () => shareDrive(drive, toast);
   const saveBtn = (props) => <Btn variant="secondary" icon={isSaved ? BookmarkCheck : Bookmark} aria-pressed={isSaved} onClick={toggleSave} {...props}>{isSaved ? t("buttons.saved") : t("buttons.save")}</Btn>;
   const primary = live
     ? <Btn size="lg" block onClick={() => nav(joinPath(drive))}>{t("buttons.getToken")}</Btn>
@@ -322,6 +330,7 @@ function Detail({ drive }) {
 
   const rounds = drive.rounds || [];
   const docs = drive.docs || [];
+  const roles = driveRoles(drive);
   return (
     <div className="has-sticky-cta">
       <div className="wrap" style={{ padding: "28px 24px 0" }}>
@@ -363,9 +372,21 @@ function Detail({ drive }) {
                 <div style={{ marginTop: 14 }}><Btn href={mapsUrl(drive)} target="_blank" rel="noreferrer" variant="secondary" size="sm" iconRight={ExternalLink}>{t("detail.map")}</Btn></div>
               </Section>
               <Section icon={IndianRupee} title={t("detail.pay")}>
-                <p className="strong" style={{ margin: 0, fontSize: 18 }}>{pay || t("detail.payTbd")}</p>
-                <p className="body muted" style={{ marginTop: 4 }}>{t("detail.experience")}: {expLabel(drive)}</p>
-                {drive.openings ? <p className="small muted" style={{ marginTop: 12 }}>{t("detail.openings", { n: drive.openings })}</p> : null}
+                {roles.length > 1 ? (
+                  <ul className="stack gap-12" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                    {roles.map((r) => (
+                      <li key={r.id}>
+                        <p className="strong" style={{ margin: 0 }}>{r.title}</p>
+                        <p className={hasPay(r) ? "body" : "body muted"} style={{ margin: "2px 0 0" }}>{payText(r)}</p>
+                        <p className="small muted" style={{ margin: "2px 0 0" }}>{[expLabel(r), r.openings ? t("detail.openings", { n: r.openings }) : "", r.notes].filter(Boolean).join(" · ")}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <>
+                  <p className={hasPay(drive) ? "strong" : "muted"} style={{ margin: 0, fontSize: 18 }}>{pay}</p>
+                  <p className="body muted" style={{ marginTop: 4 }}>{t("detail.experience")}: {expLabel(drive)}</p>
+                  {drive.openings ? <p className="small muted" style={{ marginTop: 12 }}>{t("detail.openings", { n: drive.openings })}</p> : null}
+                </>}
               </Section>
             </div>
             {docs.length > 0 && (
@@ -394,7 +415,7 @@ function Detail({ drive }) {
           </div>
           <aside className="detail-aside">
             <div className="card card-pad stack gap-16">
-              {pay && <p className="h-3" style={{ margin: 0 }}>{pay}</p>}
+              <p className={hasPay(drive) ? "h-3" : "body muted"} style={{ margin: 0 }}>{pay}</p>
               <div className="row gap-8"><WhenChip drive={drive} /><span className="small muted">{hoursLabel(drive)}</span></div>
               {live && (
                 <div className="panel" style={{ padding: 16 }}>
@@ -408,6 +429,7 @@ function Detail({ drive }) {
               {primary}
               {live && <p className="small muted" style={{ margin: 0 }}>{t("detail.live")}</p>}
               {!live && !ended && <p className="small muted" style={{ margin: 0 }}>{closedLine}</p>}
+              {status === "scheduled" && <RemindMe drive={drive} block />}
               {ended && <p className="small muted" style={{ margin: 0 }}><Link to={cityPath(drive.city)} className="link">{t("detail.ended", { city: drive.city })}</Link></p>}
               <Btn variant="ghost" size="sm" icon={Share2} onClick={share}>{t("buttons.share")}</Btn>
             </div>
@@ -447,7 +469,9 @@ function NotFound() {
 
 export default function WalkInsPage() {
   const { slug } = useParams();
+  const [params] = useSearchParams();
   const { drives, hydrated } = useStore();
+  if (!slug && params.get("saved") === "1") return <Navigate to="/saved" replace />;
   if (!slug) return <Browse />;
   const drive = drives.find((d) => d.id === slug && d.visibility !== "private" && !d.listingPending);
   if (drive) return <Detail drive={drive} />;

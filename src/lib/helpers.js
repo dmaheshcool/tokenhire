@@ -229,9 +229,20 @@ export function orgCities(org) { return Array.from(new Set((org?.branches || [])
 export function bindRoomsToRounds(rooms = []) {
   return rooms || [];
 }
+// A round with `roleIds` is only for candidates who applied for one of those roles.
+export const roundApplies = (round, roleId) => !roleId || !(round?.roleIds || []).length || round.roleIds.includes(roleId);
+export function firstRoundIdx(rounds = [], roleId) {
+  const i = (rounds || []).findIndex((r) => roundApplies(r, roleId));
+  return i < 0 ? 0 : i;
+}
+/** The next round this candidate's role goes through, or -1 after their last one. */
+export function nextRoundIdx(rounds = [], cand) {
+  for (let i = (cand?.roundIdx || 0) + 1; i < (rounds || []).length; i += 1) if (roundApplies(rounds[i], cand?.roleId)) return i;
+  return -1;
+}
 export function waitingRoundIdx(rounds = [], cand) {
   if (inARound(cand)) return Math.min(cand.roundIdx || 0, Math.max(0, rounds.length - 1));
-  return 0;
+  return firstRoundIdx(rounds, cand?.roleId);
 }
 export function roundIndexOfRoom(rounds = [], room) {
   if (!room?.roundId) return -1;
@@ -543,12 +554,11 @@ export function inARound(c) {
   return !!(c?.roundAssigned || ["calling", "interviewing"].includes(c?.state) || (c?.roundIdx || 0) > 0);
 }
 export function isLastRound(rounds, c) {
-  const n = (rounds || []).length;
-  return n > 0 && (c?.roundIdx || 0) >= n - 1;
+  return (rounds || []).length > 0 && nextRoundIdx(rounds, c) < 0;
 }
 export function passLabel(rounds, c) {
   if (isLastRound(rounds, c)) return "Select";
-  const next = (rounds || [])[(c?.roundIdx || 0) + 1];
+  const next = (rounds || [])[nextRoundIdx(rounds, c)];
   return next ? `Pass to ${next.name}` : "Pass";
 }
 export function trackerCurrent(rounds, c) {

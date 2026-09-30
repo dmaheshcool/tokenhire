@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ArrowRight, Check, DoorOpen, FileSpreadsheet, LayoutGrid, Plus, Search, ShieldCheck, Ticket, Users } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
 import { Btn, CountUp, DriveCard, LiveDot, QueueBar, Reveal, STROKE, useSaved } from "../components/ds.jsx";
 import { createDrivePath } from "../components/SiteChrome.jsx";
-import { HERO_CITIES, boardStats, cityPath, publicDrives, sortForBoard } from "../lib/listing.js";
+import SearchBox from "../components/SearchBox.jsx";
+import { HERO_CITIES, boardStats, cityPath, publicDrives, searchDrives, sortForBoard } from "../lib/listing.js";
 import { driveStatus, driveWhen } from "../lib/status.js";
 import { useMeta } from "../hooks/useMeta.js";
 import { t, tl } from "../i18n/strings.js";
@@ -51,14 +52,7 @@ function HeroPhone() {
   );
 }
 
-function Hero({ stats }) {
-  const nav = useNavigate();
-  const [q, setQ] = useState("");
-  const submit = (e) => {
-    e.preventDefault();
-    const v = q.trim();
-    nav(v ? `/walk-ins?q=${encodeURIComponent(v)}` : "/walk-ins");
-  };
+function Hero({ stats, drives, q, setQ, onSearch, searchRef }) {
   return (
     <section className="mesh">
       <div className="wrap" style={{ paddingTop: 64, paddingBottom: 80 }}>
@@ -69,12 +63,9 @@ function Hero({ stats }) {
         <div className="grid-12" style={{ alignItems: "start", marginTop: 28 }}>
           <div className="span-7 stack gap-24" style={{ paddingTop: 8 }}>
             <p className="lede" style={{ fontSize: "clamp(18px, 1.9vw, 23px)" }}>{t("home.hero.sub")}</p>
-            <form className="search" role="search" onSubmit={submit} style={{ maxWidth: 560 }}>
-              <Search size={20} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", flexShrink: 0 }} />
-              <label htmlFor="hero-q" className="sr-only">{t("home.hero.searchPlaceholder")}</label>
-              <input id="hero-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("home.hero.searchPlaceholder")} autoComplete="off" />
-              <button type="submit" className="btn btn-primary">{t("home.hero.search")}</button>
-            </form>
+            <div ref={searchRef} style={{ maxWidth: 560 }}>
+              <SearchBox drives={drives} value={q} onChange={setQ} onSubmit={onSearch} />
+            </div>
             <div className="stack gap-8">
               <span className="small muted" style={{ fontWeight: 600 }}>{t("home.hero.citiesLabel")}</span>
               <div className="chips-scroll" aria-label={t("home.hero.citiesLabel")}>
@@ -304,13 +295,100 @@ function Closing() {
   );
 }
 
+const RESULTS_SHOWN = 12;
+
+function Results({ drives, query, sectionRef }) {
+  const saved = useSaved();
+  const hits = useMemo(() => searchDrives(drives, query), [drives, query]);
+  const v = query.trim();
+  const all = v ? `/walk-ins?q=${encodeURIComponent(v)}` : "/walk-ins";
+  return (
+    <section ref={sectionRef} id="results" className="section home-results" aria-labelledby="results-h" tabIndex={-1}>
+      <div className="wrap">
+        <div className="row between gap-16" style={{ marginBottom: 24, flexWrap: "wrap" }}>
+          <div className="stack gap-6">
+            <h2 id="results-h" className="h-2">{v ? t("home.search.resultsFor", { q: v }) : t("home.search.resultsAll")}</h2>
+            <p className="small muted" style={{ margin: 0 }} aria-live="polite">
+              {t(hits.length === 1 ? "home.search.matchesOne" : "home.search.matches", { n: hits.length })}
+            </p>
+          </div>
+          {hits.length > 0 && <Link to={all} className="link row gap-6">{t("home.search.seeAll")} <ArrowRight size={18} strokeWidth={STROKE} aria-hidden="true" /></Link>}
+        </div>
+        {hits.length === 0 ? (
+          <div className="panel stack gap-12" style={{ padding: 28 }}>
+            <h3 className="h-3">{t("home.search.none", { q: v })}</h3>
+            <p className="body muted" style={{ margin: 0 }}>{t("home.search.noneHint")}</p>
+            <div><Btn to="/walk-ins" variant="ghost">{t("buttons.browse")}</Btn></div>
+          </div>
+        ) : (
+          <div className="cards-3">
+            {hits.slice(0, RESULTS_SHOWN).map((d) => <DriveCard key={d.id} drive={d} saved={saved} />)}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function StickySearch({ show, drives, q, setQ, onSearch }) {
+  return (
+    <div className={`home-sticky${show ? " on" : ""}`} aria-hidden={!show} inert={!show}>
+      <div className="wrap">
+        <SearchBox drives={drives} value={q} onChange={setQ} onSubmit={onSearch} compact />
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { drives } = useStore();
   const stats = useMemo(() => boardStats(drives), [drives]);
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState(null);
+  const [searches, setSearches] = useState(0);
+  const [heroOut, setHeroOut] = useState(false);
+  const searchRef = useRef(null);
+  const resultsRef = useRef(null);
   useMeta({ title: t("home.meta.title"), description: t("home.meta.description") });
+
+  useEffect(() => {
+    const el = searchRef.current;
+    if (!el) return undefined;
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const nav = document.querySelector(".site-nav")?.offsetHeight ?? 68;
+      setHeroOut(el.getBoundingClientRect().bottom < nav);
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(check); };
+    check();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!searches || !resultsRef.current) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    resultsRef.current.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    resultsRef.current.focus({ preventScroll: true });
+  }, [searches]);
+
+  const onSearch = (value) => {
+    setQ(value);
+    setQuery(value);
+    setSearches((n) => n + 1);
+  };
+
   return (
     <>
-      <Hero stats={stats} />
+      <StickySearch show={heroOut} drives={drives} q={q} setQ={setQ} onSearch={onSearch} />
+      <Hero stats={stats} drives={drives} q={q} setQ={setQ} onSearch={onSearch} searchRef={searchRef} />
+      {query !== null && <Results drives={drives} query={query} sectionRef={resultsRef} />}
       <StatStrip stats={stats} />
       <Steps />
       <Audiences />

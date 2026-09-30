@@ -12,7 +12,9 @@
     "createDrive": "Create a drive",
     "menu": "Menu",
     "close": "Close menu",
-    "home": "TokenHire home"
+    "home": "TokenHire home",
+    "saved": "Saved walk-ins",
+    "savedCount": "Saved walk-ins ({{n}})"
   },
 
   "buttons": {
@@ -43,6 +45,7 @@
     "forCandidates": "For candidates",
     "browse": "Browse walk-ins",
     "getToken": "Get my token",
+    "saved": "Saved walk-ins",
     "how": "How it works",
     "guides": "Guides",
     "forCompanies": "For companies",
@@ -69,6 +72,20 @@
       "searchPlaceholder": "Search by role, company or city",
       "search": "Find walk-ins",
       "citiesLabel": "Popular cities"
+    },
+    "search": {
+      "clear": "Clear search",
+      "suggestions": "Suggestions",
+      "groups": { "roles": "Roles", "companies": "Companies", "cities": "Cities" },
+      "count": "{{n}} walk-ins",
+      "countOne": "1 walk-in",
+      "resultsFor": "Results for “{{q}}”",
+      "resultsAll": "Walk-ins you can go to",
+      "matches": "{{n}} matches",
+      "matchesOne": "1 match",
+      "seeAll": "See all results",
+      "none": "No walk-ins match “{{q}}”.",
+      "noneHint": "Try a different role, company or city, or browse everything that's on."
     },
     "phone": {
       "alt": "A candidate's token on a phone: token 042, 7 people ahead, about 25 minutes, go to Room B when called",
@@ -181,10 +198,19 @@
   },
 
   "card": {
-    "pay": "Pay: ₹{{min}} to ₹{{max}} per month",
-    "payOne": "Pay: ₹{{min}} per month",
-    "payShort": "₹{{min}} to ₹{{max}}",
-    "payShortOne": "₹{{min}}",
+    "pay": "Pay: {{amount}} {{unit}}",
+    "payShort": "{{amount}} {{unit}}",
+    "payRange": "₹{{min}} to ₹{{max}}",
+    "payOne": "₹{{min}}",
+    "payNone": "Pay discussed at interview",
+    "payUnit": {
+      "month": "per month",
+      "day": "per day",
+      "hour": "per hour",
+      "task": "per delivery or task",
+      "year": "per year (CTC)",
+      "fixed": "per month + incentive"
+    },
     "perMonth": "per month",
     "fresher": "Fresher friendly",
     "today": "Today",
@@ -233,6 +259,8 @@
     "exp": { "any": "Any", "fresher": "Fresher", "0-1": "0 to 1 year", "1-3": "1 to 3 years", "3-5": "3 to 5 years", "5+": "5+ years" },
     "dates": { "any": "Any date", "today": "Today", "tomorrow": "Tomorrow", "week": "This week", "month": "Next 30 days" },
     "payOpts": { "any": "Any", "15": "₹15,000+ per month", "25": "₹25,000+ per month", "40": "₹40,000+ per month", "60": "₹60,000+ per month" },
+    "payIncludeNone": "Include walk-ins that don't list pay",
+    "payHint": "Day, hour and yearly pay are worked out per month. Per-delivery pay is grouped with walk-ins that don't list pay.",
     "sort": "Sort",
     "sorts": { "soonest": "Soonest first", "pay": "Highest pay", "queue": "Shortest queue" },
     "results": "Showing {{from}} to {{to}} of {{total}} walk-ins",
@@ -257,7 +285,6 @@
     "map": "Open in Maps",
     "landmark": "Landmark",
     "pay": "Pay and shifts",
-    "payTbd": "Discussed at the interview",
     "experience": "Experience",
     "openings": "{{n}} openings",
     "carry": "What to carry",
@@ -336,6 +363,7 @@
     "title": "How TokenHire works",
     "sub": "One queue, from the gate to the final round.",
     "tabs": { "candidates": "For candidates", "companies": "For companies" },
+    "ready": "Ready to try it?",
     "candidates": [
       { "t": "Find a walk-in.", "d": "Search by role, company or city. Each listing shows pay, timing, the venue and what to carry." },
       { "t": "Go to the venue.", "d": "Reach about 30 minutes before your slot with printed copies of your documents." },
@@ -418,20 +446,61 @@
   "empty": {
     "noResults": { "t": "No walk-ins match those filters.", "d": "Try another city or clear a filter.", "cta": "Clear filters" },
     "noCity": { "t": "No walk-ins in {{city}} right now.", "d": "Try a nearby city, or check back later this week.", "cta": "See all walk-ins" },
-    "noSaved": { "t": "No saved walk-ins yet.", "d": "Tap Save this walk-in on any listing and it shows here on this phone.", "cta": "See all walk-ins" },
+    "noSaved": { "t": "No saved walk-ins yet.", "d": "Tap Save this walk-in on any listing and it shows here on this device.", "cta": "See all walk-ins" },
     "checkinClosed": "Check-in is closed for this walk-in.",
     "network": "You're offline. We'll keep trying."
   },
 
+  "savedPage": {
+    "meta": { "title": "Saved walk-ins", "description": "The walk-ins you saved on this device." },
+    "eyebrow": "Saved",
+    "title": "Saved walk-ins",
+    "note": "Saved on this device only. Clearing your browser data removes them.",
+    "upcoming": "Coming up ({{n}})",
+    "noUpcoming": "None of your saved walk-ins are coming up. Find a new one to go to.",
+    "ended": "Ended ({{n}})",
+    "clearEnded": "Remove ended",
+    "clearedEnded": "Removed ended walk-ins.",
+    "missing": "{{n}} saved walk-ins are no longer listed.",
+    "missingOne": "1 saved walk-in is no longer listed.",
+    "removeMissing": "Remove them"
+  },
+
+  "remind": {
+    "button": "Remind me",
+    "title": "Get a reminder",
+    "body": "We'll send you an SMS the evening before and another when check-in opens. Nothing else.",
+    "phone": "Mobile number",
+    "privacy": "Your number is used only for this reminder.",
+    "send": "Send code",
+    "sending": "Sending…",
+    "codeSent": "Enter the 6-digit code we sent to {{phone}}.",
+    "demo": "Demo: no SMS is sent yet. Use code {{code}}.",
+    "codeLabel": "6-digit code",
+    "verify": "Turn on reminder",
+    "change": "Change number",
+    "resend": "Send a new code",
+    "done": "Reminder on. We'll text {{phone}}.",
+    "on": "Reminder on",
+    "stop": "Stop reminders",
+    "stopped": "Reminders stopped.",
+    "close": "Close",
+    "failed": "That didn't work. Try again."
+  },
+
+  "share": {
+    "text": "{{role}} walk-in at {{company}}, {{dates}}, {{hours}}, {{place}}."
+  },
+
   "toast": {
-    "saved": "Saved on this phone.",
+    "saved": "Saved on this device.",
     "unsaved": "Removed from saved.",
     "copied": "Link copied.",
     "exportReady": "Your file is ready."
   },
 
   "console": {
-    "nav": { "today": "Today", "drives": "Drives", "venues": "Venues", "teams": "Hiring teams", "talent": "Talent pool", "team": "Team", "billing": "Billing", "settings": "Settings" },
+    "nav": { "today": "Today", "drives": "Drives", "venues": "Venues", "talent": "Talent pool", "team": "Team", "billing": "Billing", "settings": "Settings" },
     "createDrive": "Create a drive",
     "newShort": "New",
     "signOut": "Sign out",
@@ -449,18 +518,54 @@
       "next": "Up next",
       "done": "{{done}} of {{total}} done"
     },
-    "drives": { "title": "Drives", "all": "All", "edit": "Edit", "export": "Export", "empty": "No drives yet." },
+    "drives": {
+      "title": "Drives", "all": "All", "edit": "Edit", "export": "Export", "empty": "No drives yet.", "roles": "Roles",
+      "duplicate": "Duplicate",
+      "duplicated": "Copy saved as a draft. Check the dates, then publish."
+    },
     "form": {
       "titleNew": "Create a drive",
       "titleEdit": "Edit drive",
       "stepOf": "Step {{n}} of {{total}}",
-      "steps": ["Basics", "Candidates", "Rounds and rooms", "Documents to carry", "Review and publish"],
+      "steps": ["Basics", "Roles", "Rounds and rooms", "Check-in form", "Review and publish"],
+      "process": "Process",
+      "processHelp": "Group drives by process, like Voice process, Retail BFSI or Warehouse. Leave it blank if you don't need it.",
+      "processPlaceholder": "Voice process",
       "role": "Role",
+      "roleHelp": "Pick one you've hired for before, or type a new title.",
       "rolePlaceholder": "Customer Support Executive (Voice)",
+      "rolesHelp": "Add every role you're hiring for at this drive. Each one has its own openings, experience and pay.",
+      "roleN": "Role {{n}}",
+      "roleCodeHelp": "Token code for this role. It helps the desk tell roles apart.",
+      "addRole": "Add another role",
+      "removeRole": "Remove role",
+      "roleNotes": "Notes for this role (optional)",
+      "roleNotesPlaceholder": "Night shift, English and Telugu",
       "roleType": "Role type",
-      "team": "Hiring team",
-      "teamHelp": "Group drives by team or client, like \"Retail BFSI\" or \"Voice process\".",
-      "teamNone": "No specific team",
+      "roleTypeHelp": "Used for the filters on the walk-in list.",
+      "appliesTo": "Who takes this round",
+      "appliesAll": "All roles",
+      "passCriteria": "Pass mark (optional)",
+      "passPlaceholder": "Typing at 30 words a minute, or clear spoken English",
+      "docsHelp": "Tick Required for anything candidates must bring. You can add your own items.",
+      "docRequired": "Required",
+      "docRequiredTag": "required",
+      "docRemove": "Remove {{label}}",
+      "docAddLabel": "Add a document",
+      "docSuggest": "From your library",
+      "docNone": "No documents added yet.",
+      "fieldsTitle": "Questions at check-in",
+      "fieldsHelp": "Candidates answer these when they check in. For example notice period, preferred shift or two-wheeler owned.",
+      "fieldLabel": "Question",
+      "fieldLabelPlaceholder": "Notice period",
+      "fieldType": "Answer type",
+      "fieldTypes": { "text": "Short text", "number": "Number", "yesno": "Yes or no", "dropdown": "Pick from a list" },
+      "fieldOptions": "Choices, separated by commas",
+      "fieldOptionsPlaceholder": "Morning, Afternoon, Night",
+      "fieldRequired": "Required",
+      "fieldReview": "Question",
+      "addField": "Add a question",
+      "removeField": "Remove question",
       "venue": "Venue",
       "venueHelp": "The office or centre where candidates will report.",
       "venueOther": "Another address",
@@ -479,9 +584,19 @@
       "experience": "Experience needed",
       "expMin": "From (years)",
       "expMax": "To (years)",
-      "pay": "Pay range",
-      "payMin": "From (₹ per month)",
-      "payMax": "To (₹ per month)",
+      "pay": "Pay (optional)",
+      "payHelp": "Leave the amounts blank and candidates see “Pay discussed at interview”.",
+      "payType": "How it's paid",
+      "payTypes": {
+        "month": "Per month",
+        "day": "Per day",
+        "hour": "Per hour",
+        "task": "Per delivery/task",
+        "year": "Per year (CTC)",
+        "fixed": "Fixed + incentive"
+      },
+      "payMin": "From (₹)",
+      "payMax": "To (₹)",
       "openings": "Number of openings",
       "about": "About the job",
       "aboutHelp": "What the work is, the shift, and who should come. Plain words.",
@@ -515,6 +630,8 @@
       "draftSaved": "Draft saved.",
       "err": {
         "role": "Add the role you are hiring for.",
+        "roleN": "Role {{n}}: {{msg}}",
+        "fields": "Give every question a label, and at least two choices for a list.",
         "city": "Pick a city.",
         "venue": "Add the venue address.",
         "date": "Pick a start date.",
@@ -596,6 +713,63 @@
       "invoices": "Invoices",
       "usage": "Usage"
     }
+  },
+
+  "settings": {
+    "tabs": { "company": "Company", "library": "Library" }
+  },
+
+  "library": {
+    "title": "Library",
+    "lede": "Your own lists of processes, roles, documents and rounds. They come up as suggestions when you create a drive.",
+    "create": "Create '{{text}}'",
+    "starterDocs": ["Updated resume", "Photo ID", "Passport-size photographs (2)", "Educational certificates", "Last 3 months' payslips"],
+    "kinds": { "processes": "Processes", "roles": "Roles", "documents": "Documents", "rounds": "Rounds" },
+    "help": {
+      "processes": "How you group drives, like a process, a client or a business unit.",
+      "roles": "Job titles you hire for. Pay and experience from the first drive are kept as a starting point.",
+      "documents": "Things candidates may need to bring. Each drive picks its own and marks which are required.",
+      "rounds": "Names for interview rounds, like HR screening or Versant test."
+    },
+    "addTitle": { "processes": "Add a process", "roles": "Add a role", "documents": "Add a document", "rounds": "Add a round" },
+    "placeholder": { "processes": "Retail BFSI", "roles": "Field Sales Executive", "documents": "Two-wheeler licence", "rounds": "Versant test" },
+    "name": "Name",
+    "add": "Add",
+    "added": "Added to your library.",
+    "empty": "Type a name first.",
+    "taken": "That name is already in the list.",
+    "rename": "Rename",
+    "renameLabel": "New name for {{name}}",
+    "save": "Save",
+    "renamed": "Renamed. Your drives show the new name.",
+    "merge": "Merge",
+    "mergeLabel": "Merge {{name}} into",
+    "mergePick": "Choose one",
+    "mergeGo": "Merge",
+    "merged": "Merged {{from}} into {{into}}.",
+    "archive": "Archive",
+    "archived": "Archived",
+    "archivedToast": "Archived. It won't be suggested for new drives.",
+    "restore": "Restore",
+    "restored": "Restored.",
+    "showArchived": "Show archived ({{n}})",
+    "hideArchived": "Hide archived ({{n}})",
+    "uses": "{{n}} drives",
+    "usesOne": "1 drive",
+    "none": "Nothing here yet.",
+    "noneBody": "Add one here, or create it while you set up a drive."
+  },
+
+  "checkin": {
+    "roleTitle": "Which role are you here for?",
+    "roleErr": "Pick the role you're here for.",
+    "questions": "A few questions from {{company}}",
+    "required": "Required",
+    "optional": "Optional",
+    "yes": "Yes",
+    "no": "No",
+    "choose": "Choose one",
+    "answerErr": "Answer the questions marked Required."
   },
 
   "desk": {

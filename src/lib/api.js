@@ -74,4 +74,20 @@ export const api = {
   candidate: (phone) => req(`/api/candidate/${encodeURIComponent(phone)}`),
   putCandidate: (body) => req("/api/candidate", { method: "PUT", body }),
   routes: () => req("/api/routes"),
+  remindStart: (body) => req("/api/reminders/start", { method: "POST", body }),
+  remindVerify: (body) => req("/api/reminders/verify", { method: "POST", body }),
+  remindStop: (body) => req("/api/reminders/stop", { method: "POST", body }),
 };
+
+// Which walk-ins this phone has asked to be reminded about: { v: 1, items: [{ driveId, phone }] }.
+const REMINDERS_KEY = "th_reminders_v1";
+export function readReminders() {
+  try {
+    const data = JSON.parse(localStorage.getItem(REMINDERS_KEY) || "null");
+    return data?.v === 1 && Array.isArray(data.items) ? data.items : [];
+  } catch { return []; }
+}
+export function writeReminders(items) {
+  try { localStorage.setItem(REMINDERS_KEY, JSON.stringify({ v: 1, items })); } catch { /* private mode */ }
+  window.dispatchEvent(new CustomEvent("th:reminders"));
+}

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { STRINGS, t, tl } from "../i18n/strings.js";
+import { copyFromSource, findUsSpellings } from "./spelling.js";
 
 const SRC = new URL("..", import.meta.url).pathname;
 
@@ -37,6 +38,14 @@ test("keys built at runtime exist", () => {
     "browse.dates.": ["any", "today", "tomorrow", "week", "month"],
     "browse.payOpts.": ["any", "15", "25", "40", "60"],
     "browse.sorts.": ["soonest", "pay", "queue"],
+    "card.payUnit.": ["month", "day", "hour", "task", "year", "fixed"],
+    "console.form.payTypes.": ["month", "day", "hour", "task", "year", "fixed"],
+    "console.form.fieldTypes.": ["text", "number", "yesno", "dropdown"],
+    "library.kinds.": ["processes", "roles", "documents", "rounds"],
+    "library.help.": ["processes", "roles", "documents", "rounds"],
+    "library.addTitle.": ["processes", "roles", "documents", "rounds"],
+    "library.placeholder.": ["processes", "roles", "documents", "rounds"],
+    "checkin.": ["yes", "no"],
     "console.tabs.": ["queue", "rooms", "candidates", "report"],
     "console.report.funnel.": ["registered", "checkedIn", "interviewed", "shortlisted"],
     "console.report.states.": ["wait", "calling", "interviewing", "selected", "rejected", "onhold", "absent"],
@@ -61,6 +70,21 @@ test("placeholders use {{double braces}}", () => {
   };
   walk(STRINGS, "");
   assert.deepEqual(bad, []);
+});
+
+test("copy uses en-IN spelling", async () => {
+  const { spellingProblems } = await import("../../scripts/check-spelling.mjs");
+  assert.deepEqual(spellingProblems(), []);
+});
+
+test("spelling check flags US copy but not code values", () => {
+  const found = (s) => findUsSpellings(s).map((h) => h.word);
+  assert.deepEqual(found("A calm, organized day"), ["organized"]);
+  assert.deepEqual(found("Pick a color"), ["color"]);
+  assert.deepEqual(found("Visit the help center"), ["center"]);
+  assert.deepEqual(found("A calm, organised day at the centre. Pick a colour."), []);
+  const copy = copyFromSource(`<div style={{ textAlign: "center", color: k.mid }}>Primary color</div><input autoComplete="organization" />`);
+  assert.deepEqual(copy.flatMap(found), ["color"]);
 });
 
 test("t fills {{vars}} and leaves unknown ones", () => {

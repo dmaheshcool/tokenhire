@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Bookmark, Menu, X } from "lucide-react";
 import { TokenMark } from "./brand.jsx";
-import { Btn, STROKE } from "./ds.jsx";
+import { Btn, STROKE, useSaved } from "./ds.jsx";
 import { t, tl } from "../i18n/strings.js";
 import { cityPath } from "../lib/listing.js";
 import { readSession } from "../lib/api.js";
@@ -29,7 +29,19 @@ export function Logo({ size = 30, light }) {
   );
 }
 
+function SavedLink({ className = "" }) {
+  const saved = useSaved();
+  const label = saved.count ? t("nav.savedCount", { n: saved.count }) : t("nav.saved");
+  return (
+    <Link to="/saved" className={`btn btn-ghost btn-icon nav-saved ${className}`} aria-label={label} title={label}>
+      <Bookmark size={20} strokeWidth={STROKE} aria-hidden="true" />
+      {saved.count > 0 && <span className="nav-badge" aria-hidden="true">{saved.count > 99 ? "99+" : saved.count}</span>}
+    </Link>
+  );
+}
+
 export function SiteNav() {
+  const saved = useSaved();
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   useEffect(() => { setOpen(false); }, [loc.pathname]);
@@ -52,9 +64,11 @@ export function SiteNav() {
           ))}
         </nav>
         <div className="site-nav-cta">
+          <SavedLink />
           <Btn to="/login" variant="ghost">{t("nav.signIn")}</Btn>
           <Btn to={createDrivePath()} variant="dark">{t("nav.createDrive")}</Btn>
         </div>
+        <SavedLink className="nav-saved-mobile" />
         <button type="button" className="btn btn-ghost btn-icon site-burger" aria-expanded={open} aria-controls="site-menu" aria-label={open ? t("nav.close") : t("nav.menu")} onClick={() => setOpen((v) => !v)}>
           {open ? <X size={22} strokeWidth={STROKE} /> : <Menu size={22} strokeWidth={STROKE} />}
         </button>
@@ -62,6 +76,7 @@ export function SiteNav() {
       {open && (
         <div id="site-menu" className="site-menu wrap">
           {NAV_LINKS.map((l) => <Link key={l.to} to={l.to} className="menu-link">{l.label}</Link>)}
+          <Link to="/saved" className="menu-link">{saved.count ? t("nav.savedCount", { n: saved.count }) : t("nav.saved")}</Link>
           <div className="stack gap-8" style={{ marginTop: 18 }}>
             <Btn to={createDrivePath()} variant="dark" size="lg" block>{t("nav.createDrive")}</Btn>
             <Btn to="/login" variant="secondary" size="lg" block>{t("nav.signIn")}</Btn>
@@ -89,7 +104,7 @@ export function SiteFooter() {
             <p className="small muted" style={{ margin: 0, maxWidth: 300 }}>{t("tagline")}</p>
           </div>
           {col(t("footer.findWalkIn"), tl("footer.cities").map((c) => [c, cityPath(c)]))}
-          {col(t("footer.forCandidates"), [[t("footer.browse"), "/walk-ins"], [t("footer.getToken"), "/app/join"], [t("footer.how"), "/how-it-works"], [t("footer.guides"), "/guides"]])}
+          {col(t("footer.forCandidates"), [[t("footer.browse"), "/walk-ins"], [t("footer.getToken"), "/app/join"], [t("footer.saved"), "/saved"], [t("footer.how"), "/how-it-works"], [t("footer.guides"), "/guides"]])}
           {col(t("footer.forCompanies"), [
             [t("footer.createDrive"), createDrivePath()],
             [t("footer.howCompanies"), "/how-it-works#companies"],

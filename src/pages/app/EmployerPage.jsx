@@ -847,7 +847,7 @@ export function BrandPanel({ org, setOrgs, setDrives, onClose, embedded }) {
             </button>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Primary color</div>
+        <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 8 }}>Primary colour</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
           {BRAND_COLORS.map((c) => (
             <button key={c.hex} type="button" onClick={() => setColor(c.hex)} title={c.name} style={{
@@ -1742,7 +1742,7 @@ export function BrandingTab({ brand, setBrand, drive, org }) {
                 </button>
               ))}
             </div>
-            <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Primary color</div>
+            <div style={{ fontSize: 12, color: k.mid, fontWeight: 600, marginBottom: 9 }}>Primary colour</div>
             <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
               {BRAND_COLORS.map((c) => (
                 <button key={c.hex} onClick={() => patch({ color: c.hex })} title={c.name} style={{

@@ -10,7 +10,8 @@ import { useQueueAlert } from "../../hooks/useQueueAlert.js";
 import { rememberTicket, readTickets } from "../../lib/api.js";
 import { gateCodeFrom, startQrScan } from "../../lib/scanner.js";
 import { t } from "../../i18n/strings.js";
-import { DEFAULT_ROUNDS, boundToday, code, driveStatus, currentServingToken, dupOf, hallChrome, inARound, isTerminal, joinBlockedReason, listingHost, liveDesk, livePass, listingPlace, queueAhead, resumeName, readResumeFile, roomName, roundLabel, scanEnabled, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
+import { driveRoles, fieldAnswerOk } from "../../lib/library.js";
+import { DEFAULT_ROUNDS, firstRoundIdx, boundToday, code, driveStatus, currentServingToken, dupOf, hallChrome, inARound, isTerminal, joinBlockedReason, listingHost, liveDesk, livePass, listingPlace, queueAhead, resumeName, readResumeFile, roomName, roundLabel, scanEnabled, todayStr, tokenPath, trackerCurrent, venueProofOf, bare6, clientOf, hallLogo, hallName, orgColor } from "../../lib/helpers.js";
 
 export function Candidate({ store, back }) {
   const nav = useNavigate();
@@ -132,7 +133,7 @@ export function Candidate({ store, back }) {
     return "";
   }
 
-  function join(d) {
+  function join(d, extra = {}) {
     if (!proven) return;
     const live = drives.find((x) => x.id === d.id) || d;
     const dup = dupOf(live, profile);
@@ -146,7 +147,13 @@ export function Candidate({ store, back }) {
     setJoinErr("");
     const seq = live.seq + 1, token = `W-${String(seq).padStart(3, "0")}`;
     const now = Date.now();
-    const cand = { id: token, token, claim: code(6), name: profile.name, phone: profile.phone, email: profile.email, resume: profile.resume, room: null, state: "wait", at: now, pinged: false, calledAt: null, decidedAt: null, roundIdx: 0, roundAssigned: false, notes: {}, checkedIn: !remote, arrivedAt: remote ? null : now };
+    const role = driveRoles(live).find((r) => r.id === extra.roleId);
+    const answers = Object.fromEntries((live.fields || []).map((f) => [f.id, String(extra.answers?.[f.id] ?? "").trim()]).filter(([, v]) => v));
+    const cand = {
+      id: token, token, claim: code(6), name: profile.name, phone: profile.phone, email: profile.email, resume: profile.resume, room: null, state: "wait", at: now, pinged: false, calledAt: null, decidedAt: null,
+      roundIdx: firstRoundIdx(live.rounds, role?.id), roundAssigned: false, notes: {}, checkedIn: !remote, arrivedAt: remote ? null : now,
+      ...(role ? { roleId: role.id, roleCode: role.code } : {}), ...(Object.keys(answers).length ? { answers } : {}),
+    };
     setDrives((prev) => prev.map((x) => x.id === live.id ? { ...x, seq, candidates: [...x.candidates, cand] } : x));
     profile.applications.push(live.id);
     bindDevice(live.id);
@@ -164,7 +171,7 @@ export function Candidate({ store, back }) {
       <div className="pagepad" style={{ maxWidth: 720, margin: "0 auto", padding: 26 }}>
         {!profile ? <BuildProfile onDone={setProfile} />
           : result ? <Slip r={result} drives={drives} onAgain={resetJoin} />
-            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={() => join(matched)} joinErr={joinErr} remote={remote} />
+            : matched ? <ReviewJoin matched={drives.find((x) => x.id === matched.id) || matched} p={profile} setP={setProfile} proven={proven} left={left} onProve={tryProve} onBack={() => { setMatched(null); setProven(false); setJoinErr(""); }} onConfirm={(extra) => join(matched, extra)} joinErr={joinErr} remote={remote} />
               : tab === "profile" ? <MyProfile p={profile} setP={setProfile} />
                 : tab === "join" ? <JoinDrive drives={drives} left={left} onMatch={handleMatch} />
                   : <History p={profile} drives={drives} />}
@@ -173,9 +180,81 @@ export function Candidate({ store, back }) {
   );
 }
 
+function CheckinQuestions({ drive, roleId, setRoleId, answers, setAnswers, err }) {
+  const roles = driveRoles(drive);
+  const fields = drive.fields || [];
+  if (roles.length < 2 && !fields.length) return null;
+  const set = (id, v) => setAnswers({ ...answers, [id]: v });
+  const label = { display: "block", fontSize: 12.5, color: k.ink2, fontWeight: 600, marginBottom: 6 };
+  const optionBtn = (on) => ({ ...outlineSm, borderColor: on ? k.teal : k.line, background: on ? k.tealDim : "#fff", color: on ? k.teal : k.ink, fontWeight: 600 });
+  return (
+    <div style={{ ...box, padding: 18, marginBottom: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+      {roles.length > 1 && (
+        <div role="radiogroup" aria-label={t("checkin.roleTitle")}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{t("checkin.roleTitle")}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {roles.map((r) => (
+              <button key={r.id} type="button" role="radio" aria-checked={roleId === r.id} onClick={() => setRoleId(r.id)}
+                style={{ ...optionBtn(roleId === r.id), justifyContent: "flex-start", textAlign: "left", padding: "10px 12px", display: "flex", gap: 10, alignItems: "center" }}>
+                <span style={{ fontFamily: typ, fontSize: 11.5, letterSpacing: 0.6, padding: "3px 6px", borderRadius: 6, background: k.cream2, color: k.ink2 }}>{r.code}</span>
+                <span>{r.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {fields.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{t("checkin.questions", { company: hallName(drive) })}</div>
+          {fields.map((f) => {
+            const id = `cq-${f.id}`;
+            const v = answers[f.id] ?? "";
+            const head = <>{f.label} <span style={{ color: k.faint, fontWeight: 500 }}>· {f.required ? t("checkin.required") : t("checkin.optional")}</span></>;
+            if (f.type === "yesno") {
+              return (
+                <div key={f.id} role="radiogroup" aria-label={f.label}>
+                  <span style={label}>{head}</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["yes", "no"].map((x) => <button key={x} type="button" role="radio" aria-checked={v === x} onClick={() => set(f.id, x)} style={optionBtn(v === x)}>{t(`checkin.${x}`)}</button>)}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div key={f.id}>
+                <label htmlFor={id} style={label}>{head}</label>
+                {f.type === "dropdown" ? (
+                  <select id={id} value={v} onChange={(e) => set(f.id, e.target.value)} style={input}>
+                    <option value="">{t("checkin.choose")}</option>
+                    {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input id={id} value={v} onChange={(e) => set(f.id, f.type === "number" ? e.target.value.replace(/[^\d.]/g, "") : e.target.value)}
+                    inputMode={f.type === "number" ? "decimal" : undefined} maxLength={200} style={input} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {err && <div role="alert" style={{ fontSize: 13, color: k.red, lineHeight: 1.5 }}>{err}</div>}
+    </div>
+  );
+}
+
 export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProve, left, joinErr, remote }) {
   const [deskIn, setDeskIn] = useState("");
   const [proveErr, setProveErr] = useState("");
+  const roles = driveRoles(matched);
+  const [roleId, setRoleId] = useState(roles.length === 1 ? roles[0].id : "");
+  const [answers, setAnswers] = useState({});
+  const [formErr, setFormErr] = useState("");
+  function confirm() {
+    if (roles.length > 1 && !roles.some((r) => r.id === roleId)) { setFormErr(t("checkin.roleErr")); return; }
+    if ((matched.fields || []).some((f) => !fieldAnswerOk(f, answers[f.id]))) { setFormErr(t("checkin.answerErr")); return; }
+    setFormErr("");
+    onConfirm({ roleId: roles.length > 1 ? roleId : "", answers });
+  }
   async function uploadResume(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -235,8 +314,9 @@ export function ReviewJoin({ matched, p, setP, onBack, onConfirm, proven, onProv
                 </label>
               )} last />
           </div>
+          <CheckinQuestions drive={matched} roleId={roleId} setRoleId={(v) => { setRoleId(v); setFormErr(""); }} answers={answers} setAnswers={(v) => { setAnswers(v); setFormErr(""); }} err={formErr} />
           {joinErr && <div style={{ fontSize: 13, color: k.red, margin: "0 0 10px", textAlign: "center" }}>{joinErr}</div>}
-          <button onClick={onConfirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Get my token <ArrowRight size={15} /></>}</button>
+          <button onClick={confirm} disabled={!!joinErr} style={{ ...solidTeal, width: "100%", justifyContent: "center", padding: 12, fontSize: 14, opacity: joinErr ? 0.5 : 1 }}>{joinErr ? "Walk-in is full" : <>Get my token <ArrowRight size={15} /></>}</button>
           <div style={{ fontSize: 11.5, color: k.faint, marginTop: 10, textAlign: "center" }}>Save the token page. That’s your place in line.</div>
         </>
       )}

@@ -8,10 +8,10 @@
     "dev:web": "vite",
     "dev:api": "node --env-file-if-exists=.env server/index.js",
     "start": "node --env-file-if-exists=.env server/index.js",
-    "lint": "eslint .",
-    "check": "eslint . --quiet",
+    "lint": "eslint . && node scripts/check-spelling.mjs",
+    "check": "eslint . --quiet && node scripts/check-spelling.mjs",
     "test": "node --test src/lib/*.test.js",
-    "build": "eslint . --quiet && vite build",
+    "build": "eslint . --quiet && node scripts/check-spelling.mjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

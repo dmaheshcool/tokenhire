@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { inARound, occupantOf, roundIndexOfRoom, waitingRoundIdx } from "../lib/helpers.js";
+import { inARound, nextRoundIdx, occupantOf, roundIndexOfRoom, waitingRoundIdx } from "../lib/helpers.js";
 
 /** Queue moves for one drive: call, skip, no-show, back to queue, decide, notes, rooms and rounds. */
 export function useDriveActions(drive, setDrives) {
@@ -61,7 +61,8 @@ export function useDriveActions(drive, setDrives) {
         const c = d.candidates.find((x) => x.id === cid);
         if (!c) return d;
         const rid = (d.rounds || [])[c.roundIdx || 0]?.id;
-        const last = (c.roundIdx || 0) >= (d.rounds || []).length - 1;
+        const nextIdx = nextRoundIdx(d.rounds, c);
+        const last = nextIdx < 0;
         return {
           ...d,
           candidates: d.candidates.map((x) => {
@@ -70,7 +71,6 @@ export function useDriveActions(drive, setDrives) {
             if (outcome === "rejected") return { ...x, state: "rejected", decidedAt: Date.now(), roundOutcomes, room: null };
             if (outcome === "onhold") return { ...x, state: "onhold", decidedAt: Date.now(), roundOutcomes, room: null };
             if (last) return { ...x, state: "selected", decidedAt: Date.now(), roundOutcomes, room: null };
-            const nextIdx = (x.roundIdx || 0) + 1;
             const peers = d.candidates.filter((p) => p.id !== cid && p.state === "wait" && (p.roundIdx || 0) === nextIdx);
             const at = peers.length ? Math.min(...peers.map((p) => p.at)) - 1 : Date.now();
             return { ...x, roundIdx: nextIdx, state: "wait", calledAt: null, at, pinged: false, roundOutcomes, decidedAt: Date.now(), room: null, roundAssigned: true };

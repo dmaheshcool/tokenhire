@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CornerUpLeft, Megaphone, NotebookPen, Pause, Search, SkipForward, UserX, X } from "lucide-react";
 import { Btn, STROKE, useToast } from "../../components/ds.jsx";
 import { NotesPanel } from "../app/EmployerPage.jsx";
-import { isLastRound, occupantOf, roundIndexOfRoom, waitingRoundIdx } from "../../lib/helpers.js";
+import { isLastRound, nextRoundIdx, occupantOf, roundIndexOfRoom, waitingRoundIdx } from "../../lib/helpers.js";
+import { roleOf } from "../../lib/library.js";
 import { tokenNumber } from "../../lib/listing.js";
 import { t } from "../../i18n/strings.js";
 
@@ -39,10 +40,12 @@ export function nextCall(drive, roomId) {
 
 function Card({ c, drive, col, actions, onDragStart, onNotes, deskMode }) {
   const round = (drive.rounds || [])[waitingRoundIdx(drive.rounds, c)];
+  const role = roleOf(drive, c);
   return (
     <article className="board-card" draggable onDragStart={(e) => onDragStart(e, c)}>
       <div className="row between gap-8">
         <span className="token-pill mono">{tokenNumber(c.token)}</span>
+        {role && (drive.roles || []).length > 1 && <span className="tag mono" title={role.title}>{role.code}</span>}
         <span className="tiny muted mono grow" style={{ textAlign: "right" }}>
           {col === "waiting" && elapsed(c.arrivedAt || c.at)}
           {col === "round" && [c.room?.name, elapsed(c.calledAt)].filter(Boolean).join(" · ")}
@@ -80,7 +83,7 @@ function OutcomeDialog({ cand, rounds, onPick, onClose }) {
           <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label={t("buttons.close")}><X size={16} /></button>
         </div>
         <div className="stack gap-8">
-          <Btn ref={ref} icon={Check} onClick={() => onPick("passed")}>{last ? t("console.queue.outcome.shortlist") : t("console.queue.moveTo", { n: (cand.roundIdx || 0) + 2 })}</Btn>
+          <Btn ref={ref} icon={Check} onClick={() => onPick("passed")}>{last ? t("console.queue.outcome.shortlist") : t("console.queue.moveTo", { n: nextRoundIdx(rounds, cand) + 1 })}</Btn>
           <Btn variant="secondary" icon={Pause} onClick={() => onPick("onhold")}>{t("console.queue.outcome.onhold")}</Btn>
           <Btn variant="secondary" icon={X} onClick={() => onPick("rejected")}>{t("console.queue.outcome.rejected")}</Btn>
           <Btn variant="ghost" icon={UserX} onClick={() => onPick("absent")}>{t("buttons.noShow")}</Btn>
@@ -232,7 +235,7 @@ export default function QueueBoard({ drive, act, disabled, deskMode }) {
             {c.state === "calling"
               ? <Btn size="sm" onClick={() => act.move(c.id, "interviewing")}>{t("console.queue.started")}</Btn>
               : !deskMode && <>
-                {!isLastRound(drive.rounds, c) && <Btn size="sm" icon={Check} onClick={() => act.decide(c.id, "passed")}>{t("console.queue.moveTo", { n: (c.roundIdx || 0) + 2 })}</Btn>}
+                {!isLastRound(drive.rounds, c) && <Btn size="sm" icon={Check} onClick={() => act.decide(c.id, "passed")}>{t("console.queue.moveTo", { n: nextRoundIdx(drive.rounds, c) + 1 })}</Btn>}
                 <Btn size="sm" variant={isLastRound(drive.rounds, c) ? "primary" : "secondary"} onClick={() => setDeciding(c)}>{t("console.queue.decide")}</Btn>
               </>}
             <Btn size="sm" variant="ghost" icon={SkipForward} onClick={() => act.skip(c.id)}>{t("buttons.skip")}</Btn>

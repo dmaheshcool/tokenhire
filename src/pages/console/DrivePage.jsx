@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, Copy, ExternalLink, MonitorPlay, Pencil, Play, Send, Square } from "lucide-react";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronLeft, Copy, CopyPlus, ExternalLink, MonitorPlay, Pencil, Play, Send, Square } from "lucide-react";
 import { Btn, StatusChip, STROKE, useToast } from "../../components/ds.jsx";
 import { useConsole } from "../../layouts/ConsoleLayout.jsx";
 import { useDriveActions } from "../../hooks/useDriveActions.js";
@@ -9,9 +9,10 @@ import QueueBoard from "./QueueBoard.jsx";
 import ReportTab from "./ReportTab.jsx";
 import { QueueSummary } from "./TodayPage.jsx";
 import { Queue, RoomsTab, RoundsTab } from "../app/EmployerPage.jsx";
-import { tat } from "../../lib/helpers.js";
+import { code, driveSlotsLeft, newGate, newHost, tat } from "../../lib/helpers.js";
+import { duplicateDrive, driveRoles } from "../../lib/library.js";
 import { drivePath, venueLine } from "../../lib/listing.js";
-import { datesLabel, driveStatus, hoursLabel, startNowPatch, wrapUpPatch } from "../../lib/status.js";
+import { datesLabel, driveStatus, hoursLabel, istDate, startNowPatch, wrapUpPatch } from "../../lib/status.js";
 import { t } from "../../i18n/strings.js";
 
 const TABS = ["queue", "rooms", "candidates", "report"];
@@ -36,6 +37,7 @@ export default function DrivePage() {
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
   const toast = useToast();
+  const nav = useNavigate();
   const { org, desk, drives, setDrives, setOrgs } = useConsole();
   const drive = drives.find((d) => d.id === id && d.orgId === org.id);
   const act = useDriveActions(drive, setDrives);
@@ -47,6 +49,7 @@ export default function DrivePage() {
   const tab = tabs.includes(params.get("tab")) ? params.get("tab") : "queue";
   const setTab = (k) => setParams(k === "queue" ? {} : { tab: k }, { replace: true });
   const status = driveStatus(drive);
+  const roles = driveRoles(drive);
 
   const wait = drive.candidates.filter((x) => x.state === "wait");
   const minutes = tat(drive);
@@ -54,6 +57,14 @@ export default function DrivePage() {
     const peers = wait.filter((x) => (x.roundIdx || 0) === (c.roundIdx || 0)).sort((a, b) => a.at - b.at);
     const i = peers.findIndex((x) => x.id === c.id);
     return i < 0 ? 0 : i * minutes;
+  };
+
+  const canCopy = !drive.listingOnly && driveSlotsLeft(org, drives) > 0;
+  const duplicate = () => {
+    const nid = `d_${Date.now()}`;
+    setDrives((p) => [...p, duplicateDrive(drive, { id: nid, host: newHost(), gate: newGate(), desk: code(6), today: istDate(0) })]);
+    toast(t("console.drives.duplicated"));
+    nav(`/app/drives/${nid}/edit`);
   };
 
   const startNow = () => { act.patch({ ...startNowPatch(drive), draft: false }); toast(t("console.queue.isLive")); };
@@ -72,6 +83,16 @@ export default function DrivePage() {
           </div>
           <h1 className="h-2">{drive.role}</h1>
           <p className="small muted" style={{ margin: 0 }}>{venueLine(drive) || drive.venue}{drive.clientName ? ` · ${drive.clientName}` : ""}</p>
+          {roles.length > 1 && (
+            <div className="wrap-row gap-8" aria-label={t("console.drives.roles")}>
+              {roles.map((r) => (
+                <span key={r.id} className="row gap-4 small">
+                  <span className="role-code">{r.code}</span>
+                  {r.title}{r.openings ? <span className="muted"> · {t("detail.openings", { n: r.openings })}</span> : null}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="row gap-8" style={{ flexWrap: "wrap" }}>
           {!desk && status === "draft" && <Btn icon={Send} onClick={() => { act.patch({ draft: false }); toast(t("console.queue.published")); }}>{t("console.queue.publish")}</Btn>}
@@ -82,6 +103,7 @@ export default function DrivePage() {
           <Btn variant="secondary" icon={MonitorPlay} to={`/tv/${drive.id}`} target="_blank" rel="noopener">{t("console.queue.lobby")}</Btn>
           {!desk && <DeskPin drive={drive} />}
           {!desk && <Btn variant="ghost" icon={Pencil} to={`/app/drives/${drive.id}/edit`}>{t("console.drives.edit")}</Btn>}
+          {!desk && !drive.listingOnly && <Btn variant="ghost" icon={CopyPlus} onClick={duplicate} disabled={!canCopy} title={canCopy ? undefined : t("console.form.noSlots")}>{t("console.drives.duplicate")}</Btn>}
           {!desk && drive.visibility !== "private" && status !== "draft" && <Btn variant="ghost" icon={ExternalLink} to={drivePath(drive)} className="hide-mobile">{t("console.queue.publicPage")}</Btn>}
         </div>
       </div>

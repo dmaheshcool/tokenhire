@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Link, useNavigate } from "react-router-dom";
 import { Bookmark, BookmarkCheck, CalendarDays, CircleAlert, CircleCheck, Clock, IndianRupee, MapPin, SearchX } from "lucide-react";
 import { driveStatus, driveWhen, hoursLabel, datesLabel, shortDate } from "../lib/status.js";
-import { drivePath, expLabel, isFresherFriendly, monogram, payText, queueStats, venueLine, waitLabel } from "../lib/listing.js";
+import { drivePath, expLabel, hasPay, isFresherFriendly, monogram, payText, queueStats, venueLine, waitLabel } from "../lib/listing.js";
+import { onSavedChange, readSaved, removeSaved, toggleSaved } from "../lib/saved.js";
 import { t } from "../i18n/strings.js";
 
 export const STROKE = 1.75;
@@ -141,26 +142,16 @@ export function CountUp({ value, format = (n) => n.toLocaleString("en-IN") }) {
   return <>{format(shown)}</>;
 }
 
-/** Saved drives live on the device only. */
-const SAVED_KEY = "th_saved_drives";
-function readSaved() {
-  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || "[]"); } catch { return []; }
-}
+/** Saved drives live on the device only. Every mounted copy stays in step. */
 export function useSaved() {
-  const [ids, setIds] = useState(readSaved);
-  useEffect(() => {
-    const on = (e) => { if (e.key === SAVED_KEY) setIds(readSaved()); };
-    window.addEventListener("storage", on);
-    return () => window.removeEventListener("storage", on);
-  }, []);
-  const toggle = useCallback((id) => {
-    setIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      try { localStorage.setItem(SAVED_KEY, JSON.stringify(next)); } catch { /* private mode */ }
-      return next;
-    });
-  }, []);
-  return useMemo(() => ({ ids, has: (id) => ids.includes(id), toggle }), [ids, toggle]);
+  const [items, setItems] = useState(readSaved);
+  useEffect(() => onSavedChange(() => setItems(readSaved())), []);
+  const toggle = useCallback((id) => { toggleSaved(id); }, []);
+  const remove = useCallback((ids) => { removeSaved(ids); }, []);
+  return useMemo(() => {
+    const ids = items.map((x) => x.id);
+    return { items, ids, count: ids.length, has: (id) => ids.includes(id), toggle, remove };
+  }, [items, toggle, remove]);
 }
 
 export function joinPath(drive) {
@@ -188,7 +179,7 @@ export function whenText(drive) {
   return t("time.when", { day: w.key === "today" || w.key === "tomorrow" ? w.label : datesLabel(drive), hours: hoursLabel(drive) });
 }
 
-export function DriveCard({ drive, saved }) {
+export function DriveCard({ drive, saved, actions }) {
   const nav = useNavigate();
   const live = driveStatus(drive) === "live";
   const ended = driveStatus(drive) === "wrapped";
@@ -214,7 +205,8 @@ export function DriveCard({ drive, saved }) {
       <div className="wcard-meta">
         <MapPin size={16} strokeWidth={STROKE} aria-hidden="true" /><span>{venueLine(drive)}</span>
         <CalendarDays size={16} strokeWidth={STROKE} aria-hidden="true" /><span>{whenText(drive)}</span>
-        {pay && <><IndianRupee size={16} strokeWidth={STROKE} aria-hidden="true" /><span className="strong" style={{ fontWeight: 600 }}>{pay}</span></>}
+        <IndianRupee size={16} strokeWidth={STROKE} aria-hidden="true" />
+        {hasPay(drive) ? <span className="strong" style={{ fontWeight: 600 }}>{pay}</span> : <span className="muted">{pay}</span>}
       </div>
       <div className="wcard-foot">
         <div className="grow">
@@ -228,6 +220,7 @@ export function DriveCard({ drive, saved }) {
           </Btn>
         ) : null}
       </div>
+      {actions && <div className="wcard-actions">{actions}</div>}
     </article>
   );
 }

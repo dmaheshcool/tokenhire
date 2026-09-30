@@ -1,5 +1,5 @@
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { CreditCard, Handshake, LayoutList, LogOut, MapPin, Plus, Settings, Sun, UserRound, Users } from "lucide-react";
+import { CreditCard, LayoutList, LogOut, MapPin, Plus, Settings, Sun, UserRound, Users } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
 import { OrgLogo } from "../components/brand.jsx";
 import { Btn, STROKE } from "../components/ds.jsx";
@@ -11,7 +11,6 @@ export const CONSOLE_NAV = [
   { to: "/app/today", label: t("console.nav.today"), icon: Sun },
   { to: "/app/drives", label: t("console.nav.drives"), icon: LayoutList },
   { to: "/app/venues", label: t("console.nav.venues"), icon: MapPin, recruiter: true },
-  { to: "/app/teams", label: t("console.nav.teams"), icon: Handshake, recruiter: true },
   { to: "/app/talent", label: t("console.nav.talent"), icon: UserRound, recruiter: true },
   { to: "/app/team", label: t("console.nav.team"), icon: Users, recruiter: true },
   { to: "/app/billing", label: t("console.nav.billing"), icon: CreditCard, recruiter: true, billing: true },
@@ -58,7 +57,7 @@ export function ConsoleLayout() {
         <div className="stack gap-4" style={{ marginTop: "auto" }}>
           {!desk && (
             <div className="console-nav">
-              <NavLink to="/app/settings" className={({ isActive }) => (isActive ? "active" : "")}><Settings size={19} strokeWidth={STROKE} aria-hidden="true" />Settings</NavLink>
+              <NavLink to="/app/settings" className={({ isActive }) => (isActive ? "active" : "")}><Settings size={19} strokeWidth={STROKE} aria-hidden="true" />{t("console.nav.settings")}</NavLink>
             </div>
           )}
           <div className="row gap-8" style={{ padding: "10px 12px", borderTop: "1px solid var(--line)" }}>
@@ -86,7 +85,7 @@ export function ConsoleLayout() {
         </main>
       </div>
       <nav className="console-bottom" aria-label="Console">
-        {items.map(({ to, label, icon: Icon }) => (
+        {(desk ? items : [...items, { to: "/app/settings", label: t("console.nav.settings"), icon: Settings }]).map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className={({ isActive }) => (isActive ? "active" : "")}>
             <Icon size={20} strokeWidth={STROKE} aria-hidden="true" />{label}
           </NavLink>

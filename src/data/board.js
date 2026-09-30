@@ -312,6 +312,23 @@ function payFor(r, role, city) {
   return { payMin: lo * 1000, payMax: hi * 1000 };
 }
 
+const round = (n, step) => Math.round(n / step) * step;
+
+// Not every walk-in pays by the month, and some don't list pay at all.
+// Picked by index so the random stream (and so every other field) stays the same.
+function payShape(i, roleKey, { payMin, payMax }) {
+  if (i % 11 === 3) return { payType: "month", payMin: null, payMax: null };
+  if (roleKey === "delivery") return { payType: "task", payMin: 25 + (i % 3) * 5, payMax: 40 + (i % 3) * 5 };
+  if (roleKey === "fieldSales" && i % 2 === 0) return { payType: "task", payMin: 150, payMax: 250 };
+  if (["warehouse", "steward", "crew", "assembly"].includes(roleKey) && i % 2 === 0) {
+    return { payType: "day", payMin: round(payMin / 26, 50), payMax: round(payMax / 26, 50) };
+  }
+  if (roleKey === "dataEntry" && i % 2 === 1) return { payType: "hour", payMin: round(payMin / 208, 5), payMax: round(payMax / 208, 5) };
+  if (["devJr", "qa"].includes(roleKey)) return { payType: "year", payMin: round(payMin * 12, 10000), payMax: round(payMax * 12, 10000) };
+  if (["insurance", "fieldSales", "bdeEdu"].includes(roleKey)) return { payType: "fixed", payMin, payMax };
+  return { payType: "month", payMin, payMax };
+}
+
 const FIRST = ["Aarav", "Ananya", "Rohan", "Sneha", "Vikram", "Priya", "Karthik", "Divya", "Imran", "Neha", "Arjun", "Pooja", "Siddharth", "Fatima", "Rahul", "Meera", "Nikhil", "Kavya", "Farhan", "Lakshmi", "Varun", "Shreya", "Aditya", "Zoya", "Manoj", "Asha", "Tarun", "Ritu", "Harsh", "Swathi"];
 const LAST = ["Sharma", "Reddy", "Iyer", "Khan", "Patil", "Nair", "Gupta", "Das", "Menon", "Joshi", "Rao", "Singh", "Kulkarni", "Pillai", "Sheikh", "Verma", "Bose", "Shetty", "Yadav", "Mehta"];
 
@@ -387,10 +404,11 @@ export function seedBoardDrives(now = Date.now()) {
   let todayIdx = 0;
   return cities.map((city, i) => {
     const company = COMPANIES[(i * 7 + Math.floor(i / 24)) % COMPANIES.length];
-    const role = ROLES[company.roles[(i + Math.floor(i / COMPANIES.length)) % company.roles.length]];
+    const roleKey = company.roles[(i + Math.floor(i / COMPANIES.length)) % company.roles.length];
+    const role = ROLES[roleKey];
     const venues = VENUES[city];
     const place = venues[(i + company.id.length) % venues.length];
-    const { payMin, payMax } = payFor(r, role, city);
+    const { payType, payMin, payMax } = payShape(i, roleKey, payFor(r, role, city));
     const expMin = role.exp[0];
     const expMax = Math.max(expMin, role.exp[1] + (r() > 0.7 ? 1 : 0));
     const docs = role.docs.map((d) => DOC[d]).concat(r() > 0.75 ? [DOC.pen] : []);
@@ -424,7 +442,7 @@ export function seedBoardDrives(now = Date.now()) {
       city, area: place.area, venue: place.venue, landmark: place.landmark, branch: place.area,
       ...when,
       company: company.name, role: role.title, roleType: role.type,
-      payMin, payMax, expMin, expMax, expNeeded: expBands(expMin, expMax),
+      payType, payMin, payMax, expMin, expMax, expNeeded: expBands(expMin, expMax),
       openings: between(r, 2, 30) * 5,
       jd: describe(r, company, role, city, i),
       docs, rounds, rooms,
