@@ -5,7 +5,8 @@ import { useStore } from "../context/Store.jsx";
 import { dsp, typ } from "../theme.js";
 import QrCode from "../components/QrCode.jsx";
 import { tokenDigits } from "../components/brand.jsx";
-import { bare6, hallName, mask, orgColor, roomName, scanEnabled, servingNow, waitingNow } from "../lib/helpers.js";
+import { bare6, hallName, orgColor, roomName, scanEnabled, servingNow, waitingNow } from "../lib/helpers.js";
+import { publicName } from "../lib/queue-machine.js";
 import { formatIST } from "../lib/time.js";
 import { api } from "../lib/api.js";
 
@@ -130,7 +131,7 @@ export default function TvScreenPage() {
                       {tokenDigits(c.token)}
                     </div>
                     <div style={{ color: "#C6CCE0", fontSize: "clamp(13px, 1.2vw, 20px)", marginTop: 8, fontWeight: 600 }}>
-                      {roomName(c.room) || mask(c.name)}
+                      {publicName(c.name)}{roomName(c.room) ? ` · ${roomName(c.room)}` : ""}
                     </div>
                   </div>
                 ))}
@@ -149,7 +150,7 @@ export default function TvScreenPage() {
               ) : waiting.slice(0, 8).map((c, i) => (
                 <div key={c.id} style={{ display: "flex", alignItems: "baseline", gap: 14, padding: "clamp(8px, 0.9vw, 15px) clamp(14px, 1.6vw, 26px)", borderBottom: `1px solid ${LINE}` }}>
                   <span style={{ fontFamily: typ, fontWeight: 700, fontSize: "clamp(20px, 2.4vw, 40px)", color: i === 0 ? accent : "#E8EBF5", letterSpacing: -0.5 }}>{tokenDigits(c.token)}</span>
-                  <span style={{ color: "#8A93AE", fontSize: "clamp(12px, 1.1vw, 18px)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mask(c.name)}</span>
+                  <span style={{ color: "#8A93AE", fontSize: "clamp(12px, 1.1vw, 18px)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{publicName(c.name)}</span>
                 </div>
               ))}
             </div>
@@ -197,7 +198,7 @@ export default function TvScreenPage() {
           )}
 
           <div style={{ marginTop: "auto", color: "#4E5675", fontSize: "clamp(10px, 0.9vw, 14px)", textAlign: "center", lineHeight: 1.5 }}>
-            Names are hidden on this screen. Powered by TokenHire.
+            Names show as first name and last initial only. Powered by TokenHire.
           </div>
         </aside>
       </div>

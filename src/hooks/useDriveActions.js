@@ -1,46 +1,87 @@
 import { useCallback, useMemo } from "react";
-import { inARound, nextRoundIdx, occupantOf, roundIndexOfRoom, waitingRoundIdx, withRoundEnd, withRoundStart } from "../lib/helpers.js";
+import { api } from "../lib/api.js";
+import { applyQueueAction } from "../lib/queue-machine.js";
+import { inARound, roundIndexOfRoom, waitingRoundIdx } from "../lib/helpers.js";
 
-/** Queue moves for one drive: call, skip, no-show, back to queue, decide, notes, rooms and rounds. */
-export function useDriveActions(drive, setDrives) {
+function actorOf(opts, drive) {
+  if (opts?.actor) return opts.actor;
+  if (opts?.pin && !opts?.staffEmail) return { kind: "desk", email: "desk" };
+  const email = opts?.staffEmail || "console";
+  const kind = opts?.staffRole === "frontdesk" ? "desk"
+    : (opts?.staffRole === "owner" || opts?.staffRole === "admin") ? "owner"
+      : "recruiter";
+  const assigned = (drive?.rooms || [])
+    .filter((r) => r.interviewerEmail && String(r.interviewerEmail).toLowerCase() === String(email).toLowerCase())
+    .map((r) => r.id);
+  return { kind, email, ...(assigned.length ? { rooms: assigned } : {}) };
+}
+
+/** Queue moves for one drive: call, skip, no-show, desk scan, decide, notes, rooms. */
+export function useDriveActions(drive, setDrives, opts = {}) {
   const id = drive?.id;
   const upd = useCallback((fn) => {
     if (!id) return;
     setDrives((p) => p.map((d) => (d.id === id ? fn(d) : d)));
   }, [id, setDrives]);
+  const applyRemote = opts.applyRemote;
   const mapCand = useCallback((cid, fn) => upd((d) => ({ ...d, candidates: d.candidates.map((x) => (x.id === cid ? fn(x, d) : x)) })), [upd]);
+
+  const run = useCallback(async (action) => {
+    if (!drive) return { ok: false, error: "No drive." };
+    const actor = actorOf(opts, drive);
+    const r = applyQueueAction(drive, action, { actor });
+    if (!r.ok) return r;
+    const prev = drive;
+    const offline = opts.apiOk === false;
+    if (offline || !applyRemote) upd(() => r.drive);
+    else applyRemote(r.drive, { silent: true });
+    if (offline) return r;
+    try {
+      const data = await api.queueAction(drive.id, { ...action, pin: opts.pin || undefined });
+      if (data.drive) {
+        if (applyRemote) applyRemote(data.drive, { version: data.version, silent: true });
+        else upd(() => data.drive);
+      }
+      return { ...r, ...data, ok: true };
+    } catch (e) {
+      if (applyRemote && !offline) applyRemote(prev, { silent: true });
+      else upd(() => prev);
+      return { ok: false, error: e.data?.error || e.message, code: e.data?.code, existing: e.data?.existing, already: e.data?.already };
+    }
+  }, [drive, upd, applyRemote, opts]);
 
   return useMemo(() => ({
     patch: (fields) => upd((d) => ({ ...d, ...fields })),
+    run,
 
-    /** Call someone into a room for the round they are waiting on. Returns false if the room is busy. */
     callTo(cid, roomId) {
-      if (!drive) return false;
-      const cand = drive.candidates.find((x) => x.id === cid);
-      const room = (drive.rooms || []).find((r) => r.id === roomId);
-      if (!cand || !room) return false;
-      const taken = occupantOf(drive, roomId);
-      if (taken && taken.id !== cid) return false;
-      const idx = waitingRoundIdx(drive.rounds, cand);
-      const rid = (drive.rounds || [])[idx]?.id;
-      mapCand(cid, (x) => withRoundStart({ ...x, state: "calling", calledAt: Date.now(), room, roundAssigned: true, roundIdx: idx }, rid, room));
-      return true;
+      return run({ type: "call", candId: cid, roomId });
     },
 
-    skip: (cid) => mapCand(cid, (x) => ({ ...x, state: "wait", at: Date.now(), calledAt: null, room: null, skipped: (x.skipped || 0) + 1 })),
+    callNext: (roomId) => run({ type: "call_next", roomId: roomId || undefined }),
 
-    noShow: (cid) => mapCand(cid, (x) => ({ ...x, state: "absent", room: null, decidedAt: Date.now() })),
+    callAgain: (cid) => run({ type: "call_again", candId: cid }),
+
+    skip: (cid) => run({ type: "skip", candId: cid }),
+
+    noShow: (cid) => run({ type: "no_show", candId: cid }),
 
     recall(cid) {
-      if (!drive) return;
-      const wait = drive.candidates.filter((x) => x.state === "wait");
-      const earliest = wait.length ? Math.min(...wait.map((x) => x.at)) : Date.now();
-      mapCand(cid, (x) => ({ ...x, state: "wait", at: earliest - 1000, room: null, calledAt: null, released: false }));
+      return run({ type: "release", candId: cid });
     },
+
+    deskScan: (cid, force) => run({ type: "desk_scan", candId: cid, force: !!force }),
+
+    sendBack: (cid) => run({ type: "send_back", candId: cid }),
 
     arrived: (cid) => mapCand(cid, (x) => ({ ...x, checkedIn: true, arrivedAt: x.arrivedAt || Date.now() })),
 
-    move(cid, state) {
+    async move(cid, state) {
+      if (state === "interviewing" || state === "at_desk") {
+        const r = await run({ type: "start_round", candId: cid });
+        if (r.ok && state === "interviewing" && r.cand?.state === "at_desk") await run({ type: "start_round", candId: cid });
+        return r;
+      }
       mapCand(cid, (x, d) => {
         const next = { ...x, state };
         if (state === "calling" && !x.calledAt) next.calledAt = Date.now();
@@ -55,32 +96,19 @@ export function useDriveActions(drive, setDrives) {
         if (state === "wait" || state === "absent") { next.room = null; next.calledAt = state === "wait" ? null : x.calledAt; }
         return next;
       });
+      return { ok: true };
     },
 
-    decide(cid, outcome) {
-      upd((d) => {
-        const c = d.candidates.find((x) => x.id === cid);
-        if (!c) return d;
-        const rid = (d.rounds || [])[c.roundIdx || 0]?.id;
-        const nextIdx = nextRoundIdx(d.rounds, c);
-        const last = nextIdx < 0;
-        return {
-          ...d,
-          candidates: d.candidates.map((x) => {
-            if (x.id !== cid) return x;
-            const roundOutcomes = { ...(x.roundOutcomes || {}), [rid]: outcome };
-            const now = Date.now();
-            const base = withRoundEnd({ ...x, roundOutcomes, decidedAt: now, room: null }, rid, now);
-            if (outcome === "rejected") return { ...base, state: "rejected" };
-            if (outcome === "onhold") return { ...base, state: "onhold" };
-            if (last) return { ...base, state: "selected" };
-            const peers = d.candidates.filter((p) => p.id !== cid && p.state === "wait" && (p.roundIdx || 0) === nextIdx);
-            const at = peers.length ? Math.min(...peers.map((p) => p.at)) - 1 : Date.now();
-            return { ...base, roundIdx: nextIdx, state: "wait", calledAt: null, at, pinged: false, roundAssigned: true };
-          }),
-        };
-      });
+    decide(cid, outcome, extra = {}) {
+      const mapped = outcome === "passed" ? "selected" : outcome;
+      return run({ type: "decide", candId: cid, outcome: mapped, reason: extra.reason || "", note: extra.note || "" });
     },
+
+    undo: (cid) => run({ type: "undo", candId: cid }),
+
+    resumeHold: (cid) => run({ type: "resume_hold", candId: cid }),
+
+    moveRoom: (cid, roomId, reason) => run({ type: "move_room", candId: cid, roomId, reason }),
 
     saveNote: (cid, roundId, text) => mapCand(cid, (x) => ({ ...x, notes: { ...(x.notes || {}), [roundId]: text } })),
 
@@ -95,5 +123,5 @@ export function useDriveActions(drive, setDrives) {
         return next ? { ...c, room: next } : c;
       }),
     })),
-  }), [drive, upd, mapCand]);
+  }), [drive, upd, mapCand, run]);
 }

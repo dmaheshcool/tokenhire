@@ -10,7 +10,8 @@
     "start": "node --env-file-if-exists=.env server/index.js",
     "lint": "eslint . && node scripts/check-spelling.mjs",
     "check": "eslint . --quiet && node scripts/check-spelling.mjs",
-    "test": "node --test src/lib/*.test.js",
+    "test": "node --test src/lib/*.test.js server/queue.test.js",
+    "simulate:drive": "node scripts/simulate-drive.js",
     "build": "eslint . --quiet && node scripts/check-spelling.mjs && vite build",
     "preview": "vite preview"
   },

@@ -3,6 +3,7 @@ import { EXP_BANDS, cityNameOf, code, docsOf, isWorkEmail, memberEmail, memberRo
 import { publicResume } from "../src/lib/resume.js";
 import { windowRemaining } from "../src/lib/lobby.js";
 import { blankSeed, boardOrgs, seedBoardDrives, seedDrive, seedExtraDrives, seedMegaDrive, seedOrgs, seedPlanDemoDrives } from "../src/data/seed.js";
+import { applyQueueAction } from "../src/lib/queue-machine.js";
 import { driveStatus, tokensOpen } from "../src/lib/status.js";
 import { mode, readState, settled, writeState } from "./persist.js";
 
@@ -146,6 +147,32 @@ export function driveWithResumes(drive) {
   };
 }
 
+/** Unauthenticated snapshot writes may check in or cancel, not call or decide. */
+function mergePublicQueue(prev = [], incoming = []) {
+  const next = [...prev];
+  const byId = new Map(next.map((c) => [c.id, c]));
+  const byToken = new Map(next.map((c) => [String(c.token), c]));
+  const PROFILE = ["name", "phone", "email", "resume", "answers", "checkin_method", "location_verified", "arrivedAt", "checkedIn", "geo", "wasPrereg", "roleId", "expBand"];
+  for (const c of incoming) {
+    const old = byId.get(c.id) || byToken.get(String(c.token));
+    if (!old) {
+      if (["wait", "prereg"].includes(c.state)) {
+        next.push(c);
+        byId.set(c.id, c);
+      }
+      continue;
+    }
+    const idx = next.findIndex((x) => x.id === old.id);
+    const patch = { ...old };
+    for (const k of PROFILE) if (c[k] !== undefined) patch[k] = c[k];
+    if (old.state === "prereg" && c.state === "wait") Object.assign(patch, c, { state: "wait" });
+    if (c.state === "cancelled" && ["wait", "prereg", "calling"].includes(old.state)) patch.state = "cancelled";
+    next[idx] = patch;
+    byId.set(old.id, patch);
+  }
+  return next;
+}
+
 /**
  * Staff sessions may replace org and drive configuration. Candidate devices share the
  * same endpoint but are limited to the queue itself, so a phone can check itself in
@@ -195,7 +222,7 @@ export function setSnapshot({ orgs, drives, candidates }, { scope = "queue" } = 
     state.drives = state.drives.map((d) => {
       const next = incoming.get(d.id);
       if (!next || !Array.isArray(next.candidates)) return d;
-      return absorbDrive({ ...d, candidates: next.candidates }, d);
+      return absorbDrive({ ...d, candidates: mergePublicQueue(d.candidates, next.candidates) }, d);
     });
   }
   if (candidates && typeof candidates === "object") state.candidates = candidates;
@@ -340,6 +367,17 @@ export function confirmListing(token) {
   state.version += 1;
   save();
   return { ok: true, drive: publicSnapshot().drives.find((d) => d.id === next.id) };
+}
+
+export function applyDriveQueue(driveId, action, ctx) {
+  const d = state.drives.find((x) => x.id === driveId);
+  if (!d) return { ok: false, error: "No drive." };
+  const r = applyQueueAction(d, action, ctx);
+  if (!r.ok) return r;
+  state.drives = state.drives.map((x) => (x.id === driveId ? r.drive : x));
+  state.version += 1;
+  save();
+  return { ...r, version: state.version };
 }
 
 export function issueDeskPass(driveId) {

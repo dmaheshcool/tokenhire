@@ -4,7 +4,7 @@ import { makeHourLimiter, lookupDelayMs } from "../src/lib/email-limit.js";
 import { passwordIssue } from "../src/lib/password.js";
 import { decodeDataUrl, resumeName } from "../src/lib/resume.js";
 import {
-  addPilot, candidateByPhone, checkOrgPassword, consumeMagic, consumeReset, consumeVerify, createSession, DEMO_RESET, dropSession, dropSessionsForOrg, findOrgByEmail,
+  addPilot, applyDriveQueue, candidateByPhone, checkOrgPassword, consumeMagic, consumeReset, consumeVerify, createSession, DEMO_RESET, dropSession, dropSessionsForOrg, findOrgByEmail,
   confirmListing, consumeDeskPass, deskPassValid, driveWithResumes, findDriveForDeskPass, flushWrites, getState, issueDeskPass, issueMagic, issueVerify, publicSnapshot, publishListing, ready, roleFor, saveCandidate, sessionOf, setOrgPassword, setReset,
   setSnapshot, storageMode, storedResume, upsertOrg, normalPhone, startReminder, stopReminder,
 } from "./db.js";
@@ -271,6 +271,64 @@ app.post("/api/lobby/check", (req, res) => {
   res.json({ ok: true, driveId: drive.id, method, windowOffset: result.windowOffset, ...loc });
 });
 
+const queueLocks = new Map();
+function withQueueLock(id, fn) {
+  const prev = queueLocks.get(id) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  queueLocks.set(id, next.catch(() => {}));
+  return next;
+}
+
+app.post("/api/queue/:driveId", async (req, res) => {
+  const driveId = req.params.driveId;
+  const ip = String(req.ip || req.headers["x-forwarded-for"] || "local");
+  await withQueueLock(driveId, async () => {
+    const drive = getState().drives.find((d) => d.id === driveId);
+    if (!drive) { res.status(404).json({ ok: false, error: "No drive." }); return; }
+    const s = sessionOf(bearer(req));
+    const pin = String(req.body?.pin || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const host = String(drive.host || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const pinOk = pin && host && pin === host;
+    if (!s && !pinOk) {
+      if (pin) {
+        if (throttled(`deskpin:${ip}`)) return res.status(429).json({ ok: false, error: "Too many PIN tries. Wait 10 minutes." });
+      }
+      return res.status(401).json({ ok: false, error: "Sign in or use the Desk PIN." });
+    }
+    if (pin && !pinOk && throttled(`deskpin:${ip}`)) {
+      return res.status(429).json({ ok: false, error: "Too many PIN tries. Wait 10 minutes." });
+    }
+    if (s && s.org?.id !== drive.orgId) {
+      res.status(403).json({ ok: false, error: "Wrong company." });
+      return;
+    }
+    const assigned = (drive.rooms || [])
+      .filter((r) => r.interviewerEmail && String(r.interviewerEmail).toLowerCase() === String(s?.email || "").toLowerCase())
+      .map((r) => r.id);
+    const actor = pinOk && !s
+      ? { kind: "desk", email: "desk" }
+      : {
+        kind: (s.role === "owner" || s.role === "admin") ? "owner" : "recruiter",
+        email: s.email,
+        ...(assigned.length ? { rooms: assigned } : {}),
+      };
+    const result = applyDriveQueue(driveId, req.body || {}, { actor, now: Date.now() });
+    if (!result.ok) {
+      res.status(400).json(result);
+      return;
+    }
+    await flushWrites();
+    res.json({
+      ok: true,
+      drive: result.drive,
+      cand: result.cand,
+      already: result.already,
+      code: result.code,
+      version: result.version,
+    });
+  });
+});
+
 app.post("/api/desk-pass", async (req, res) => {
   const drive = getState().drives.find((d) => d.id === req.body?.driveId);
   if (!drive) return res.status(404).json({ ok: false, error: "No drive." });
@@ -279,7 +337,10 @@ app.post("/api/desk-pass", async (req, res) => {
   const host = String(drive.host || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const staffOk = s && s.org?.id === drive.orgId;
   const pinOk = pin && host && pin === host;
-  if (!staffOk && !pinOk) return res.status(401).json({ ok: false, error: "Sign in or use the Desk PIN." });
+  if (!staffOk && !pinOk) {
+    if (throttled(`deskpin:${req.ip || "local"}`)) return res.status(429).json({ ok: false, error: "Too many PIN tries. Wait 10 minutes." });
+    return res.status(401).json({ ok: false, error: "Sign in or use the Desk PIN." });
+  }
   const result = issueDeskPass(drive.id);
   await flushWrites();
   res.json(result);
@@ -594,7 +655,7 @@ app.get("/api/routes", (_req, res) => {
       "GET /api/auth/me", "POST /api/auth/logout", "POST /api/auth/logout-all", "POST /api/auth/invite/accept",
       "GET /api/org", "PATCH /api/org", "GET /api/candidate/:phone", "PUT /api/candidate",
       "POST /api/exports", "GET /api/exports/:id", "GET /api/exports/:id/file",
-      "POST /api/lobby/check", "POST /api/reminders/start", "POST /api/reminders/stop",
+      "POST /api/lobby/check", "POST /api/queue/:driveId", "POST /api/reminders/start", "POST /api/reminders/stop",
     ],
   });
 });

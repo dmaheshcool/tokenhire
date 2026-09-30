@@ -172,6 +172,7 @@ export function SiteNav() {
         <div id="site-menu" className="site-menu wrap">
           {NAV_LINKS.map((l) => <Link key={l.to} to={l.to} className="menu-link">{l.label}</Link>)}
           <Link to="/saved" className="menu-link">{saved.count ? t("nav.savedCount", { n: saved.count }) : t("nav.saved")}</Link>
+          <button type="button" className="menu-link" onClick={() => { setOpen(false); setEmployerSheet(true); }}>{t("nav.companies")}</button>
           <div className="stack gap-8" style={{ marginTop: 18 }}>
             <Btn to="/check-in" variant="primary" size="lg" block icon={ScanLine}>{t("nav.scanCheckIn")}</Btn>
           </div>

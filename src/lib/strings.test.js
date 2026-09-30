@@ -52,7 +52,7 @@ test("keys built at runtime exist", () => {
     "console.report.funnel.": ["registered", "checkedIn", "interviewed", "shortlisted"],
     "console.report.states.": ["wait", "calling", "interviewing", "selected", "rejected", "onhold", "absent"],
     "console.queue.labels.": ["selected", "rejected", "onhold", "absent"],
-    "token.decision.": ["selected", "rejected", "onhold"],
+    "token.decision.": ["selected", "rejected", "onhold", "done"],
     "howPage.tabs.": ["candidates", "companies"],
     "forCo.pilot.": ["name", "email", "phone", "company", "city", "roles", "size"],
   };

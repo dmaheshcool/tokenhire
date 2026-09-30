@@ -86,10 +86,11 @@ const ToastCtx = createContext(() => {});
 
 export function ToastProvider({ children }) {
   const [items, setItems] = useState([]);
-  const push = useCallback((text, kind = "ok") => {
+  const push = useCallback((text, kind = "ok", extra = {}) => {
     const id = Math.random().toString(36).slice(2);
-    setItems((p) => [...p.slice(-2), { id, text, kind }]);
-    setTimeout(() => setItems((p) => p.filter((x) => x.id !== id)), 3200);
+    const hold = extra.undo ? 8000 : 3200;
+    setItems((p) => [...p.slice(-2), { id, text, kind, undo: extra.undo }]);
+    setTimeout(() => setItems((p) => p.filter((x) => x.id !== id)), hold);
   }, []);
   return (
     <ToastCtx.Provider value={push}>
@@ -99,6 +100,11 @@ export function ToastProvider({ children }) {
           <div key={x.id} className={`toast ${x.kind}`}>
             {x.kind === "err" ? <CircleAlert size={18} strokeWidth={STROKE} /> : <CircleCheck size={18} strokeWidth={STROKE} />}
             <span>{x.text}</span>
+            {x.undo && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { x.undo(); setItems((p) => p.filter((i) => i.id !== x.id)); }}>
+                {t("buttons.undo")}
+              </button>
+            )}
           </div>
         ))}
       </div>

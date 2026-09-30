@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import { StoreProvider } from "./context/Store.jsx";
+import { StoreProvider, useStore } from "./context/Store.jsx";
+import { t } from "./i18n/strings.js";
 import { SiteLayout } from "./layouts/SiteLayout.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import JoinPage from "./pages/JoinPage.jsx";
@@ -67,6 +68,12 @@ function OldDrive() {
   return <Navigate to={`/app/drives/${driveId}`} replace />;
 }
 
+function OfflineBanner() {
+  const { apiOk, hydrated } = useStore();
+  if (!hydrated || apiOk) return null;
+  return <div className="offline-bar" role="status">{t("empty.network")}</div>;
+}
+
 function PathMemory() {
   const loc = useLocation();
   useEffect(() => { rememberFaqPath(loc.pathname); }, [loc.pathname]);
@@ -79,6 +86,7 @@ export default function App() {
       <StoreProvider>
         <ThemeProvider>
         <ToastProvider>
+        <OfflineBanner />
         <PathMemory />
         <Suspense fallback={<RouteFallback />}>
           <Routes>

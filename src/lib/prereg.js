@@ -57,6 +57,7 @@ export function promotePrereg(c, seq, proof = {}) {
     at: now,
     checkin_method: proof.method || "lobby_qr",
     location_verified: proof.location_verified ?? "unknown",
+    wasPrereg: true,
     checkin_at: proof.at || now,
   };
 }

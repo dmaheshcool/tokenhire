@@ -21,17 +21,30 @@ export function findByPin(drives, pin) {
   return drives.find((d) => d.host && bare(d.host) === p && driveStatus(d) !== "wrapped") || null;
 }
 
-function Desk({ drive, onLeave, setDrives, pin }) {
-  const act = useDriveActions(drive, setDrives);
+function Desk({ drive, onLeave, setDrives, applyRemoteDrive, pin, apiOk }) {
+  const act = useDriveActions(drive, setDrives, { pin, actor: { kind: "desk", email: "desk" }, applyRemote: applyRemoteDrive, apiOk });
   const live = deskOpen(drive);
   const toast = useToast();
   const [pass, setPass] = useState("");
+  const [scan, setScan] = useState("");
+  const [warn, setWarn] = useState(null);
   async function issue() {
     try {
       const r = await api.deskPass({ driveId: drive.id, pin });
       setPass(r.code);
       toast(t("console.queue.passIssued", { code: r.code }));
     } catch (e) { toast(e.message || t("desk.wrong"), "err"); }
+  }
+  async function doScan(force) {
+    const needle = scan.trim().replace(/^#/, "");
+    const cand = drive.candidates.find((c) => String(c.token).replace(/^#/, "") === needle || c.id === needle || String(c.phone || "").endsWith(needle));
+    if (!cand) { toast(t("console.queue.nobody"), "err"); return; }
+    const r = await act.deskScan(cand.id, force);
+    if (r?.code === "not_called") { setWarn(cand); return; }
+    if (!r?.ok) { toast(r?.error || t("console.queue.nobody"), "err"); return; }
+    setWarn(null);
+    setScan("");
+    toast(t("console.queue.scanned"));
   }
   return (
     <>
@@ -49,6 +62,20 @@ function Desk({ drive, onLeave, setDrives, pin }) {
       </div>
       <div className="card card-pad" style={{ marginBottom: 20 }}><QueueSummary drive={drive} /></div>
       {pass && <div className="panel small" role="status" style={{ marginBottom: 16 }}>{t("console.queue.passIssued", { code: pass })}</div>}
+      <form className="card card-pad row gap-8" style={{ marginBottom: 16, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); doScan(false); }}>
+        <label className="sr-only" htmlFor="desk-scan">{t("console.queue.scan")}</label>
+        <input id="desk-scan" className="input mono grow" value={scan} onChange={(e) => setScan(e.target.value)} placeholder={t("console.queue.scanPh")} />
+        <Btn type="submit">{t("console.queue.scan")}</Btn>
+      </form>
+      {warn && (
+        <div className="panel small stack gap-8" role="status" style={{ marginBottom: 16 }}>
+          <p style={{ margin: 0 }}>{t("console.queue.scanWarn")}</p>
+          <div className="row gap-8">
+            <Btn size="sm" onClick={() => doScan(true)}>{t("console.queue.proceedAnyway")}</Btn>
+            <Btn size="sm" variant="secondary" onClick={() => { act.sendBack(warn.id); setWarn(null); }}>{t("console.queue.sendBack")}</Btn>
+          </div>
+        </div>
+      )}
       {!live && <div className="panel small" role="status" style={{ marginBottom: 16 }}>The queue opens when the drive starts.</div>}
       <QueueBoard drive={drive} act={act} deskMode />
     </>
@@ -56,7 +83,7 @@ function Desk({ drive, onLeave, setDrives, pin }) {
 }
 
 export default function DeskPage() {
-  const { drives, setDrives } = useStore();
+  const { drives, setDrives, applyRemoteDrive, apiOk } = useStore();
   const [params, setParams] = useSearchParams();
   const [pin, setPin] = useState(params.get("pin") || "");
   const [err, setErr] = useState("");
@@ -77,7 +104,7 @@ export default function DeskPage() {
         <span className="small muted">{t("desk.title")}</span>
       </header>
       <main className="console-body" style={{ margin: "0 auto" }}>
-        {drive ? <Desk drive={drive} setDrives={setDrives} pin={params.get("pin")} onLeave={() => { setParams({}, { replace: true }); setPin(""); }} /> : (
+        {drive ? <Desk drive={drive} setDrives={setDrives} applyRemoteDrive={applyRemoteDrive} apiOk={apiOk} pin={params.get("pin")} onLeave={() => { setParams({}, { replace: true }); setPin(""); }} /> : (
           <form className="card card-pad stack gap-16" onSubmit={open} noValidate style={{ maxWidth: 420, margin: "8vh auto 0" }}>
             <span className="step-icon"><KeyRound size={22} strokeWidth={STROKE} aria-hidden="true" /></span>
             <div className="stack gap-4">

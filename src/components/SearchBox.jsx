@@ -10,12 +10,20 @@ const GROUPS = [
   ["cities", MapPin],
 ];
 
-export default function SearchBox({ drives, value, onChange, onSubmit, compact = false }) {
+export default function SearchBox({ drives, value, onChange, onSubmit, compact = false, busy = false }) {
   const id = useId();
   const listId = `${id}-list`;
   const wrap = useRef(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(max-width: 767px)");
+    const sync = () => setNarrow(m.matches);
+    sync();
+    m.addEventListener("change", sync);
+    return () => m.removeEventListener("change", sync);
+  }, []);
 
   const groups = useMemo(() => searchSuggestions(drives, value), [drives, value]);
   const flat = useMemo(() => GROUPS.flatMap(([key]) => groups[key].map((s) => ({ ...s, group: key }))), [groups]);
@@ -69,7 +77,7 @@ export default function SearchBox({ drives, value, onChange, onSubmit, compact =
   return (
     <div ref={wrap} className={`searchbox${compact ? " searchbox-compact" : ""}`}>
       <form className="search" role="search" onSubmit={submit}>
-        <Search size={compact ? 18 : 20} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", flexShrink: 0 }} />
+        <Search size={compact ? 18 : 22} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", flexShrink: 0 }} />
         <label htmlFor={`${id}-q`} className="sr-only">{t("home.hero.searchPlaceholder")}</label>
         <input
           id={`${id}-q`}
@@ -77,7 +85,7 @@ export default function SearchBox({ drives, value, onChange, onSubmit, compact =
           onChange={(e) => { onChange(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={t("home.hero.searchPlaceholder")}
+          placeholder={t(narrow && !compact ? "home.hero.searchPlaceholderShort" : "home.hero.searchPlaceholder")}
           autoComplete="off"
           role="combobox"
           aria-expanded={showList}
@@ -91,7 +99,17 @@ export default function SearchBox({ drives, value, onChange, onSubmit, compact =
             <X size={18} strokeWidth={STROKE} aria-hidden="true" />
           </button>
         )}
-        <button type="submit" className={`btn btn-primary${compact ? " btn-sm" : ""}`}>{t("home.hero.search")}</button>
+        <button type="submit" className={`btn btn-primary${compact ? " btn-sm" : " search-go"}`} aria-busy={busy || undefined} disabled={busy}>
+          {!compact && <Search className="search-go-icon" size={18} strokeWidth={STROKE} aria-hidden="true" />}
+          {busy
+            ? t("home.hero.searching")
+            : compact
+              ? t("home.hero.search")
+              : <>
+                <span className="search-label-full">{t("home.hero.search")}</span>
+                <span className="search-label-short">{t("home.hero.searchShort")}</span>
+              </>}
+        </button>
       </form>
       {showList && (
         <div id={listId} role="listbox" className="suggest" aria-label={t("home.search.suggestions")}>

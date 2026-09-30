@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Bookmark, BookmarkCheck, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, FileText, IndianRupee, Landmark, Lightbulb, ListOrdered, Search, Share2, SlidersHorizontal, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, ExternalLink, FileText, IndianRupee, Landmark, Lightbulb, ListOrdered, Share2, SlidersHorizontal, X } from "lucide-react";
 import { useStore } from "../context/Store.jsx";
 import { Btn, CardSkeleton, DriveCard, EmptyState, Monogram, QueueLine, STROKE, WhenChip, joinPath, useSaved, useToast, whenText } from "../components/ds.jsx";
 import { RegisterCard } from "../components/RegisterCard.jsx";
@@ -11,6 +11,7 @@ import { clock, driveStatus, driveWhen, hoursLabel, datesLabel, driveSchedule, f
 import { ROLE_TYPES } from "../data/board.js";
 import { shareDrive } from "../lib/share.js";
 import RemindMe from "../components/RemindMe.jsx";
+import SearchBox from "../components/SearchBox.jsx";
 import { useMeta } from "../hooks/useMeta.js";
 import { t } from "../i18n/strings.js";
 
@@ -189,7 +190,6 @@ function Browse({ city }) {
     ? { title: t("browse.meta.cityTitle", { city: cityName }), description: t("browse.meta.cityDescription", { city: cityName, count: open.length }) }
     : { title: t("browse.meta.title"), description: t("browse.meta.description", { count: open.length }) });
 
-  const submitQ = (e) => { e.preventDefault(); set({ q: qDraft.trim() }); };
   const empty = cityName && !activeCount && !f.q ? "noCity" : "noResults";
 
   return (
@@ -204,16 +204,12 @@ function Browse({ city }) {
             </nav>
           )}
           <div className="row gap-12 wrap-row" style={{ alignItems: "center" }}>
-            <h1 className="h-1 one-line" style={{ margin: 0 }}>{cityName ? t("browse.cityTitle", { city: cityName }) : t("browse.title", { today_count: todayCount, upcoming_count: upcomingCount })}</h1>
+            <h1 className="h-1 browse-title" style={{ margin: 0 }}>{cityName ? t("browse.cityTitle", { city: cityName }) : t("browse.title", { today_count: todayCount, upcoming_count: upcomingCount })}</h1>
           </div>
           <p className="lede" style={{ marginTop: 12 }}>{cityName ? t("browse.cityIntro", { city: cityName, count: companiesThisMonth }) : t("browse.lede")}</p>
-          <form className="search" role="search" onSubmit={submitQ} style={{ maxWidth: 640, marginTop: 24 }}>
-            <Search size={20} strokeWidth={STROKE} aria-hidden="true" style={{ color: "var(--muted)", flexShrink: 0 }} />
-            <label htmlFor="browse-q" className="sr-only">{t("home.hero.searchPlaceholder")}</label>
-            <input id="browse-q" value={qDraft} onChange={(e) => setQDraft(e.target.value)} placeholder={t("home.hero.searchPlaceholder")} autoComplete="off" />
-            {qDraft && <button type="button" className="btn btn-ghost btn-icon" aria-label={t("buttons.clear")} onClick={() => { setQDraft(""); set({ q: "" }); }}><X size={18} strokeWidth={STROKE} /></button>}
-            <button type="submit" className="btn btn-primary">{t("home.hero.search")}</button>
-          </form>
+          <div className="home-search" style={{ marginTop: 24 }}>
+            <SearchBox drives={pool} value={qDraft} onChange={setQDraft} onSubmit={(query) => set({ q: String(query ?? "").trim() })} busy={loading} />
+          </div>
           <LiveBrowsePanel
             stats={stats}
             openNow={f.openNow}

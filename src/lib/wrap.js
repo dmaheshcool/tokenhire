@@ -1,8 +1,8 @@
 import { queueStats } from "./listing.js";
 import { canWrapDrive, driveStatus, windowUtc } from "./status.js";
 
-export const OPEN_STATES = ["wait", "calling", "interviewing"];
-export const FINAL_STATES = ["selected", "rejected", "onhold", "undecided", "absent", "not_seen", "carried", "cancelled"];
+export const OPEN_STATES = ["wait", "calling", "at_desk", "interviewing"];
+export const FINAL_STATES = ["selected", "rejected", "onhold", "undecided", "absent", "not_seen", "carried", "cancelled", "done"];
 
 const AUTO_WRAP_MS = 24 * 60 * 60 * 1000;
 const REMIND_MS = 6 * 60 * 60 * 1000;
@@ -12,7 +12,7 @@ export function wrapGroups(drive) {
   return {
     queue: cands.filter((c) => c.state === "wait"),
     called: cands.filter((c) => c.state === "calling"),
-    inRound: cands.filter((c) => c.state === "interviewing"),
+    inRound: cands.filter((c) => c.state === "interviewing" || c.state === "at_desk"),
     open: cands.filter((c) => OPEN_STATES.includes(c.state)),
   };
 }
@@ -62,7 +62,7 @@ export function resolveOpenTokens(candidates, now = Date.now()) {
       report.push({ id: c.id, token: c.token, from: c.state, to: "absent" });
       return patchCand(c, "absent", { decidedAt: now, wrapReason: "no_show" });
     }
-    if (c.state === "interviewing") {
+    if (c.state === "at_desk" || c.state === "interviewing") {
       report.push({ id: c.id, token: c.token, from: c.state, to: "undecided" });
       return patchCand(c, "undecided", { decidedAt: now, wrapReason: "undecided" });
     }
@@ -76,10 +76,10 @@ export function applyResolutions(drive, { queue = "not_seen", called = "absent",
   const next = (drive.candidates || []).map((c) => {
     if (leave.queue && c.state === "wait") return c;
     if (leave.called && c.state === "calling") return c;
-    if (leave.inRound && c.state === "interviewing") return c;
+    if (leave.inRound && (c.state === "interviewing" || c.state === "at_desk")) return c;
     if (c.state === "wait") return patchCand(c, queue === "carried" ? "carried" : "not_seen", { decidedAt: now, wrapReason: queue });
     if (c.state === "calling") return patchCand(c, called === "recall" ? "wait" : "absent", { decidedAt: called === "recall" ? undefined : now, wrapReason: called });
-    if (c.state === "interviewing") return patchCand(c, inRound, { decidedAt: now, wrapReason: inRound });
+    if (c.state === "interviewing" || c.state === "at_desk") return patchCand(c, inRound, { decidedAt: now, wrapReason: inRound });
     return c;
   });
   return { ...drive, candidates: next, wrapOpen: { queue: groups.queue.length, called: groups.called.length, inRound: groups.inRound.length } };

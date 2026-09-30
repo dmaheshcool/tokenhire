@@ -43,10 +43,10 @@ export default function DrivePage() {
   const [params, setParams] = useSearchParams();
   const toast = useToast();
   const nav = useNavigate();
-  const { org, desk, drives, setDrives, setOrgs, staffEmail } = useConsole();
+  const { org, desk, drives, setDrives, applyRemoteDrive, setOrgs, staffEmail, staffRole, apiOk } = useConsole();
   const { lib } = useLibrary();
   const drive = drives.find((d) => d.id === id && d.orgId === org.id);
-  const act = useDriveActions(drive, setDrives);
+  const act = useDriveActions(drive, setDrives, { staffEmail, staffRole: desk ? "frontdesk" : staffRole, applyRemote: applyRemoteDrive, apiOk });
   const [wizard, setWizard] = useState("");
   useMeta({ title: drive ? drive.role : t("console.nav.drives") });
   if (!drive) return <Navigate to="/app/drives" replace />;

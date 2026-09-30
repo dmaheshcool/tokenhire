@@ -1,6 +1,8 @@
 // Stored (uncompressed) zip for .xlsx workbooks and CSV+resume packs.
 // Inline-string sheets, bold header row. No spreadsheet library.
 
+import { formulaSafe } from "./export-safe.js";
+
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -58,7 +60,7 @@ export function zipBlob(files, mime = ZIP_MIME) {
   return new Blob([zipBytes(files)], { type: mime });
 }
 
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+const esc = (s) => formulaSafe(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
 
 function colName(i) {
   let s = "";

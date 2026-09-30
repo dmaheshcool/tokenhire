@@ -188,7 +188,7 @@ export function roomName(room) {
 export function servingNow(candidates = []) {
   const calling = candidates.filter((c) => c.state === "calling");
   if (calling.length) return calling;
-  return candidates.filter((c) => c.state === "interviewing");
+  return candidates.filter((c) => c.state === "at_desk" || c.state === "interviewing");
 }
 export function waitingNow(candidates = []) {
   return candidates.filter((c) => c.state === "wait").sort((a, b) => ((a.roundIdx || 0) - (b.roundIdx || 0)) || (a.at - b.at));
@@ -559,10 +559,12 @@ export const LOGO_PRESETS = [
   { id: "tile", label: "Tile" },
   { id: "split", label: "Split" },
 ];
-export function isTerminal(state) { return ["selected", "rejected", "onhold", "absent"].includes(state); }
-/** Named round once called, interviewing, advanced, or sent there — not while only waiting after check-in. */
+export function isTerminal(state) {
+  return ["selected", "rejected", "onhold", "absent", "done", "cancelled", "expired", "not_seen"].includes(state);
+}
+/** Named round once called, interviewing, at the desk, advanced, or sent there — not while only waiting after check-in. */
 export function inARound(c) {
-  return !!(c?.roundAssigned || ["calling", "interviewing"].includes(c?.state) || (c?.roundIdx || 0) > 0);
+  return !!(c?.roundAssigned || ["calling", "at_desk", "interviewing"].includes(c?.state) || (c?.roundIdx || 0) > 0);
 }
 export function isLastRound(rounds, c) {
   return (rounds || []).length > 0 && nextRoundIdx(rounds, c) < 0;
@@ -584,7 +586,7 @@ export function roundLabel(rounds, c) {
   return (rounds || [])[c?.roundIdx]?.name || "—";
 }
 export function occupantOf(drive, roomId) {
-  return (drive?.candidates || []).find((x) => ["calling", "interviewing"].includes(x.state) && x.room?.id === roomId);
+  return (drive?.candidates || []).find((x) => ["calling", "at_desk", "interviewing"].includes(x.state) && x.room?.id === roomId);
 }
 export function withRoundStart(c, roundId, room, at = Date.now()) {
   if (!roundId) return c;

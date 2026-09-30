@@ -24,7 +24,7 @@ function stageOf(cand) {
   if (cand.released) return -1;
   if (cand.state === "wait") return (cand.roundIdx || 0) > 0 ? 3 : 1;
   if (cand.state === "calling") return 2;
-  if (cand.state === "interviewing") return 3;
+  if (cand.state === "at_desk" || cand.state === "interviewing") return 3;
   return 4;
 }
 
@@ -96,12 +96,12 @@ function Ticket({ drive, cand, setDrives }) {
   const status = driveStatus(drive);
   const waiting = cand.state === "wait" && !cand.released;
   const called = cand.state === "calling";
-  const inRound = cand.state === "interviewing";
+  const inRound = cand.state === "at_desk" || cand.state === "interviewing";
   const hot = waiting && ahead <= 5;
   const room = roomName(cand.room) || roomName(serving?.room);
   const missed = cand.state === "absent" && !cand.released && cand.calledAt;
   const inGrace = missed && Date.now() - (cand.decidedAt || cand.calledAt) < GRACE_MINUTES * 60000;
-  const decision = ["selected", "rejected", "onhold"].includes(cand.state) ? cand.state : null;
+  const decision = ["selected", "rejected", "onhold", "done"].includes(cand.state) ? cand.state : null;
   const num = digits(cand.token);
 
   useMeta({ title: t("token.metaTitle", { token: num }), description: `${drive.role} · ${drive.company}` });
@@ -109,7 +109,7 @@ function Ticket({ drive, cand, setDrives }) {
   const release = () => {
     setDrives((prev) => prev.map((d) => d.id !== drive.id ? d : {
       ...d,
-      candidates: d.candidates.map((c) => (c.id === cand.id ? { ...c, state: "absent", released: true, decidedAt: Date.now() } : c)),
+      candidates: d.candidates.map((c) => (c.id === cand.id ? { ...c, state: "cancelled", released: true, decidedAt: Date.now() } : c)),
     }));
     setConfirm(false);
     toast(t("token.released"));
@@ -132,7 +132,7 @@ function Ticket({ drive, cand, setDrives }) {
             <p className="small muted" style={{ margin: 0 }}>
               {ahead === 0 ? t("token.anyMinute") : t("token.minutes", { minutes: Math.max(5, aheadWait(drive, ahead)) })}
             </p>
-            <QueueBar value={served} max={served + ahead} lime={hot} label={t("token.progress")} />
+            <QueueBar value={served} max={served + ahead} lime={false} label={t("token.progress")} />
             {hot && ahead > 0 && <p className="small" style={{ margin: 0, fontWeight: 600 }}>{t("token.almost")}</p>}
           </div>
         )}

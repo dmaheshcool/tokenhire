@@ -30,8 +30,10 @@ function Hero() {
   const { drives } = useStore();
   const nav = useNavigate();
   const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
   const go = (query) => {
     const next = String(query ?? q).trim();
+    setBusy(true);
     nav(next ? `/walk-ins?q=${encodeURIComponent(next)}` : "/walk-ins");
   };
   return (
@@ -42,7 +44,7 @@ function Hero() {
             <h1 className="home-hero-h1">{t("home.hero.candidateH1")}</h1>
             <p className="home-hero-sub">{t("home.hero.sub")}</p>
             <div className="home-search">
-              <SearchBox drives={drives} value={q} onChange={setQ} onSubmit={go} />
+              <SearchBox drives={drives} value={q} onChange={setQ} onSubmit={go} busy={busy} />
             </div>
             <div className="home-cities" role="navigation" aria-label={t("home.hero.citiesAria")}>
               {HERO_CITIES.map((c) => <CityChip key={c} city={c} />)}

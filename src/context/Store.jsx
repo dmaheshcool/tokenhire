@@ -48,6 +48,14 @@ export function StoreProvider({ children }) {
   const persistFromUi = useRef(false);
   const setDrives = useCallback((next) => { persistFromUi.current = true; setDrivesState(next); }, []);
   const setOrgs = useCallback((next) => { persistFromUi.current = true; setOrgsState(next); }, []);
+  const applyRemoteDrive = useCallback((drive, extra = {}) => {
+    if (!drive?.id) return;
+    persistFromUi.current = false;
+    if (extra.silent) skipPoll.current = true;
+    setDrivesState((p) => p.map((d) => (d.id === drive.id ? drive : d)));
+    if (extra.version) versionRef.current = extra.version;
+    if (extra.silent) setTimeout(() => { skipPoll.current = false; }, 400);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,9 +213,9 @@ export function StoreProvider({ children }) {
   }
 
   const value = useMemo(() => ({
-    drives, setDrives, orgs, setOrgs, activeOrgId, setActiveOrgId, staffRole, setStaffRole, staffEmail,
+    drives, setDrives, applyRemoteDrive, orgs, setOrgs, activeOrgId, setActiveOrgId, staffRole, setStaffRole, staffEmail,
     profile, setProfile, left, beat, apiOk, hydrated, signInWithPassword, signUpOrg, signOut, signOutAll, signInLocal, applySession,
-  }), [drives, orgs, activeOrgId, staffRole, staffEmail, profile, left, beat, apiOk, hydrated]);
+  }), [drives, orgs, activeOrgId, staffRole, staffEmail, profile, left, beat, apiOk, hydrated, applyRemoteDrive]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

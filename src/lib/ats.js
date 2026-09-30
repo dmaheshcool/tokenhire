@@ -3,6 +3,7 @@ import { roleOf } from "./library.js";
 import { resumeBytes, resumeExt, resumeHasFile, resumeZipPath } from "./resume.js";
 import { t } from "../i18n/strings.js";
 import { formatIST } from "./time.js";
+import { formulaSafe } from "./export-safe.js";
 import { XLSX_MIME, ZIP_MIME, xlsxBytes, zipBytes } from "./xlsx.js";
 
 // Templates only rename or reorder the Generic columns. They do not add or drop fields.
@@ -23,12 +24,12 @@ export const ATS_TEMPLATES = [
 export const ATS_TARGETS = ATS_TEMPLATES.map((x) => ({ id: x.id, label: t(x.labelKey), hint: t(x.hintKey) }));
 
 const ROUND_PARTS = ["name", "room", "interviewer", "start", "end", "decision", "score", "notes"];
-const FINAL = { wait: "In queue", calling: "Called", interviewing: "In a round", selected: "Shortlisted", rejected: "Not selected", onhold: "On hold", absent: "No-show" };
+const FINAL = { wait: "In queue", calling: "Called", at_desk: "At desk", interviewing: "In a round", selected: "Shortlisted", rejected: "Not selected", onhold: "On hold", absent: "No-show", done: "Done", cancelled: "Cancelled", expired: "Expired", prereg: "Pre-registered" };
 
 const CORE = [
   "Drive ID", "Drive name", "Date (IST)", "Venue", "Process", "Token", "Full name", "Phone", "Email",
   "Role applied", "Experience", "Current company", "Notice period", "Check-in time (IST)",
-  "Check-in method", "Location verified",
+  "Check-in method", "Location verified", "Pre-registered",
   "Resume file name", "Resume link", "Final status", "Final decision reason",
 ];
 
@@ -37,7 +38,7 @@ function templateOf(id) {
 }
 
 function cell(v) {
-  return `"${String(v ?? "").replace(/"/g, "\"\"")}"`;
+  return `"${formulaSafe(v).replace(/"/g, "\"\"")}"`;
 }
 
 export function csvText(rows) {
@@ -130,6 +131,7 @@ function candidateRecord(drive, cand, resumeLink) {
     "Check-in time (IST)": cand.checkedIn === false ? "" : stamp(cand.arrivedAt || cand.checkin_at || cand.at, true),
     "Check-in method": cand.checkin_method || "",
     "Location verified": cand.location_verified === true ? "yes" : cand.location_verified === false ? "no" : "unknown",
+    "Pre-registered": cand.state === "prereg" || cand.wasPrereg ? "yes" : "no",
     "Resume file name": file,
     "Resume link": resumeLink || "",
     "Final status": FINAL[cand.state] || cand.state || "",

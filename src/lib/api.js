@@ -85,6 +85,7 @@ export const api = {
   lobby: (driveId) => req(`/api/lobby/${encodeURIComponent(driveId)}`),
   lobbyCheck: (body) => req("/api/lobby/check", { method: "POST", body }),
   deskPass: (body) => req("/api/desk-pass", { method: "POST", body }),
+  queueAction: (driveId, body) => req(`/api/queue/${encodeURIComponent(driveId)}`, { method: "POST", body }),
   liveStats: () => req("/api/stats/live"),
 };
 
